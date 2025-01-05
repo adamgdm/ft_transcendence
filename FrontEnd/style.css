@@ -1,0 +1,47 @@
+:root {
+    --space-color: #201F1D;
+    --stars-color: #F6DBA8;
+    --title-color: #F3DC50;
+    --text-color: #DA8890;
+    --light-green: #A9AD5A;
+    --dark-green: #313833;
+}
+
+body {
+    background-color: var(--space-color);
+    background-image: url(assets/stars.svg);
+    background-size: cover;
+}
+
+.mainScreen {
+    display: flex;
+    flex-direction: column;
+    justify-content: start;
+    align-items: center;
+    height: 100vh;
+    /* position: relative; */
+}
+
+#title {
+    margin-top: 50px;
+}
+
+#enemy {
+    width: 250px;
+    margin-top: 50px;
+    text-shadow: 10px 10px 10px 10px #FF4622;
+}
+
+#table {
+    width: 1000px;
+    margin-top: -50px;
+}
+
+#myPlanet {
+    margin-top: -150px;
+}
+
+
+
+
+
