@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  db:
+    build: 
+      context: ./srcs/database/
+      dockerfile: Dockerfile
+    container_name: db
+    restart: always
+    env_file:
+      - .env
+    volumes:  #named volume
+      - db_data:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    
+  backend:
+    build: 
+      context: ./srcs/backend/
+      dockerfile: Dockerfile
+    container_name: backend
+    restart: always
+    env_file:
+      - .env
+    expose:
+      - "8000"
+    ports:
+      - "8000:8000"
+    volumes:
+      - backend_data:/app
+    depends_on:
+      - db
+
+volumes:
+  db_data:
+  backend_data:
