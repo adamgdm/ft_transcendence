@@ -10,6 +10,7 @@
 body {
     background-color: var(--space-color);
     font-family: "bungee", serif;
+    overflow-x: hidden;
 }
 
 /******************************************************************************/
@@ -53,7 +54,7 @@ body {
 
 #main-title {
     position: absolute;
-    width: 1200px;
+    transform: scale(1.7);
     top: 10vh;
 }
 
@@ -95,7 +96,7 @@ body {
     
 }
 
-.universe-description {
+.leftDescription {
     margin-left: 8%;
     padding: 1em;
     display: flex;
@@ -151,7 +152,34 @@ body {
 /* 1v1DesSection */
 /******************************************************************************/
 
+
 .Des1v1Section  {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    background-image: url(assets/stars.svg);
+    
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.centredDescription {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    
+    
+    transform: translateY(30%) scale(1.3);
+}
+
+/******************************************************************************/
+/* DesAiSection */
+/******************************************************************************/
+
+
+.DesAiSection   {
     position: relative;
     width: 100vw;
     height: 100vh;
@@ -160,14 +188,4 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-}
-
-.Explanation {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 20px;
-    
-
-    transform: translateY(30%) scale(1.3);
 }
