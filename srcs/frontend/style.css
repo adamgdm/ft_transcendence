@@ -300,7 +300,19 @@ body {
     background: linear-gradient(120deg, #FF4622 0%, #725F33 70%);
 }
 
+.bottons button:nth-child(1):hover {
+    transform: translateY(-5%);
+    box-shadow: 0 0 50px 5px var(--stars-color);
+}
+
 .bottons button:nth-child(2) {
     background: linear-gradient(120deg, #725F33 30%, #FF4622 100%);
 }
+
+.bottons button:nth-child(2):hover {
+    transform: translateY(-5%);
+    box-shadow: 0 0 50px 5px var(--stars-color);
+}
+
+
 
