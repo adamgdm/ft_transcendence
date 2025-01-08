@@ -266,6 +266,21 @@ body {
     transform: rotate(70deg);
 }
 
+/* trying a best way to center the divs; u can use css to rout the files instead of use the anchor
+
+/* .bottons {
+    width: 100vw;
+    display: flex;
+    justify-content: space-around;
+}
+
+.bottons > button {
+    width: 400px;
+    height: 200px;
+    font-size: 3rem;
+    font-family: "bungee", serif;
+} */
+
 .buttons {
     display: flex;
     justify-content: space-around;
