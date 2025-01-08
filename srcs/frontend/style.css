@@ -266,24 +266,23 @@ body {
     transform: rotate(70deg);
 }
 
-.bottons {
+.buttons {
     display: flex;
-    justify-content: space-around;  
+    justify-content: space-around;
     align-items: center;
     width: 66.67vw;
     height: 33vh;
     margin: auto auto;
-    z-index: 1;  
+    z-index: 1;
     
 
     /* background-color: #F3DC50;
     border: 2px solid blueviolet; */
     
     transform: translateY(40%) scale(1.2);
-    text-decoration: none;
 }
 
-.bottons button {
+.buttons a {
     height: 30%;
     width: 30%;
     font-family: "bungee", serif;
@@ -291,25 +290,31 @@ body {
     border: none;
     border-radius: 15px;
     cursor: pointer;
-
+    color: black;
+    
     box-shadow: 0 0 15px 5px var(--stars-color);
+    text-decoration: none;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 
-.bottons button:nth-child(1) {
+.buttons a:nth-child(1) {
     background: linear-gradient(120deg, #FF4622 0%, #725F33 70%);
 }
 
-.bottons button:nth-child(1):hover {
+.buttons a:nth-child(1):hover {
     transform: translateY(-5%);
     box-shadow: 0 0 50px 5px var(--stars-color);
 }
 
-.bottons button:nth-child(2) {
+.buttons a:nth-child(2) {
     background: linear-gradient(120deg, #725F33 30%, #FF4622 100%);
 }
 
-.bottons button:nth-child(2):hover {
+.buttons a:nth-child(2):hover {
     transform: translateY(-5%);
     box-shadow: 0 0 50px 5px var(--stars-color);
 }
