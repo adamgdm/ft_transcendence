@@ -22,6 +22,7 @@ body {
     height: 100vh;
     position: relative;
     background-image: url(assets/stars.svg);
+    /* overflow: hidden; */
 }
 
 .left-meteoroid {
@@ -70,9 +71,9 @@ body {
 
 #planet-opponent {
     position: absolute;
-    overflow: hidden;
-    top: 70vh;
+    bottom: -45vh;
 }
+
 
 #planet-watcher {
     position: absolute;
@@ -236,10 +237,70 @@ body {
     background-color: #000; /* Dark background to emphasize the planet */
 }
 
-.planet {
+.planet-omega {
     position: absolute;
     left: 50%;
     bottom: -40%;
     transform: translateX(-50%);
+    z-index: 1;
+}
+
+/******************************************************************************/
+/* AuthenticationSection */
+/******************************************************************************/
+
+.AuthenticationSection {
+    position: relative;
+    height: 100vh;
+    width: 100vw;
+    background-image: url(assets/stars.svg);
+    overflow: hidden;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.AuthenticationSection .right-racket {
+    top: 70vh;
+    transform: rotate(70deg);
+}
+
+.bottons {
+    display: flex;
+    justify-content: space-around;  
+    align-items: center;
+    width: 66.67vw;
+    height: 33vh;
+    margin: auto auto;
+    z-index: 1;  
+    
+
+    /* background-color: #F3DC50;
+    border: 2px solid blueviolet; */
+    
+    transform: translateY(40%) scale(1.2);
+    text-decoration: none;
+}
+
+.bottons button {
+    height: 30%;
+    width: 30%;
+    font-family: "bungee", serif;
+    font-size: xx-large;
+    border: none;
+    border-radius: 15px;
+    cursor: pointer;
+
+    box-shadow: 0 0 15px 5px var(--stars-color);
+}
+
+
+.bottons button:nth-child(1) {
+    background: linear-gradient(120deg, #FF4622 0%, #725F33 70%);
+}
+
+.bottons button:nth-child(2) {
+    background: linear-gradient(120deg, #725F33 30%, #FF4622 100%);
 }
 
