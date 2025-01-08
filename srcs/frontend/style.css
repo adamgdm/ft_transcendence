@@ -303,6 +303,7 @@ body {
 
 .buttons a:nth-child(1) {
     background: linear-gradient(120deg, #FF4622 0%, #725F33 70%);
+    transition: all 0.5s;
 }
 
 .buttons a:nth-child(1):hover {
