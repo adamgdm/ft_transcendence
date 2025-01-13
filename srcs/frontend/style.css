@@ -9,39 +9,71 @@
 
 body {
     background-color: var(--space-color);
-    background-image: url(assets/stars.svg);
-    background-size: cover;
 }
 
-.mainScreen {
+/******************************************************************************/
+/* mainSection */
+/******************************************************************************/
+
+.mainSection {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+    background-image: url(assets/stars.svg);
+}
+
+.left-meteoroid {
+    width: 500px;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.right-meteoroid {
+    width: 500px;
+    position: absolute;
+    top: 0;
+    right: 0;
+}
+
+.centered-content {
+    position: relative;
     display: flex;
     flex-direction: column;
-    justify-content: start;
     align-items: center;
-    height: 100vh;
-    /* position: relative; */
+    justify-content: center;
+    
+    height: 100%;
+    width: 66.67vw;
+    margin: auto;
+    
+    /* overflow: hidden; */
 }
 
 #title {
-    margin-top: 50px;
+    position: absolute;
+    width: 1200px;
+    top: 10vh;
 }
 
-#enemy {
-    width: 250px;
-    margin-top: 50px;
-    text-shadow: 10px 10px 10px 10px #FF4622;
+#planet-alpha {
+    position: absolute;
+    top: 15vh;
 }
 
 #table {
-    width: 1000px;
-    margin-top: -50px;
+    position: absolute;
+    top: 50vh;
 }
 
-#myPlanet {
-    margin-top: -150px;
+#planet-opponent {
+    /* width: 1000px; */
+    position: absolute;
+    top: 70vh;
 }
 
-
-
-
-
+#planet-watcher {
+    position: absolute;
+    top: 70vh;
+    left: 10vw;
+}
