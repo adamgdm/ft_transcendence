@@ -12,7 +12,9 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 from decouple import config
-
+from datetime import timedelta
+from django.core.mail.backends.smtp import EmailBackend
+import ssl
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -28,7 +30,6 @@ SECRET_KEY = config('DJANGO_SECRET_KEY')
 DEBUG = True
 
 ALLOWED_HOSTS = []
-
 
 # Application definition
 
@@ -72,7 +73,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'backend.wsgi.application'
 
-
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
@@ -86,7 +86,6 @@ DATABASES = {
         'PORT': config('POSTGRES_PORT', cast=int),
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -128,3 +127,32 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Custom Email Backend in order to bypass the self certificate issue
+class NoSSLEmailBackend(EmailBackend):
+    def open(self):
+        if self.connection:
+            return False
+        try:
+            self.connection = self.connection_class(
+                host=self.host,
+                port=self.port,
+                local_hostname=None,
+                timeout=self.timeout,
+                source_address=None,
+            )
+            self.connection.starttls(context=ssl._create_unverified_context())
+            self.connection.login(self.username, self.password)
+        except:
+            if self.fail_silently:
+                return False
+            raise
+        return True
+
+EMAIL_BACKEND = 'backend.settings.NoSSLEmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = config('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+EMAIL_USE_SSL = False
