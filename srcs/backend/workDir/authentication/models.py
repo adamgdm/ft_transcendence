@@ -43,3 +43,14 @@ class TwoFactorData(models.Model):
     two_factor_digits = models.CharField(max_length=6)
     expires_at = models.DateTimeField()
 
+class Friendship(models.Model):
+    class FriendshipStatusChoices(models.TextChoices):
+        PENDING = 'pending'
+        ACCEPTED = 'accepted'
+    from_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='user_id')
+    to_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='friend_id')
+    friendship_status = models.CharField(max_length=15, choices=FriendshipStatusChoices.choices, default=FriendshipStatusChoices.PENDING)
+    friendship_date = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ('from_user', 'to_user')

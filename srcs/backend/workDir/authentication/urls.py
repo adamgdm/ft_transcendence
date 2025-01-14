@@ -16,4 +16,11 @@ urlpatterns = [
     path('modify_email/', views.modify_email, name='modify_email'),
     path('modify_password/', views.modify_password, name='modify_password'),
     path('logout/', views.logout, name='logout'),
+    # Friendships
+    path('add_friend/', views.add_friend, name='add_friend'),
+    path('remove_friend/', views.remove_friend, name='remove_friend'),
+    path('get_friends/', views.get_friends, name='get_friends'),
+    path('accept_friend/', views.accept_friend, name='accept_friend'),
+    path('reject_friend/', views.reject_friend, name='reject_friend'),
+    path('get_friend_requests/', views.get_friend_requests, name='get_friend_requests'),
 ]

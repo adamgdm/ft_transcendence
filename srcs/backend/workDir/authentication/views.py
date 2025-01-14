@@ -11,7 +11,7 @@ from django.contrib.auth.hashers import check_password
 from .decorators import check_auth
 from datetime import datetime, timedelta
 from django.utils import timezone
-from .models import BlacklistedTokens, LoggedOutTokens
+from .models import BlacklistedTokens, LoggedOutTokens, Friendship
 import json
 import random
 
@@ -79,7 +79,7 @@ def login(request):
         else:
             if user.two_factor_enabled:
                 user.otp_password = random.randint(100000, 999999)
-                user.otp_expiry = datetime.utcnow() + timedelta(minutes=5)
+                user.otp_expiry = timezone.now() + timedelta(minutes=5)
                 user.save()
                 email = user.email
                 otp = user.otp_password
@@ -87,6 +87,8 @@ def login(request):
                     return JsonResponse({'error': 'Could not send OTP'}, status=500)
                 return JsonResponse({'message': 'Two factor authentication enabled'}, status=200)
             jwt_token = generate_jwt_token(user)
+            user.last_login = timezone.now()
+            user.save()
             return JsonResponse({
                 'message': 'Login successful',
                 'token': jwt_token
@@ -117,6 +119,7 @@ def login_otp(request):
             return JsonResponse({'error': 'OTP expired'}, status=400)
         user.otp_password = ''
         user.otp_expiry = None
+        user.last_login = timezone.now()
         user.save()
         jwt_token = generate_jwt_token(user)
         return JsonResponse({
@@ -305,7 +308,7 @@ def modify_password(request):
         
         user = Users.objects.get(id=request.user_id)
         user.password_hash = make_password(new_password)
-        user.last_password_change = datetime.utcnow()
+        user.last_password_change = timezone.now()
         user.save()
         return JsonResponse({'message': 'Password updated successfully'}, status=200)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
@@ -321,4 +324,138 @@ def logout(request):
         token = auth_header.split(' ')[1]
         LoggedOutTokens.objects.create(token=token)
         return JsonResponse({'message': 'Logged out successfully'}, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+# Friendship methods
+
+@csrf_exempt
+@check_auth
+def add_friend(request):
+    if request.method == 'POST':
+        if 'friend_id' not in request.POST:
+            return JsonResponse({'error': 'No friend specified'}, status=400)
+        
+        friend_id = request.POST['friend_id']
+        friend = Users.objects.get(id=friend_id)
+        if not friend:
+            return JsonResponse({'error': 'Friend not found'}, status=404)
+        
+        user = Users.objects.get(id=request.user_id)
+        if Friendship.objects.filter(from_user=user, to_user=friend).exists() or Friendship.objects.filter(from_user=friend, to_user=user).exists():
+            return JsonResponse({'error': 'Friendship already exists'}, status=400)
+        
+        Friendship.objects.create(from_user=user, to_user=friend)
+        return JsonResponse({'message': 'Friend added successfully'}, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+@check_auth
+def remove_friend(request):
+    if request.method == 'POST':
+        if 'friend_id' not in request.POST:
+            return JsonResponse({'error': 'No friend specified'}, status=400)
+        
+        friend_id = request.POST['friend_id']
+        friend = Users.objects.get(id=friend_id)
+        if not friend:
+            return JsonResponse({'error': 'Friend not found'}, status=404)
+        
+        user = Users.objects.get(id=request.user_id)
+        friendship = Friendship.objects.filter(from_user=user, to_user=friend).first() or Friendship.objects.filter(from_user=friend, to_user=user).first()
+        if not friendship:
+            return JsonResponse({'error': 'Friendship does not exist'}, status=400)
+        
+        friendship.delete()
+        return JsonResponse({'message': 'Friend removed successfully'}, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+@check_auth
+def get_friends(request):
+    if request.method ==  'GET':
+        user = Users.objects.get(id=request.user_id)
+        friends = Friendship.objects.filter(Q(from_user=user) | Q(to_user=user), friendship_status='accepted')
+        if not friends:
+            return JsonResponse({'message': 'No friends found'}, status=200)
+        friend_list = []
+        for friend in friends:
+            if friend.from_user == user:
+                friend_list.append({
+                    'id': friend.to_user.id,
+                    'user_name': friend.to_user.user_name,
+                    'first_name': friend.to_user.first_name,
+                    'last_name': friend.to_user.last_name,
+                    'online_status': friend.to_user.online_status
+                })
+            else:
+                friend_list.append({
+                    'id': friend.from_user.id,
+                    'user_name': friend.from_user.user_name,
+                    'first_name': friend.from_user.first_name,
+                    'last_name': friend.from_user.last_name,
+                    'online_status': friend.from_user.online_status
+                })
+        return JsonResponse({'friends': friend_list}, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+@check_auth
+def accept_friend(request):
+    if request.method == 'POST':
+        if 'friend_id' not in request.POST:
+            return JsonResponse({'error': 'No friend specified'}, status=400)
+        
+        friend_id = request.POST['friend_id']
+        friend = Users.objects.get(id=friend_id)
+        if not friend:
+            return JsonResponse({'error': 'Friend not found'}, status=404)
+        
+        user = Users.objects.get(id=request.user_id)
+        friendship = Friendship.objects.filter(from_user=friend, to_user=user).first()
+        if not friendship:
+            return JsonResponse({'error': 'Friend request not found'}, status=404)
+        
+        friendship.friendship_status = 'accepted'
+        friendship.save()
+        return JsonResponse({'message': 'Friend request accepted successfully'}, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+@check_auth
+def reject_friend(request):
+    if request.method == 'POST':
+        if 'friend_id' not in request.POST:
+            return JsonResponse({'error': 'No friend specified'}, status=400)
+        
+        friend_id = request.POST['friend_id']
+        friend = Users.objects.get(id=friend_id)
+        if not friend:
+            return JsonResponse({'error': 'Friend not found'}, status=404)
+        
+        user = Users.objects.get(id=request.user_id)
+        friendship = Friendship.objects.filter(from_user=friend, to_user=user).first()
+        if not friendship:
+            return JsonResponse({'error': 'Friend request not found'}, status=404)
+        
+        friendship.delete()
+        return JsonResponse({'message': 'Friend request rejected successfully'}, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+@check_auth
+def get_friend_requests(request):
+    if request.method == 'GET':
+        user = Users.objects.get(id=request.user_id)
+        friendships = Friendship.objects.filter(to_user=user, friendship_status='pending')
+        if not friendships:
+            return JsonResponse({'message': 'No friend requests'}, status=200)
+        friend_requests = []
+        for friendship in friendships:
+            friend_requests.append({
+                'id': friendship.from_user.id,
+                'user_name': friendship.from_user.user_name,
+                'first_name': friendship.from_user.first_name,
+                'last_name': friendship.from_user.last_name,
+            })
+        return JsonResponse({'friend_requests': friend_requests}, status=200)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
