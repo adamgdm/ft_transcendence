@@ -11,6 +11,7 @@ from django.contrib.auth.hashers import check_password
 from .decorators import check_auth
 from datetime import datetime, timedelta
 from django.utils import timezone
+from .models import BlacklistedTokens, LoggedOutTokens
 import json
 import random
 
@@ -53,13 +54,9 @@ def register(request):
                 email=email,
                 password_hash=hash_pass
             )
-            jwt_token = generate_jwt_token(user)
         except Exception as e: 
             return JsonResponse({'error': f'An error occured: {e}'}, status=500)
-        return JsonResponse({
-            'message': 'User registered successfully',
-            'token': jwt_token
-            }, status=201)
+        return JsonResponse({'message': 'User registered successfully'}, status=201)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 # Login function
@@ -151,7 +148,31 @@ def enable_2fa(request):
         user.two_factor_enabled = True
         user.save()
         return JsonResponse({'message': 'Two factor authentication enabled'}, status=200)
-    
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+def disable_2fa(request):
+    if request.method == 'POST':
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return JsonResponse({'error': 'Authorization header missing'}, status=401)
+        
+        token = auth_header.split(' ')[1]
+        user_id = verify_jwt_token(token)
+        if not user_id:
+            return JsonResponse({'error': 'Invalid token'}, status=401)
+        
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return JsonResponse({'error': 'User not found'}, status=404)
+        
+        if not user.two_factor_enabled:
+            return JsonResponse({'error': 'Two factor authentication not enabled'}, status=400)
+        
+        user.two_factor_enabled = False
+        user.save()
+        return JsonResponse({'message': 'Two factor authentication disabled'}, status=200)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 @check_auth
@@ -172,4 +193,132 @@ def profile(request):
             'last_login': user.last_login,
             'last_password_change': user.last_password_change
         }, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+@check_auth
+def add_profile_picture(request):
+    if request.method == 'POST':
+        if 'profile_picture' not in request.FILES:
+            return JsonResponse({'error': 'No file uploaded'}, status=400)
+        profile_pic = request.FILES['profile_picture']
+
+        user = Users.objects.get(id=request.user_id)
+        user.profile_picture_url = profile_pic
+        user.save()
+
+        return JsonResponse({'message': 'Profile picture updated successfully'}, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+@check_auth
+def modify_username(request):
+    if request.method == 'POST':
+        if 'new_user_name' not in request.POST:
+            return JsonResponse({'error': 'No username specified'}, status=400)
+        
+        new_user_name = request.POST['new_user_name']
+        if Users.objects.filter(user_name=new_user_name).exists():
+            return JsonResponse({'error': 'Username already in use'}, status=400)
+
+        user = Users.objects.get(id=request.user_id)
+        user.user_name = new_user_name
+        user.save()
+        return JsonResponse({'message': 'Username updated successfully'}, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+@check_auth
+def modify_firstname(request):
+    if request.method == 'POST':
+        if 'new_first_name' not in request.POST:
+            return JsonResponse({'error': 'No name specified'}, status=400)
+        
+        new_first_name = request.POST['new_first_name']
+        user = Users.objects.get(id=request.user_id)
+        user.first_name = new_first_name
+        user.save()
+        return JsonResponse({'message': 'First name updated successfully'}, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+@check_auth
+def modify_lastname(request):
+    if request.method == 'POST':
+        if 'new_last_name' not in request.POST:
+            return JsonResponse({'error': 'No name specified'}, status=400)
+        
+        new_last_name = request.POST['new_last_name']
+        user = Users.objects.get(id=request.user_id)
+        user.last_name = new_last_name
+        user.save()
+        return JsonResponse({'message': 'Last name updated successfully'}, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+@check_auth
+def modify_bio(request):
+    if request.method == 'POST':
+        if 'bio' not in request.POST:
+            return JsonResponse({'error': 'No bio specified'}, status=400)
+        
+        bio = request.POST['bio']
+        user = Users.objects.get(id=request.user_id)
+        user.bio_description = bio
+        user.save()
+        return JsonResponse({'message': 'Bio description updated successfully'}, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+@check_auth
+def modify_email(request):
+    if request.method == 'POST':
+        if 'new_email' not in request.POST:
+            return JsonResponse({'error': 'No email specified'}, status=400)
+        
+        new_email = request.POST['new_email']
+        validator = EmailValidator()
+        try:
+            validator(new_email)
+        except ValidationError:
+            return JsonResponse({'error': 'Invalid email format'}, status=400)
+
+        if Users.objects.filter(email=new_email).exists():
+            return JsonResponse({'error': 'Email already in use'}, status=400)
+
+        user = Users.objects.get(id=request.user_id)
+        user.email = new_email
+        user.save()
+        return JsonResponse({'message': 'Email updated successfully'}, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+@check_auth
+def modify_password(request):
+    if request.method == 'POST':
+        if 'new_password' not in request.POST:
+            return JsonResponse({'error': 'No password specified'}, status=400)
+        
+        new_password = request.POST['new_password']
+        if not PasswordValidator(new_password):
+            return JsonResponse({'error': 'Invalid password'}, status=400)
+        
+        user = Users.objects.get(id=request.user_id)
+        user.password_hash = make_password(new_password)
+        user.last_password_change = datetime.utcnow()
+        user.save()
+        return JsonResponse({'message': 'Password updated successfully'}, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+@check_auth
+def logout(request):
+    if request.method == 'POST':
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return JsonResponse({'error': 'Authorization header missing'}, status=401)
+        
+        token = auth_header.split(' ')[1]
+        LoggedOutTokens.objects.create(token=token)
+        return JsonResponse({'message': 'Logged out successfully'}, status=200)
     return JsonResponse({'error': 'Invalid request method'}, status=405)

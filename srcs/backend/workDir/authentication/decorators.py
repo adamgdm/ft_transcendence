@@ -3,7 +3,7 @@ from functools import wraps
 from django.conf import settings
 from django.http import JsonResponse
 from datetime import datetime, timedelta
-from .models import BlacklistedTokens, Users
+from .models import BlacklistedTokens, Users, LoggedOutTokens
 
 def check_auth(func):
     @wraps(func)
@@ -29,6 +29,10 @@ def check_auth(func):
         # Check if token is blacklisted
         if BlacklistedTokens.objects.filter(token=token).exists():
             return JsonResponse({'error': 'Token is blacklisted'}, status=401)
+        
+        # Check if user is Logged out
+        if LoggedOutTokens.objects.filter(token=token).exists():
+            return JsonResponse({'error': 'Token is invalid'}, status=401)
 
         request.user_id = payload['user_id']
 

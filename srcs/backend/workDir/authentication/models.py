@@ -34,6 +34,10 @@ class BlacklistedTokens(models.Model):
     token = models.CharField(max_length=255)
     blacklisted_at = models.DateTimeField(auto_now_add=True)
 
+class LoggedOutTokens(models.Model):
+    token = models.CharField(max_length=255)
+    logged_out_at = models.DateTimeField(auto_now_add=True)
+
 class TwoFactorData(models.Model):
     user_id = models.OneToOneField(Users, on_delete=models.CASCADE)
     two_factor_digits = models.CharField(max_length=6)
