@@ -13,9 +13,11 @@ POSTGRES_PASSWORD=***
 POSTGRES_HOST=db
 POSTGRES_PORT=5432
 DJANGO_SECRET_KEY=***
+DJANGO_SETTINGS_MODULE=backend.settings
 
 EMAIL_HOST_USER=***
 EMAIL_HOST_PASSWORD=***
+
 ```
 
 As for the email variables, you can use a gmail account and enable App passwords in order to generate a password for the EMAIL_HOST_PASSWORD variable.

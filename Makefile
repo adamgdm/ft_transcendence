@@ -1,7 +1,7 @@
 all: build up
 
 build:
-	docker compose build
+	docker compose build --build-arg CACHEBUST=$(date +%s)
 
 up:
 	docker compose up

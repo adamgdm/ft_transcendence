@@ -1,6 +1,9 @@
 blinker==1.4
+channels==4.2.0
 cryptography==3.4.8
+daphne==4.0.0
 Django==5.1.4
+django-cors-headers==4.6.0
 httplib2==0.20.2
 importlib-metadata==4.6.4
 oauthlib==3.2.0
