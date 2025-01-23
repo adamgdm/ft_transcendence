@@ -1,17 +1,19 @@
 import { paddle1_x, paddle2_x, ball_bounds, paddle_bounds_x, paddle_bounds_y, score_1, score_2 } from './pong.js';
 
-function initializeCanvas() {
-    var canvas = document.getElementById("pong");
-    var ctx = canvas.getContext("2d");
+// Code optimized by using const, let and by reducing the number of redundant operations
 
-    var offScreenCanvas = document.createElement("canvas");
+function initializeCanvas() {
+    const canvas = document.getElementById("pong");
+    const ctx = canvas.getContext("2d");
+
+    const offScreenCanvas = document.createElement("canvas");
     offScreenCanvas.width = canvas.width;
     offScreenCanvas.height = canvas.height;
-    var offScreenCtx = offScreenCanvas.getContext("2d");
+    const offScreenCtx = offScreenCanvas.getContext("2d");
 
     colorBackground(offScreenCtx, offScreenCanvas);
     drawScore(offScreenCtx, offScreenCanvas, 0, 0);
-    
+
     return { canvas, ctx, offScreenCanvas, offScreenCtx };
 }
 
@@ -20,35 +22,39 @@ function colorBackground(ctx, canvas) {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
-function drawPaddles(ctx, canvas, left_x, left_y, right_x, right_y, bounds_x, bounds_y) {
+function drawPaddles(ctx, width, height, left_x, left_y, right_x, right_y, bounds_x, bounds_y) {
     ctx.fillStyle = "white";
-    ctx.fillRect(left_x * canvas.width - bounds_x * canvas.width / 2, left_y * canvas.height - bounds_y * canvas.height, bounds_x * canvas.width, bounds_y * canvas.height * 2);
-    ctx.fillRect(right_x * canvas.width - bounds_x * canvas.width / 2, right_y * canvas.height - bounds_y * canvas.height, bounds_x * canvas.width, bounds_y * canvas.height * 2);
+    const paddleWidth = bounds_x * width;
+    const paddleHeight = bounds_y * height * 2;
+    ctx.fillRect(left_x * width - paddleWidth / 2, left_y * height - paddleHeight / 2, paddleWidth, paddleHeight);
+    ctx.fillRect(right_x * width - paddleWidth / 2, right_y * height - paddleHeight / 2, paddleWidth, paddleHeight);
 }
 
-function drawBall(ctx, canvas, ball_x, ball_y, radius) {
+function drawBall(ctx, width, height, ball_x, ball_y, radius) {
     ctx.beginPath();
-    ctx.arc(ball_x * canvas.width, ball_y * canvas.height, radius * canvas.width, 0, 2 * Math.PI);
+    ctx.arc(ball_x * width, ball_y * height, radius * width, 0, 2 * Math.PI);
     ctx.fillStyle = "white";
     ctx.fill();
 }
 
-function drawScore(ctx, canvas, score1, score2) {
+function drawScore(ctx, width, score1, score2) {
     ctx.font = "30px Arial";
     ctx.fillStyle = "white";
-    ctx.fillText(score1, canvas.width / 4, 50);
-    ctx.fillText(score2, canvas.width * 3 / 4, 50);
+    ctx.fillText(score1, width / 4, 50);
+    ctx.fillText(score2, (width * 3) / 4, 50);
 }
 
 function drawGame(game, ctx, canvas, offScreenCanvas) {
-    ctx.drawImage(offScreenCanvas, 0, 0);
+    const width = canvas.width;
+    const height = canvas.height;
 
-    drawPaddles(ctx, canvas, paddle1_x, game.paddle1_y, paddle2_x, game.paddle2_y, paddle_bounds_x, paddle_bounds_y);
-    drawBall(ctx, canvas, game.ball_x, game.ball_y, ball_bounds);
-    drawScore(ctx, canvas, score_1, score_2);
+    ctx.drawImage(offScreenCanvas, 0, 0);
+    drawPaddles(ctx, width, height, paddle1_x, game.paddle1_y, paddle2_x, game.paddle2_y, paddle_bounds_x, paddle_bounds_y);
+    drawBall(ctx, width, height, game.ball_x, game.ball_y, ball_bounds);
+    drawScore(ctx, width, height, score_1, score_2);
 }
 
-var { canvas, ctx, offScreenCanvas, offScreenCtx } = initializeCanvas();
+const { canvas, ctx, offScreenCanvas, offScreenCtx } = initializeCanvas();
 
 function updateAndDrawGame(game) {
     drawGame(game, ctx, canvas, offScreenCanvas);

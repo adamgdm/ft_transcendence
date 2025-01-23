@@ -14,9 +14,9 @@ def create_new_game(player_1, player_2=None, game_opponent='same_computer'):
     return {
         'ball_x': 0.5,
         'ball_y': 0.5,
-        'ball_bounds': 0.02, # radius of ball
-        'ball_speed_x': random.choice([-0.005, 0.005]),
-        'ball_speed_y': random.choice([-0.003, 0.003]),
+        'ball_bounds': 0.02,
+        'ball_speed_x': random.choice([-0.01, 0.01]), # increased to compensate for reduced frame rate
+        'ball_speed_y': random.choice([-0.006, 0.006]),
         'paddle1_x': 0.03,
         'paddle2_x': 0.97,
         'paddle1_y': 0.5,
@@ -28,7 +28,8 @@ def create_new_game(player_1, player_2=None, game_opponent='same_computer'):
         'score2': 0,
         'player_1': player_1,
         'player_2': player_2,
-        'game_opponent': game_opponent
+        'game_opponent': game_opponent,
+        'status': 'Playing' # Playing, Done
     }
 
 @csrf_exempt
@@ -155,8 +156,8 @@ def game_reset(game_id):
         # Reset only the necessary parts of the game state
         game_info['ball_x'] = 0.5 
         game_info['ball_y'] = 0.5 
-        game_info['ball_speed_x'] = random.choice([-0.005, 0.005])
-        game_info['ball_speed_y'] = random.choice([-0.003, 0.003])
+        game_info['ball_speed_x'] = random.choice([-0.01, 0.01]) # Same as create_new_game, increased for reduced frame rate
+        game_info['ball_speed_y'] = random.choice([-0.006, 0.006])
         game_info['paddle1_y'] = 0.5 
         game_info['paddle2_y'] = 0.5 
 
@@ -214,7 +215,8 @@ async def game_update(game_id):
         pongMatch.match_status = Match.MatchStatusChoices.DONE
         await sync_to_async(pongMatch.save)()
         print(f"Match completed: Player 2 won. Final score: {game_info['score1']} - {game_info['score2']}")
-        game_reset(game_id)
+        game_info['status'] = 'Done' # Send the final game state
+        return game_info
 
     # AI for player2 (opponent) - simple AI that can't lose lol
     if game_info['game_opponent'] == 'ai' and game_info['ball_speed_x'] > 0:

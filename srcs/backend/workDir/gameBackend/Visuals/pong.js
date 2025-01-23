@@ -86,19 +86,40 @@ create_game(player1, player2, game_opponent)
                 score_2 = game_state.score2;
             }
 
-
             update_game_state(game_state);
         };
 
+        // Sending upStart and downStart events on keydown and upStop and downStop events on keyup
+        // this is done to reduce the number of messages sent to the server
+        let keyState = {};
+
         document.addEventListener('keydown', function (event) {
-            if (event.key === 'ArrowUp') {
+            if (event.key === 'ArrowUp' && !keyState['ArrowUp']) {
+                keyState['ArrowUp'] = true;
                 websocket.send(JSON.stringify({
-                    'action': 'up',
+                    'action': 'upStart',
                     'player_id': player1
                 }));
-            } else if (event.key === 'ArrowDown') {
+            } else if (event.key === 'ArrowDown' && !keyState['ArrowDown']) {
+                keyState['ArrowDown'] = true;
                 websocket.send(JSON.stringify({
-                    'action': 'down',
+                    'action': 'downStart',
+                    'player_id': player1
+                }));
+            }
+        });
+
+        document.addEventListener('keyup', function (event) {
+            if (event.key === 'ArrowUp' && keyState['ArrowUp']) {
+                keyState['ArrowUp'] = false;
+                websocket.send(JSON.stringify({
+                    'action': 'upStop',
+                    'player_id': player1
+                }));
+            } else if (event.key === 'ArrowDown' && keyState['ArrowDown']) {
+                keyState['ArrowDown'] = false;
+                websocket.send(JSON.stringify({
+                    'action': 'downStop',
                     'player_id': player1
                 }));
             }

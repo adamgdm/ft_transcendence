@@ -14,24 +14,20 @@ class PongConsumer(AsyncWebsocketConsumer):
         self.player_1_id = self.scope['url_route']['kwargs']['user_id']
         self.game_opponent = self.scope['url_route']['kwargs']['game_opponent']
         self.room_group_name = f'pong_{self.game_id}'
-        
         if self.game_id not in games:
             await self.close()
             return
-        
         game = games[self.game_id]
 
         if self.player_1_id != game['player_1'] and self.player_1_id != game['player_2']:
             await self.close()
             return
-        
         await self.channel_layer.group_add(
             self.room_group_name,
             self.channel_name
         )
 
         await self.accept()
-        
         await self.send(text_data=json.dumps({
             'paddle1_x': game['paddle1_x'],
             'paddle2_x': game['paddle2_x'],
@@ -44,11 +40,10 @@ class PongConsumer(AsyncWebsocketConsumer):
 
     async def disconnect(self, close_code):
         try:
-            from .views import games 
+            from .views import games
         except ImportError as e:
             print(f'Error: {str(e)}')
             return
-        
         try:
             await self.channel_layer.group_discard(
                 self.room_group_name,
@@ -59,7 +54,7 @@ class PongConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data):
         try:
-            from .views import games 
+            from .views import games
         except ImportError as e:
             await self.send(text_data=json.dumps({'error': 'Internal server error'}))
             return
@@ -68,10 +63,9 @@ class PongConsumer(AsyncWebsocketConsumer):
         action = text_data_json['action']
         player_id = text_data_json['player_id']
 
-        if action not in ['up', 'down']:
+        if action not in ['upStart', 'upStop', 'downStart', 'downStop']:
             await self.send(text_data=json.dumps({'error': 'Invalid action'}))
             return
-        
         game_state = games.get(self.game_id)
         if not game_state:
             await self.send(text_data=json.dumps({'error': 'Game not found'}))
@@ -80,28 +74,30 @@ class PongConsumer(AsyncWebsocketConsumer):
         if player_id != game_state['player_1'] and player_id != game_state['player_2']:
             await self.send(text_data=json.dumps({'error': 'Invalid player'}))
             return
-        
         if game_state['player_1'] == player_id:
             player = 'player1'
         elif game_state['player_2'] == player_id:
             player = 'player2'
-        
-        if action == 'up':
-            if player == 'player1':
-                game_state['paddle1_y'] = max(0 + game_state['paddle_bounds_y'], game_state['paddle1_y'] - game_state['paddle_speed'])
-            elif player == 'player2':
-                game_state['paddle2_y'] = max(0 + game_state['paddle_bounds_y'], game_state['paddle2_y'] - game_state['paddle_speed'])
-        elif action == 'down':
-            if player == 'player1':
-                game_state['paddle1_y'] = min(1 - game_state['paddle_bounds_y'], game_state['paddle1_y'] + game_state['paddle_speed'])
-            elif player == 'player2':
-                game_state['paddle2_y'] = min(1 - game_state['paddle_bounds_y'], game_state['paddle2_y'] + game_state['paddle_speed'])
-        
+
+        # We're going to handle the movement of the paddle by sending an upStart, upStop, downStart, or downStop action
+        # This is done to minimize the number of messages sent to the server
+        # Thus, preventing the server from being overwhelmed with messages, which could cause the game to lag
+        if action == 'upStart':
+            game_state[f'{player}_moving'] = 'up'
+        elif action == 'upStop':
+            if game_state.get(f'{player}_moving') == 'up':
+                game_state[f'{player}_moving'] = None
+        elif action == 'downStart':
+            game_state[f'{player}_moving'] = 'down'
+        elif action == 'downStop':
+            if game_state.get(f'{player}_moving') == 'down':
+                game_state[f'{player}_moving'] = None
+
         await self.send(text_data=json.dumps({'success': True}))
 
     async def game_update_loop(self):
         try:
-            from .views import games, game_update 
+            from .views import games, game_update
         except ImportError as e:
             print(f'Error: {str(e)}')
             return
@@ -109,13 +105,11 @@ class PongConsumer(AsyncWebsocketConsumer):
         game_state = games.get(self.game_id)
         if not game_state:
             return
-        
         score1 = game_state['score1']
         score2 = game_state['score2']
-        
-        await asyncio.sleep(1) 
+        await asyncio.sleep(1)
 
-        frame_rate = 60
+        frame_rate = 30 # We're reducing this to 30 to prevent overwhelming the server with messages
         frame_duration = 1 / frame_rate
 
         while True:
@@ -129,7 +123,35 @@ class PongConsumer(AsyncWebsocketConsumer):
                 )
                 break
 
-            if score1 != game_state['score1'] or score2 != game_state['score2']: 
+            if game_state['status'] == 'Done':
+                # Stop the game, reset the game state and send the final game state, then break the loop
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'game_state',
+                        'game_state': game_state
+                    }
+                )
+                await self.channel_layer.group_discard(
+                    self.room_group_name,
+                    self.channel_name
+                )
+                games.pop(self.game_id)
+                break
+
+            # Update paddle positions based on movement state
+            for player in ['player1', 'player2']:
+                if player == 'player1':
+                    paddle = 'paddle1_y'
+                elif player == 'player2':
+                    paddle = 'paddle2_y'
+                if game_state.get(f'{player}_moving') == 'up':
+                    game_state[f'{paddle}'] = max(0 + game_state['paddle_bounds_y'], game_state[f'{paddle}'] - game_state['paddle_speed'])
+                elif game_state.get(f'{player}_moving') == 'down':
+                    game_state[f'{paddle}'] = min(1 - game_state['paddle_bounds_y'], game_state[f'{paddle}'] + game_state['paddle_speed'])
+
+    
+            if score1 != game_state['score1'] or score2 != game_state['score2']:
                 score1 = game_state['score1']
                 score2 = game_state['score2']
 
