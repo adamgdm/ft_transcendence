@@ -49,8 +49,8 @@ function update_game_state(data) {
 }
 
 let player1 = 'player1';
-let player2 = '';
-let game_opponent = 'ai';
+let player2 = 'player2';
+let game_opponent = '';
 
 create_game(player1, player2, game_opponent)
     .then(response => response.json())
@@ -66,8 +66,6 @@ create_game(player1, player2, game_opponent)
         };
 
         websocket.onmessage = function (event) {
-            console.log('message received');
-            console.log(event.data);
             let game_state = JSON.parse(event.data);
 
             if (!initialStateReceived) {
