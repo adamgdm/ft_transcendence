@@ -109,7 +109,7 @@ class PongConsumer(AsyncWebsocketConsumer):
         score2 = game_state['score2']
         await asyncio.sleep(1)
 
-        frame_rate = 30 # We're reducing this to 30 to prevent overwhelming the server with messages
+        frame_rate = 60
         frame_duration = 1 / frame_rate
 
         while True:
@@ -123,7 +123,7 @@ class PongConsumer(AsyncWebsocketConsumer):
                 )
                 break
 
-            if game_state['status'] == 'Done':
+            if game_state.get('status') == 'Done':
                 # Stop the game, reset the game state and send the final game state, then break the loop
                 await self.channel_layer.group_send(
                     self.room_group_name,

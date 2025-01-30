@@ -5,6 +5,7 @@ from authentication.decorators import check_auth
 from authentication.models import Users
 from django.views.decorators.csrf import csrf_exempt
 from asgiref.sync import sync_to_async
+import asyncio
 import random
 import json
 
@@ -14,15 +15,15 @@ def create_new_game(player_1, player_2=None, game_opponent='same_computer'):
     return {
         'ball_x': 0.5,
         'ball_y': 0.5,
-        'ball_bounds': 0.02,
-        'ball_speed_x': random.choice([-0.01, 0.01]), # increased to compensate for reduced frame rate
-        'ball_speed_y': random.choice([-0.006, 0.006]),
-        'paddle1_x': 0.03,
-        'paddle2_x': 0.97,
+        'ball_bounds': 0.01,
+        'ball_speed_x': random.choice([-0.011, 0.011]),
+        'ball_speed_y': random.choice([-0.007, 0.007]),
+        'paddle1_x': 0.02,
+        'paddle2_x': 0.98,
         'paddle1_y': 0.5,
         'paddle2_y': 0.5,
-        'paddle_bounds_x': 0.04,
-        'paddle_bounds_y': 0.2,
+        'paddle_bounds_x': 0.02,
+        'paddle_bounds_y': 0.1,
         'paddle_speed': 0.02,
         'score1': 0,
         'score2': 0,
@@ -153,11 +154,10 @@ def game_reset(game_id):
         return
     game_info = games[game_id]
     if game_info:
-        # Reset only the necessary parts of the game state
         game_info['ball_x'] = 0.5 
         game_info['ball_y'] = 0.5 
-        game_info['ball_speed_x'] = random.choice([-0.01, 0.01]) # Same as create_new_game, increased for reduced frame rate
-        game_info['ball_speed_y'] = random.choice([-0.006, 0.006])
+        game_info['ball_speed_x'] = random.choice([-0.011, 0.011]) 
+        game_info['ball_speed_y'] = random.choice([-0.007, 0.007])
         game_info['paddle1_y'] = 0.5 
         game_info['paddle2_y'] = 0.5 
 
@@ -184,13 +184,13 @@ async def game_update(game_id):
     if game_info['ball_x'] < game_info['paddle1_x'] + game_info['paddle_bounds_x']:
         if game_info['paddle1_y'] - game_info['paddle_bounds_y'] < game_info['ball_y'] < game_info['paddle1_y'] + game_info['paddle_bounds_y']:
             game_info['ball_speed_x'] = -game_info['ball_speed_x']
-            game_info['ball_speed_y'] = (game_info['ball_y'] - game_info['paddle1_y']) * 0.03
+            game_info['ball_speed_y'] = (game_info['ball_y'] - game_info['paddle1_y']) * 0.2
 
     # If ball hits paddle2
     if game_info['ball_x'] > game_info['paddle2_x'] - game_info['paddle_bounds_x']:
         if game_info['paddle2_y'] - game_info['paddle_bounds_y'] < game_info['ball_y'] < game_info['paddle2_y'] + game_info['paddle_bounds_y']:
             game_info['ball_speed_x'] = -game_info['ball_speed_x']
-            game_info['ball_speed_y'] = (game_info['ball_y'] - game_info['paddle2_y']) * 0.03
+            game_info['ball_speed_y'] = (game_info['ball_y'] - game_info['paddle2_y']) * 0.2
     
     # If ball goes out of bounds
     if game_info['ball_x'] < game_info['paddle1_x'] - game_info['paddle_bounds_x']:
@@ -215,14 +215,6 @@ async def game_update(game_id):
         pongMatch.match_status = Match.MatchStatusChoices.DONE
         await sync_to_async(pongMatch.save)()
         print(f"Match completed: Player 2 won. Final score: {game_info['score1']} - {game_info['score2']}")
-        game_info['status'] = 'Done' # Send the final game state
-        return game_info
-
-    # AI for player2 (opponent) - simple AI that can't lose lol
-    if game_info['game_opponent'] == 'ai' and game_info['ball_speed_x'] > 0:
-        if game_info['ball_y'] < game_info['paddle2_y']:
-            game_info['paddle2_y'] = max(0, game_info['paddle2_y'] - game_info['paddle_speed'])
-        elif game_info['ball_y'] > game_info['paddle2_y']:
-            game_info['paddle2_y'] = min(1 - game_info['paddle_bounds_y'], game_info['paddle2_y'] + game_info['paddle_speed'])
+        game_info['status'] = 'Done'
 
     return game_info
