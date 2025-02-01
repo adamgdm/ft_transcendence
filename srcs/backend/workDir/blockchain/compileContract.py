@@ -2,7 +2,7 @@ import logging
 import json
 from solcx import compile_standard, install_solc, set_solc_version
 
-logging.basicConfig(level=logging.DEBUG)
+# logging.basicConfig(level=logging.DEBUG)
 
 # Install specific solc version
 _solc_version = '0.8.0'

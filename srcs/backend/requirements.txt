@@ -16,3 +16,4 @@ psycopg2-binary==2.9.1
 Pillow==8.4.0
 web3==6.11.1
 py-solc-x==0.6.0
+python-dotenv==1.0.1
