@@ -11,4 +11,10 @@ COPY workDir/ .
 
 EXPOSE 8000
 
-CMD ["bash", "-c", "sleep 10 && python3 manage.py makemigrations && python3 manage.py migrate && daphne -b 0.0.0.0 -p 8000 backend.asgi:application"]
+# Create an entrypoint script
+
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
+
+# Use the entrypoint script instead of direct command
+ENTRYPOINT ["./entrypoint.sh"]
