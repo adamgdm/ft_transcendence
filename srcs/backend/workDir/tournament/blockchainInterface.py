@@ -47,7 +47,23 @@ class TournamentBlockchain:
             'nonce': self.w3.eth.get_transaction_count(self.admin_address),
         })
 
-        return self._send_transaction(transaction)
+        # Sign the transaction
+        signed_tx = self.w3.eth.account.sign_transaction(transaction, self.admin_private_key);
+
+        # Send the transaction
+        tx_hash = self.w3.eth.send_raw_transaction(signed_tx.rawTransaction);
+
+        # Wait for transaction receipt
+        receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash);
+        print(f"==== Transaction Receipt: {receipt}")
+
+        # Get the matchId from the Event
+        match_created_event = self.contract.events.MatchCreated().process_receipt(receipt);
+        matchId = match_created_event[0]['args']['_matchId']
+
+        print(f"===== Match Id: {matchId}")
+        return matchId;
+
 
     def update_match_score(self, match_id, player1_score, player2_score):
         """Update the score for a specific match."""
@@ -78,10 +94,7 @@ class TournamentBlockchain:
         private_key = self.admin_private_key
 
         #Sign the transaction
-        signed_tx = self.w3.eth.account.sign_transaction(
-            transaction,
-            private_key=self.admin_private_key
-        )
+        signed_tx = self.w3.eth.account.sign_transaction(transaction, self.admin_private_key)
 
         # Send the transaction
         tx_hash = self.w3.eth.send_raw_transaction(signed_tx.rawTransaction)
@@ -99,5 +112,4 @@ player2 = blockchain.w3.eth.accounts[2]
 
 receipt = blockchain.create_match(player1, player2)
 
-print(f"======== Match created in transaction: {receipt.transactionHash.hex()}")
         

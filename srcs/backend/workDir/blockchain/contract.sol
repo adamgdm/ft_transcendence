@@ -2,6 +2,9 @@
 pragma solidity ^0.8.0;
 
 contract TournamentScoring {
+
+    event MatchCreated(uint256 _matchId, address _player1, address _player2);
+
     struct Match {
         address player1;
         address player2;
@@ -22,7 +25,7 @@ contract TournamentScoring {
         });
 
         matches.push(newMatch);
-        return matches.length - 1;
+        emit MatchCreated(matches.length - 1, _player1, _player2);
     }
 
     function updateMatchScore(uint256 _matchId, uint256 _player1Score, uint256 _player2Score) public {
