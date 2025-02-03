@@ -30,6 +30,8 @@ contract TournamentScoring {
 
     function updateMatchScore(uint256 _matchId, uint256 _player1Score, uint256 _player2Score) public {
         require(_matchId < matches.length, "Invalid match ID");
+        require(_player1Score >= 0, "Player 1 score cannot be negative");
+        require(_player2Score >= 0, "Player 2 score cannot be negative");
         require(!matches[_matchId].isCompleted, "Match already completed");
 
         matches[_matchId].player1Score = _player1Score;
