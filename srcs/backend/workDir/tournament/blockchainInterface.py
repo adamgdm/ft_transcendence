@@ -5,8 +5,9 @@ from eth_account.hdaccount import generate_mnemonic
 import os
 import json
 
-# Load .env file from /app
-load_dotenv(dotenv_path='/app')
+# Load .env file 
+load_dotenv()
+
 
 class TournamentBlockchain:
     def __init__(self):
@@ -16,10 +17,11 @@ class TournamentBlockchain:
         # Load contract ABI and address
         with open('/app/blockchain/compiled_sol.json', 'r') as f:
             contract_json = json.load(f)
-            self.contract_abi = contract_json['abi']
+            self.contract_abi = contract_json['contracts']['contract.sol']['TournamentScoring']['abi']
 
         # Contract address
         self.contract_address = os.getenv('CONTRACT_ADDRESS')
+        print(f"CONTRACT_ADDRESS FROM THE OBJECT: {self.contract_address}")
 
         # Set up admin account (tournament operator)
         self.admin_address = self.w3.eth.accounts[0] # First Ganache account
@@ -34,13 +36,13 @@ class TournamentBlockchain:
         )
 
     def create_match(self, player1_address, player2_address):
-        """Create a new match between two players"""
+        """Create a new match between two players."""
         transaction = self.contract.functions.createMatch(
             player1_address,
             player2_address
         ).build_transaction({
             'from': self.admin_address,
-            'gas': 2000000,
+            'gas': 200000,  # Consider estimating gas dynamically
             'gasPrice': self.w3.eth.gas_price,
             'nonce': self.w3.eth.get_transaction_count(self.admin_address),
         })
@@ -48,14 +50,14 @@ class TournamentBlockchain:
         return self._send_transaction(transaction)
 
     def update_match_score(self, match_id, player1_score, player2_score):
-        """Update the score for a specific match"""
+        """Update the score for a specific match."""
         transaction = self.contract.functions.updateMatchScore(
             match_id,
             player1_score,
             player2_score
         ).build_transaction({
             'from': self.admin_address,
-            'gas': 2000000,
+            'gas': 200000,  # Consider estimating gas dynamically
             'gasPrice': self.w3.eth.gas_price,
             'nonce': self.w3.eth.get_transaction_count(self.admin_address),
         })
