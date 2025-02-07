@@ -30,6 +30,7 @@ def deploy_contract():
 
     # Get the bin and bytecode from compiled solidity code
     abi, bytecode = compile_contract()
+    print(f"==== abi : {abi}")
 
     Contract = w3.eth.contract(abi=abi, bytecode=bytecode)
 

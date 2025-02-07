@@ -27,6 +27,13 @@ class TournamentBlockchain:
         # Connect to local blockchain (Ganache)
         self.w3 = Web3(Web3.HTTPProvider('http://ganache:8545'))
 
+        if (self.w3.is_connected()):
+            print("-" * 50)
+            print("Connection successful")
+            print("-" * 50)
+        else:
+            print("Connection failed")
+
         # Load contract ABI and address
         with open('/app/blockchain/compiled_sol.json', 'r') as f:
             contract_json = json.load(f)
@@ -48,107 +55,32 @@ class TournamentBlockchain:
             abi=self.contract_abi
         )
 
-    def create_match(self, player1_address, player2_address):
-        try:
-            if not Web3.is_address(player1_address):
-                raise InvalidAddress(f"Invalid Ethereum address provided: {player1_address}")
-            
-            if not Web3.is_address(player2_address):
-                raise InvalidAddress(f"Invalid Ethereum address provided: {player2_address}")
-            """Create a new match between two players."""
-            transaction = self.contract.functions.createMatch(
-                player1_address,
-                player2_address
-            ).build_transaction({
-                'from': self.admin_address,
-                'gas': 200000,  # Consider estimating gas dynamically
-                'gasPrice': self.w3.eth.gas_price,
+    def createTournament(self):
+        # Build the transaction to call the createTournament from the smart contract
+        transaction = self.contract.functions.createTournament().build_transaction(
+            {
                 'nonce': self.w3.eth.get_transaction_count(self.admin_address),
-            })
-
-            # Sign the transaction
-            signed_tx = self.w3.eth.account.sign_transaction(transaction, self.admin_private_key);
-
-            # Send the transaction
-            tx_hash = self.w3.eth.send_raw_transaction(signed_tx.rawTransaction)
-
-            # Wait for transaction receipt
-            receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
-            print(f"==== Transaction Receipt: {receipt}")
-
-            # Get the matchId from the Event
-            match_created_event = self.contract.events.MatchCreated().process_receipt(receipt);
-            matchId = match_created_event[0]['args']['_matchId']
-
-            logger.info(f"Created match {matchId} between {player1_address} and {player2_address}")
-            return matchId;
-
-
-        except InvalidAddress as e:
-            logger.error(f"Error: {e}")
-        except Exception as e:
-            logger.error(f"Failed to create match: {str(e)}")
-            raise
-
-
-    def update_match_score(self, match_id, player1_score, player2_score):
-        try:
-
-            if not isinstance(player1_score, int) or not isinstance(player2_score, int):
-                raise ValueError("Player scores must be integers")
-            
-            if player1_score < 0 or player2_score < 0:
-                raise ValueError("Player scores cannot be negative")
-                
-            """Update the score for a specific match."""
-            transaction = self.contract.functions.updateMatchScore(
-                match_id,
-                player1_score,
-                player2_score
-            ).build_transaction({
                 'from': self.admin_address,
-                'gas': 200000,  # Consider estimating gas dynamically
-                'gasPrice': self.w3.eth.gas_price,
-                'nonce': self.w3.eth.get_transaction_count(self.admin_address),
+                'gas': 2000000,
+                'gasPrice': self.w3.gas_price
             })
-
-            #Sign the transaction
-            signed_tx = self.w3.eth.account.sign_transaction(transaction, self.admin_private_key)
-
-            # Send the transaction
-            tx_hash = self.w3.eth.send_raw_transaction(signed_tx.rawTransaction)
-
-            # Wait for transaction receipt
-            tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
-            
-            # Check if the transaction was successful
-            if (tx_receipt.status == 0):
-                raise ValueError(f"Transaction failed: match_id {match_id} may be invalid")
-
-            logger.info(f"Updated match {match_id} score to {player1_score}-{player2_score}")
-            return tx_receipt
         
-        except ValueError as e:
-            logger.error(f"ValueError: {e}")
-        except Exception as e:
-            logger.error(f"Failed to update match score: {str(e)}")
-            raise
+        # Sign the transaction using the private key
+        signed_tx = self.w3.eth.account.sign_transaction(transaction, self.admin_private_key)
 
-    def get_match_details(self, match_id):
-        """Get details of a specific match"""
-        return self.contract.functions.getMatchDetails(match_id).call()
+        # Send the signed transaction
+        tx_hash = self.w3.eth.send_raw_transaction(signed_tx.raw_transaction)
 
-    def get_total_matches(self):
-        """Get the number of total matches"""
-        return self.contract.functions.getTotalMatches().call()
-    
+        # Wait for the transaction to be included in a block, and get its receipt
+        tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
+
+        # Extract the _tournamentId emitted by TournamentCreated event in the smart contract
+        TournamentEventCreated = self.contract.events.TournamentCreated().process_receipt(tx_receipt)
+        tournament_id = TournamentEventCreated[0]['args']['_tournamentId']
+
+        return tournament_id
 
 
-blockchain = TournamentBlockchain()
 
-player1 = blockchain.w3.eth.accounts[1]
-player2 = blockchain.w3.eth.accounts[2]
 
-receipt = blockchain.create_match(player1, player2)
 
-        

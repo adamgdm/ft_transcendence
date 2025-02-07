@@ -3,9 +3,12 @@ pragma solidity ^0.8.0;
 
 contract TournamentScoring {
 
-    event MatchCreated(uint256 _matchId, address _player1, address _player2);
+    event TournamentCreated(uint256 _tournamentId);
+    event MatchCreated(uint256 _tournamentId, uint256 _matchId, address _player1, address _player2);
+    event MatchScoreUpdated(uint256 _tournamentId, uint256 _matchId, uint256 _player1Score, uint256 _player2Score);
 
     struct Match {
+        uint256 tournamentId;
         address player1;
         address player2;
         uint256 player1Score;
@@ -13,10 +16,31 @@ contract TournamentScoring {
         bool isCompleted; 
     }
 
-    Match[] public matches;
+    
+    mapping(uint256 => Match[]) tournamentMatches;
+    uint256 tournamentCount;
+    address public owner;
 
-    function createMatch(address _player1, address _player2) public returns (uint256) {
+    constructor() {
+        owner = msg.sender;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only the owner can perform this action");
+        _;
+    }
+
+    function createTournament() onlyOwner public {
+        tournamentCount++;
+
+        emit TournamentCreated(tournamentCount);
+    } 
+
+    function createMatch(uint256 _tournamentId, address _player1, address _player2) onlyOwner public {
+        require(_tournamentId <= tournamentCount && _tournamentId > 0, "Invalid tournament ID");
+        
         Match memory newMatch = Match({
+            tournamentId: _tournamentId,
             player1: _player1,
             player2: _player2,
             player1Score: 0,
@@ -24,28 +48,38 @@ contract TournamentScoring {
             isCompleted: false
         });
 
-        matches.push(newMatch);
-        emit MatchCreated(matches.length - 1, _player1, _player2);
+        tournamentMatches[_tournamentId].push(newMatch);
+
+        emit MatchCreated(_tournamentId, tournamentMatches[_tournamentId].length - 1, _player1, _player2);
     }
 
-    function updateMatchScore(uint256 _matchId, uint256 _player1Score, uint256 _player2Score) public {
-        require(_matchId < matches.length, "Invalid match ID");
+    function updateMatchScore(uint256 _tournamentId, uint256 _matchId, uint256 _player1Score, uint256 _player2Score)  onlyOwner public {
+        require(_tournamentId <= tournamentCount && _tournamentId > 0, "Invalid tournament ID");
+        require(_matchId <  tournamentMatches[_tournamentId].length, "Invalid match ID");
         require(_player1Score >= 0, "Player 1 score cannot be negative");
         require(_player2Score >= 0, "Player 2 score cannot be negative");
-        require(!matches[_matchId].isCompleted, "Match already completed");
+        require(!tournamentMatches[_tournamentId][_matchId].isCompleted, "Match already completed");
 
-        matches[_matchId].player1Score = _player1Score;
-        matches[_matchId].player2Score = _player2Score;
-        matches[_matchId].isCompleted = true;
+        tournamentMatches[_tournamentId][_matchId].player1Score = _player1Score;
+        tournamentMatches[_tournamentId][_matchId].player2Score = _player2Score;
+        tournamentMatches[_tournamentId][_matchId].isCompleted = true;
+
+        emit MatchScoreUpdated(_tournamentId, _matchId, _player1Score, _player2Score);
     }
 
-    function getMatchDetails(uint256 _matchId) public view returns (Match memory) {
-        require(_matchId < matches.length, "Invalid match ID");
+    function getMatchDetails(uint256 _tournamentId, uint256 _matchId) public view returns (Match memory) {
+        require(_tournamentId <= tournamentCount && _tournamentId > 0, "Invalid tournament ID");
+        require(_matchId <  tournamentMatches[_tournamentId].length, "Invalid match ID");
 
-        return matches[_matchId];
+        return tournamentMatches[_tournamentId][_matchId];
     }
 
-    function getTotalMatches() public view returns (uint256) {
-        return matches.length;
+    function getTotalMatches(uint256 _tournamentId) public view returns (uint256) {
+        require(_tournamentId <= tournamentCount && _tournamentId > 0, "Invalid tournament ID");
+        return  tournamentMatches[_tournamentId].length;
+    }
+
+    function getTotalTournaments() public view returns (uint256) {
+        return tournamentCount;
     }
 }
