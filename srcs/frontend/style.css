@@ -246,9 +246,9 @@ body {
 
 .planet-omega {
     position: absolute;
-    left: 50%;
+    left: 35%;
     bottom: -40%;
-    transform: translateX(-50%);
+    /* transform: translateX(-50%); */
     z-index: 1;
 }
 
@@ -304,7 +304,7 @@ body {
     transform: translateY(40%) scale(1.2);
 }
 
-.buttons a {
+.buttons button {
     height: 30%;
     width: 30%;
     font-family: "bungee", serif;
@@ -323,20 +323,20 @@ body {
 }
 
 
-.buttons a:nth-child(1) {
+.buttons button:nth-child(1) {
     background: linear-gradient(120deg, #FF4622 0%, #725F33 70%);
 }
 
-.buttons a:nth-child(1):hover {
+.buttons button:nth-child(1):hover {
     transform: translateY(-5%);
     box-shadow: 0 0 50px 5px var(--stars-color);
 }
 
-.buttons a:nth-child(2) {
+.buttons button:nth-child(2) {
     background: linear-gradient(120deg, #725F33 30%, #FF4622 100%);
 }
 
-.buttons a:nth-child(2):hover {
+.buttons button:nth-child(2):hover {
     transform: translateY(-5%);
     box-shadow: 0 0 50px 5px var(--stars-color);
 }
