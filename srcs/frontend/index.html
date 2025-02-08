@@ -111,37 +111,58 @@
         </div>        
         <div class="modal" id="signup-modal">
             <h1 class="modal-title">Sign UP</h1>
-            <img id="modal-close-btn" src="assets/exit.svg" alt="close">
-            <form class="el-form" id="signup-form">
+            <img class="modal-close-btn" id="sign-close-btn" src="assets/exit.svg" alt="close">
+
+            <!-- try to know which one to use modal-form or signup-fom -->
+
+            <form class="modal-form" id="signup-form"> 
                 <div class="form-group">
                     <label for="Fname" class="form-text">First name</label><br>
-                    <input type="text" name="Fname" class="form-input" id="Fname">
+                    <input type="text" name="Fname" class="form-input" id="Fname" required>
                 </div>
                 <div class="form-group">
                     <label for="Lname" class="form-text">Last name</label><br>
-                    <input type="text" name="Lname" class="form-input" id="Lname">
+                    <input type="text" name="Lname" class="form-input" id="Lname" required>
                 </div>
                 <div class="form-group">
                     <label for="Uname" class="form-text">User name</label><br>
-                    <input type="text" name="Uname" class="form-input" id="Uname">
+                    <input type="text" name="Uname" class="form-input" id="Uname" required>
                 </div>
                 <div class="form-group" >
                     <label for="Email"class="form-text">Email</label><br>
-                    <input type="email" name="Email" class="form-input" id="Email">
+                    <input type="email" name="Email" class="form-input" id="Email" required>
                 </div>
                 <div class="form-group" >
                     <label for="Passwd" class="form-text">Password</label><br>
-                    <input type="password" name="Passwd" class="form-input" id="Passwd">
+                    <input type="password" name="Passwd" class="form-input" id="Passwd" required>
                 </div>
                 <div class="form-group" >
                     <input type="submit" value="Sign Up" class="form-submit">
                 </div>
             </form>
         </div>
+        <div class="modal" id="otp-modal">
+            <h1 class="modal-title">Sign UP - OTP</h1>
+            <img class="modal-close-btn" id="otp-close-btn" src="assets/exit.svg" alt="close">
+            <img src="assets/otp-logo.svg" alt="otp-logo" id="otp-logo">
+            <h2 class="modal-des">We sent a code to your email. Enter it below!</h2>
+            <h2 id="otp-mail-text"></h2>
+            <form class="el-form" id="otp-form">
+                <div class="input-holder">
+                    <input class="form-num-input" id="num-1" type="text" inputmode="numeric" maxlength="1" minlength="1" pattern="[0-9]*" required>
+                    <input class="form-num-input" id="num-2" type="text" inputmode="numeric" maxlength="1" minlength="1" pattern="[0-9]*" required>
+                    <input class="form-num-input" id="num-3" type="text" inputmode="numeric" maxlength="1" minlength="1" pattern="[0-9]*" required>
+                    <input class="form-num-input" id="num-4" type="text" inputmode="numeric" maxlength="1" minlength="1" pattern="[0-9]*" required>
+                    <input class="form-num-input" id="num-5" type="text" inputmode="numeric" maxlength="1" minlength="1" pattern="[0-9]*" required>
+                    <input class="form-num-input" id="num-6" type="text" inputmode="numeric" maxlength="1" minlength="1" pattern="[0-9]*" required>
+                </div>
+                <input type="submit" value="Confirm" class="form-submit">
+            </form>
         </div>
 
     </section>
     <script src="./src/scroll.js"></script>
     <script src="./src/animation.js"></script>
+    <!-- <script src="./src/index.js"></script> -->
 </body>
 </html>

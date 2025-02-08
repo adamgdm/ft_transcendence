@@ -343,38 +343,36 @@ body {
 }
 
 /******************************************************************************/
-/* SIGNUP MODAL  */
+/* MODAL  */
 /******************************************************************************/
 
-#signup-modal {
+.modal {
     position: absolute;
     /* display: none; */
     height: 90vh;
     width: 40vw;
     overflow: hidden;
     background: rgba(28, 27, 25, 0.89);
-    
+
     border: 6px solid transparent;
     border-image: linear-gradient(to bottom, 
-                                rgba(225, 201, 154, 0.32)0%, 
-                                rgba(247, 105, 66, 0.32) 28%, 
-                                rgba(239, 140, 98, 0.32) 60%,
-                                rgba(225, 201, 154, 0.32) 99%) 1;
-    border-radius: 20px;
-    background-clip: padding-box, border-box;
-    z-index: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    rgba(225, 201, 154, 0.32)0%, 
+    rgba(247, 105, 66, 0.32) 28%, 
+    rgba(239, 140, 98, 0.32) 60%,
+    rgba(225, 201, 154, 0.32) 99%) 1;                
 }
 
 .modal-title {
+    width: 90%;
     font-size: 50px;
     color: #DA8890;
     letter-spacing: 5px;
+    word-wrap: break-word;
+    white-space: normal;
+    text-align: center;
 }
 
-#modal-close-btn    {
+.modal-close-btn    {
     position: absolute;
     top: 10px;
     left: 10px;
@@ -383,7 +381,31 @@ body {
     cursor: pointer;
 }
 
-.el-form {
+.modal-des {
+    margin-top: 50px;
+    color: var(--white);
+    font-size: x-large;
+    letter-spacing: 3px;
+    word-wrap: break-word;
+    white-space: normal;
+    text-align: center;
+}
+
+
+/******************************************************************************/
+/* SIGNUP MODAL  */
+/******************************************************************************/
+
+#signup-modal {
+    display: none;
+
+    /* display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 1; */
+}
+
+#signup-form {
     margin-top: 100px;
     /* background-color: #A9AD5A; */
     width: 30vw;
@@ -407,10 +429,10 @@ body {
     background: rgba(28, 27, 25, 0.89);
     border: 6px solid transparent;
     border-image: linear-gradient(to bottom, 
-                                rgba(225, 201, 154, 0.32)0%, 
-                                rgba(247, 105, 66, 0.32) 28%, 
-                                rgba(239, 140, 98, 0.32) 60%,
-                                rgba(225, 201, 154, 0.32) 99%) 1;
+    rgba(225, 201, 154, 0.32)0%, 
+    rgba(247, 105, 66, 0.32) 28%, 
+    rgba(239, 140, 98, 0.32) 60%,
+    rgba(225, 201, 154, 0.32) 99%) 1;
     
     color: var(--white);
     font-size: xx-large;
@@ -438,6 +460,71 @@ body {
     cursor: pointer;
 }
 
+/******************************************************************************/
+/* OTP MODAL  */
+/******************************************************************************/
+
+#otp-modal {
+    /* display: none; */
+    
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 1;
+}
+
+#otp-logo {
+    margin-top: 100px;
+}
+
+#otp-mail-text  {
+    width: 90%;
+    margin-top: 30px;
+    color: var(--text-color);
+    font-size: xx-large;
+    letter-spacing: 3px;
+    text-align: center;
+    word-wrap: break-word;
+    white-space: normal;
+}
+
+#otp-form {
+    margin-top: 100px;
+    width: 90%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 80px;
+}
+
+.input-holder   {
+    width: 100%;
+    height: 100px;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+}
+
+.form-num-input  {
+    padding: 2px;
+    width: 80px;
+    height: 100%;
+    
+    background: rgba(28, 27, 25, 0.89);
+    border: 2px solid transparent;
+    border-image: linear-gradient(to bottom, 
+    rgba(225, 201, 154, 0.32)0%, 
+    rgba(247, 105, 66, 0.32) 28%, 
+    rgba(239, 140, 98, 0.32) 60%,
+    rgba(225, 201, 154, 0.32) 99%) 1;
+
+    color: var(--white);
+    text-align: center;
+    font-size: x-large;
+    outline: none;
+}
 
 
 
