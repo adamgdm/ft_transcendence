@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Bungee+Spice&family=Happy+Monkey&family=Orbitron:wght@400..900&display=swap" rel="stylesheet">
 </head>
 <body>
-    <section class="mainSection">
+    <!-- <section class="mainSection">
         <div>
             <img class="left-meteoroid" src="assets/L-meteoroid.svg" alt="left-meteoroid" >
             <img class="right-meteoroid" src="assets/R-meteoroid.svg" alt="right-meteoroid" >
@@ -97,22 +97,51 @@
                     Rise above the rest… or be forgotten in the void.</h3>
             </div>
         </div>
-    </section>
+    </section> -->
     <section class="AuthenticationSection">
         <div>
             <img class="left-meteoroid" src="assets/L-meteoroid.svg" alt="left-meteoroid" >
             <img class="right-meteoroid" src="assets/R-meteoroid.svg" alt="right-meteoroid" >
             <img class="left-racket" src="assets/left-racket.svg" alt="left-racket" >
             <img class="right-racket" src="assets/right-racket.svg" alt="right-racket" >
-            <!--<img src="assets/planet-omega.svg" alt="planet-omega" class="planet-omega">-->
         </div>
         <div class="buttons">
-            <button id="signup-btn">Sign Up</button>
+            <button id="signup-btn">SignUp</button>
             <button id="login-btn">Login</button>
+        </div>        
+        <div class="modal" id="signup-modal">
+            <h1 class="modal-title">Sign UP</h1>
+            <img id="modal-close-btn" src="assets/exit.svg" alt="close">
+            <form class="el-form" id="signup-form">
+                <div class="form-group">
+                    <label for="Fname" class="form-text">First name</label><br>
+                    <input type="text" name="Fname" class="form-input" id="Fname">
+                </div>
+                <div class="form-group">
+                    <label for="Lname" class="form-text">Last name</label><br>
+                    <input type="text" name="Lname" class="form-input" id="Lname">
+                </div>
+                <div class="form-group">
+                    <label for="Uname" class="form-text">User name</label><br>
+                    <input type="text" name="Uname" class="form-input" id="Uname">
+                </div>
+                <div class="form-group" >
+                    <label for="Email"class="form-text">Email</label><br>
+                    <input type="email" name="Email" class="form-input" id="Email">
+                </div>
+                <div class="form-group" >
+                    <label for="Passwd" class="form-text">Password</label><br>
+                    <input type="password" name="Passwd" class="form-input" id="Passwd">
+                </div>
+                <div class="form-group" >
+                    <input type="submit" value="Sign Up" class="form-submit">
+                </div>
+            </form>
         </div>
-    </section>
+        </div>
 
+    </section>
     <script src="./src/scroll.js"></script>
-    <script src="./src/animation.js"></script>?
+    <script src="./src/animation.js"></script>
 </body>
 </html>
