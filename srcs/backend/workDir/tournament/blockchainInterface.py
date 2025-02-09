@@ -21,6 +21,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class TournamentBlockchain:
+
+    # We keep a max_tournament_id to prevent invalid tournament ID
+    max_tournament_id = 0
+
     def __init__(self):
         # Connect to local blockchain (Ganache)
         self.w3 = Web3(Web3.HTTPProvider('http://ganache:8545'))
@@ -53,8 +57,6 @@ class TournamentBlockchain:
             abi=self.contract_abi
         )
 
-        # We keep a max_tournament_id to prevent invalid tournament ID
-        self.max_tournament_id = 0
 
     def createTournament(self):
         try:
@@ -83,10 +85,24 @@ class TournamentBlockchain:
             # Extract the _tournamentId emitted by TournamentCreated event in the smart contract
             TournamentEventCreated = self.contract.events.TournamentCreated().process_receipt(tx_receipt)
             tournament_id = TournamentEventCreated[0]['args']['_tournamentId']
+            print(f"Created Tournament ID: {tournament_id}")
             
-            # Update our max_tournament_id variable
-            self.max_tournament_id = max(self.max_tournament_id, tournament_id)
-            print(f"New max id: {self.max_tournament_id}")
+            # We read the previous max tournament ID
+            try:
+                with open('max_tournament_id.txt', 'r') as file:
+                    max_tournament_id = int(file.read())
+            except FileNotFoundError:
+                max_tournament_id = 0
+            
+            # We update our max_tournament_id if it's the case
+            if tournament_id > max_tournament_id:
+                max_tournament_id = tournament_id
+
+                with open('max_tournament_id.txt', 'w') as file:
+                    file.write(str(max_tournament_id))
+                
+            
+            print(f"After updating New max id: {max_tournament_id}")
 
             logger.info(f"Created tournament: {tournament_id}")
             return tournament_id
@@ -110,7 +126,15 @@ class TournamentBlockchain:
             if not isinstance(tournament_id, int):
                 raise ValueError("Tournament ID must be an integer!")
 
-            if tournament_id > self.max_tournament_id or tournament_id <= 0:
+            # We extract the current max_tournament_ID
+            try:
+                with open('max_tournament_id.txt', 'r') as file:
+                    max_tournament_id = int(file.read())
+            except FileNotFoundError:
+                max_tournament_id = 0
+
+            if tournament_id > max_tournament_id or tournament_id <= 0:
+                print(f"Error ID: {tournament_id}, maxID: {max_tournament_id}")
                 raise ValueError(f"Invalid tournament ID: {tournament_id}")
             
             # Build the transaction
@@ -153,8 +177,10 @@ class TournamentBlockchain:
             logger.error(f"Failed To create match: {str(e)}")
             raise
             
+blockchain = TournamentBlockchain()
 
-
+player1 = "0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0"
+player2 = "0x22d491Bde2303f2f43325b2108D26f1eAbA1e32b"
 
 
 
