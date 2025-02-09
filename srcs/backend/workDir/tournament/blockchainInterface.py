@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 class TournamentBlockchain:
 
     # We keep a max_tournament_id to prevent invalid tournament ID
-    max_tournament_id = 0
+    #max_tournament_id = 0
 
     def __init__(self):
         # Connect to local blockchain (Ganache)
@@ -58,7 +58,7 @@ class TournamentBlockchain:
         )
 
 
-    def createTournament(self):
+    def createTournament(self) -> int:
         try:
             # Build the transaction
             transaction = self.contract.functions.createTournament().build_transaction(
@@ -113,7 +113,7 @@ class TournamentBlockchain:
             logger.error(f"Failed to create tournament: {str(e)}")
             raise
 
-    def createMatch(self, tournament_id, _player1, _player2):
+    def createMatch(self, tournament_id, _player1, _player2) -> int:
         try:
             # We check if both ethereum addresses are valid or not
             if not self.w3.is_address(_player1):
@@ -127,11 +127,8 @@ class TournamentBlockchain:
                 raise ValueError("Tournament ID must be an integer!")
 
             # We extract the current max_tournament_ID
-            try:
-                with open('max_tournament_id.txt', 'r') as file:
-                    max_tournament_id = int(file.read())
-            except FileNotFoundError:
-                max_tournament_id = 0
+            max_tournament_id = self.contract.functions.getTotalTournaments().call()
+            print(f"MAX TOURNAMENT ID FROM SMART CONTRACT: {max_tournament_id}")
 
             if tournament_id > max_tournament_id or tournament_id <= 0:
                 print(f"Error ID: {tournament_id}, maxID: {max_tournament_id}")
@@ -177,10 +174,46 @@ class TournamentBlockchain:
             logger.error(f"Failed To create match: {str(e)}")
             raise
             
+    def updateMatchScore(self, tournament_id, match_id, _player1Score, _player2Score):
+        try:
+            # We extract the current max_tournament_ID
+            max_tournament_id = self.contract.functions.getTotalTournaments().call()
+            print(f"MAX TOURNAMENT ID FROM SMART CONTRACT: {max_tournament_id}")
+
+            if tournament_id > max_tournament_id or tournament_id <= 0:
+                print(f"Error ID: {tournament_id}, maxID: {max_tournament_id}")
+                raise ValueError(f"Invalid tournament ID: {tournament_id}")
+            
+            # We extract the current max_match_ID
+            max_match_ID = self.contract.functions.getTotalMatches(tournament_id).call()
+            print(f"MAX MATCH ID FROM SMART CONTRACT: {max_match_ID}")
+
+            if match_id >= max_match_ID or match_id < 0:
+                raise ValueError(f"Invalid match ID: {match_id}")
+
+            # We verify if the scores provided are valid or not
+            if not isinstance(_player1Score, int) or _player1Score < 0:
+                raise ValueError(f"Invalid score provided: {_player1Score}")
+
+            if not isinstance(_player2Score, int) or _player2Score < 0:
+                raise ValueError(f"Invalid score provided: {_player2Score}")
+            
+        except ValueError as e:
+            logger.error(f"Error: {e}")
+        except Exception as e:
+            logger.error(f"Failed to update match score: {str(e)}")
+            raise
+        
+
 blockchain = TournamentBlockchain()
 
 player1 = "0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0"
 player2 = "0x22d491Bde2303f2f43325b2108D26f1eAbA1e32b"
+
+id = blockchain.createTournament()
+match_id = blockchain.createMatch(id, player1, player2)
+
+blockchain.updateMatchScore(id, match_id, 109, 10)
 
 
 
