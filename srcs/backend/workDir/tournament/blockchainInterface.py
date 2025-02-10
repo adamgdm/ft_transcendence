@@ -197,6 +197,38 @@ class TournamentBlockchain:
 
             if not isinstance(_player2Score, int) or _player2Score < 0:
                 raise ValueError(f"Invalid score provided: {_player2Score}")
+
+            # We build the transaction
+            transaction = self.contract.functions.updateMatchScore(
+                tournament_id,
+                match_id,
+                _player1Score,
+                _player2Score
+            ).build_transaction({
+                'nonce': self.w3.eth.get_transaction_count(self.admin_address),
+                'from': self.admin_address,
+                'gas': 2000000,
+                'gasPrice': self.w3.eth.gas_price
+            })
+
+            # We sign the transaction
+            signed_tx = self.w3.eth.account.sign_transaction(transaction, self.admin_private_key)
+
+            # We send the transaction
+            tx_hash = self.w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+
+            # We wait for our transaction to be mined
+            tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
+
+            # We check if our transaction has failed
+            if tx_receipt.status == 0:
+                raise ValueError('Transaction has failed!')
+            
+            # We call getMatchDetails method from our smart contract to check if our data has been stored
+            match_struct = self.contract.functions.getMatchDetails(tournament_id, match_id).call()
+            print(f"Match struct:  {match_struct}")
+
+            return match_struct
             
         except ValueError as e:
             logger.error(f"Error: {e}")
