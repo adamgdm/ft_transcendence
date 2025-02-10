@@ -176,6 +176,11 @@ class TournamentBlockchain:
             
     def updateMatchScore(self, tournament_id, match_id, _player1Score, _player2Score):
         try:
+
+            # We check if Tournament ID is valid or not
+            if not isinstance(tournament_id, int):
+                raise ValueError("Tournament ID must be an integer!")
+
             # We extract the current max_tournament_ID
             max_tournament_id = self.contract.functions.getTotalTournaments().call()
             print(f"MAX TOURNAMENT ID FROM SMART CONTRACT: {max_tournament_id}")
@@ -184,6 +189,11 @@ class TournamentBlockchain:
                 print(f"Error ID: {tournament_id}, maxID: {max_tournament_id}")
                 raise ValueError(f"Invalid tournament ID: {tournament_id}")
             
+
+            # We check if Match ID is valid or not
+            if not isinstance(tournament_id, int):
+                raise ValueError("Match ID must be an integer!")
+
             # We extract the current max_match_ID
             max_match_ID = self.contract.functions.getTotalMatches(tournament_id).call()
             print(f"MAX MATCH ID FROM SMART CONTRACT: {max_match_ID}")
@@ -236,6 +246,70 @@ class TournamentBlockchain:
             logger.error(f"Failed to update match score: {str(e)}")
             raise
         
+    def getMatchDetails(self, tournament_id, match_id):
+        try:
+            # We check if Tournament ID is valid or not
+            if not isinstance(tournament_id, int):
+                raise ValueError("Tournament ID must be an integer!")
+
+            # We extract the current max_tournament_ID
+            max_tournament_id = self.contract.functions.getTotalTournaments().call()
+            print(f"MAX TOURNAMENT ID FROM SMART CONTRACT: {max_tournament_id}")
+
+            if tournament_id > max_tournament_id or tournament_id <= 0:
+                print(f"Error ID: {tournament_id}, maxID: {max_tournament_id}")
+                raise ValueError(f"Invalid tournament ID: {tournament_id}")
+            
+
+            # We check if Match ID is valid or not
+            if not isinstance(tournament_id, int):
+                raise ValueError("Match ID must be an integer!")
+
+            # We extract the current max_match_ID
+            max_match_ID = self.contract.functions.getTotalMatches(tournament_id).call()
+            print(f"MAX MATCH ID FROM SMART CONTRACT: {max_match_ID}")
+
+            if match_id >= max_match_ID or match_id < 0:
+                raise ValueError(f"Invalid match ID: {match_id}")
+
+            match_struct = self.contract.functions.getMatchDetails(tournament_id, match_id).call()
+            return match_struc
+        
+        except Exception as e:
+            logger.error(f"Failed to get match details: {str(e)}")
+            raise
+
+    def getTotalMatches(self, tournament_id):
+        try:
+            # We check if Tournament ID is valid or not
+            if not isinstance(tournament_id, int):
+                raise ValueError("Tournament ID must be an integer!")
+
+            # We extract the current max_tournament_ID
+            max_tournament_id = self.contract.functions.getTotalTournaments().call()
+            print(f"MAX TOURNAMENT ID FROM SMART CONTRACT: {max_tournament_id}")
+
+            if tournament_id > max_tournament_id or tournament_id <= 0:
+                print(f"Error ID: {tournament_id}, maxID: {max_tournament_id}")
+                raise ValueError(f"Invalid tournament ID: {tournament_id}")
+            
+            totalMatches = self.contract.functions.getTotalMatches(tournament_id).call()
+            return totalMatches
+        
+        except Exception as e:
+            logger.error(f"Failed to get total matches for tournamentID: {tournament_id}: {str(e)}")
+            raise
+
+    def getTotalTournaments(self):
+        try:
+            totalTournaments = self.contract.functions.getTotalTournaments().call()
+            return totalTournaments
+        
+        except Exception as e:
+            logger.error(f"Failed to get total tournaments: {str(e)}")
+            raise
+
+
 
 blockchain = TournamentBlockchain()
 
