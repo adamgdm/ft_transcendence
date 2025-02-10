@@ -238,6 +238,7 @@ class TournamentBlockchain:
             match_struct = self.contract.functions.getMatchDetails(tournament_id, match_id).call()
             print(f"Match struct:  {match_struct}")
 
+            logger.info(f"Match {match_id} of tournament {tournament_id} score updated: {_player1Score} - {_player2Score}")
             return match_struct
             
         except ValueError as e:
@@ -273,6 +274,8 @@ class TournamentBlockchain:
                 raise ValueError(f"Invalid match ID: {match_id}")
 
             match_struct = self.contract.functions.getMatchDetails(tournament_id, match_id).call()
+
+            logger.info(f"Match {match_id} of tournament {tournament_id} details: {match_struct}")
             return match_struc
         
         except Exception as e:
@@ -294,6 +297,8 @@ class TournamentBlockchain:
                 raise ValueError(f"Invalid tournament ID: {tournament_id}")
             
             totalMatches = self.contract.functions.getTotalMatches(tournament_id).call()
+
+            logger.info(f"Total matches in tournament {tournament_id}: {totalMatches}")
             return totalMatches
         
         except Exception as e:
@@ -303,6 +308,8 @@ class TournamentBlockchain:
     def getTotalTournaments(self):
         try:
             totalTournaments = self.contract.functions.getTotalTournaments().call()
+
+            logger.info(f"Total tournaments: {totalTournaments}")
             return totalTournaments
         
         except Exception as e:
