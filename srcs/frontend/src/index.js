@@ -18,7 +18,7 @@ const loginBtn = document.getElementById('login-btn')
 
 const signupModal = document.getElementById('signup-modal')
 const otpModal = document.getElementById('otp-modal')
-const closeSign = document.getElementsByClassName('sign-close-btn')
+const closeSign = document.getElementById('sign-close-btn')
 
 const signupForm = document.getElementById('signup-form')
 const otpForm = document.getElementById('otp-form')
@@ -65,6 +65,10 @@ signupBtn.addEventListener('click', () => {
 //     otpForm.reset();
 // }));
 
+closeSign.addEventListener('click', () => {
+    hideModal(signupModal)
+    signupForm.reset()
+})
 
 closeOtp.addEventListener('click', () => {
     hideModal(otpModal)
