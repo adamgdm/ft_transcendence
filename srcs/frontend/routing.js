@@ -1,4 +1,5 @@
 import { storyActions } from "./pages/story/index.js"
+import { scrollAction } from "./pages/story/scroll.js"
 
 window.onload = function () {
     // when typing the url first time
@@ -13,9 +14,10 @@ window.onload = function () {
         case '404':
             loadPage('404')
             break
-        default:
-            loadPage('404')
-            break
+        case 'home':
+            loadPage('home')
+        // default:
+        //     loadPage('404')
     }
 
     // when clicking on items in sidebar
@@ -40,6 +42,18 @@ window.onload = function () {
         loadPage(path)
     })
 
+
+    function updateStylesheet(href) {
+        let linkTag = document.querySelector("link[data-section-style]");
+        if (!linkTag){
+            linkTag = document.createElement("link");
+        linkTag.rel = "stylesheet";
+        linkTag.dataset.dynamic = "true";
+        document.head.appendChild(linkTag);
+    }
+    linkTag.href = href;
+    }
+
     // the function that loads pages
     function loadPage(path) {
         const content = document.getElementById('content')
@@ -51,10 +65,13 @@ window.onload = function () {
             request.onload = function () {
                 if (request.status == 200) {
                     content.innerHTML = request.responseText
+                    updateStylesheet(`pages/${path}/${path}.css`)
                     switch (path) {
                         case "story":
                         case "":
                             storyActions()
+                            scrollAction()
+                            scroll
                             break
                         default:
                             break

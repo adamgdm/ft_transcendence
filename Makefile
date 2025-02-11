@@ -1,19 +1,25 @@
 all: build up
 
 build:
-	docker compose build
+	docker compose build --build-arg CACHEBUST=$(date +%s)
 
 up:
-	docker compose up -d
+	docker compose up
 
 down:
 	docker compose down
 
 clean:
+	docker system prune -f
 	docker compose down --rmi all --volumes
 
 fclean: clean
 	docker system prune -f
+	docker volume prune -f
+	docker network prune -f
+	docker image prune -f
+	docker container prune -f
+	docker builder prune -f
 
 re: fclean all
 
