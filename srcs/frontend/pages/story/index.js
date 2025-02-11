@@ -1,18 +1,22 @@
-class User {
-    constructor(fname, lname, uname, email, passwd) {
-      this.fname = fname;
-      this.lname = lname;
-      this.uname = uname;
-      this.email = email;
-      this.passwd = passwd;
-    }
-    printInfo() {
-        console.log(`User informations: ${this.fname} ${this.lname} ${this.uname} ${this.email} ${this.passwd}`)
-    }
-  }
+export function storyActions() {
 
-  document.addEventListener('DOMContentLoaded', () => {
+    console.log('haliloywaaa')
+
+    class User {
+        constructor(fname, lname, uname, email, passwd) {
+        this.fname = fname;
+        this.lname = lname;
+        this.uname = uname;
+        this.email = email;
+        this.passwd = passwd;
+        }
+        printInfo() {
+            console.log(`User informations: ${this.fname} ${this.lname} ${this.uname} ${this.email} ${this.passwd}`)
+        }
+    }
+
     const signupBtn = document.getElementById('signup-btn');
+    console.log("cc heramina" + signupBtn)
     const loginBtn = document.getElementById('login-btn');
 
     const signupModal = document.querySelector('[data-modal="signup"]');
@@ -106,5 +110,5 @@ class User {
             hideModal(otpModal);
             otpForm.reset();
         }
-    });
-});
+    });   
+}

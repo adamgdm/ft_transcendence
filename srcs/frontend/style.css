@@ -15,11 +15,12 @@ body, html {
     background-color: var(--space-color);
     font-family: "bungee", serif;
     overflow: hidden;
-    width: 100%;
-    height: 100%;
+    width: 100vw;
+    min-height: 100%;
     margin: 0; /* Remove default margin */
     padding: 0; /* Remove default padding */
 }
+
 
 /******************************************************************************/
 /* mainSection */
@@ -115,7 +116,6 @@ body, html {
     
     transform: translateY(50%) scale(1.3);
 }
-
 
 .right-racket {
     position: absolute;
@@ -239,11 +239,11 @@ body, html {
     left: 4vw;
 }
 
-body {
+/* body {
     margin: 0;
-    height: 200vh; /* This ensures there's enough content to scroll */
-    background-color: #000; /* Dark background to emphasize the planet */
-}
+    height: 200vh;
+    background-color: #000; 
+} */
 
 .planet-omega {
     position: absolute;
@@ -537,5 +537,27 @@ body {
     font-family: inherit;
     -webkit-text-stroke: 2px black;
     cursor: pointer;
+}
+
+
+
+/****************************************************************************************************************************************/
+/*  404     PAGE   */
+
+.pnf-container {
+    height: 100vh;
+    width: 100vw;
+    background-image: url(assets/stars.svg);
+    display: flex;
+    flex-direction: column;
+    justify-content: start;
+    align-items: center;
+    padding: 0;
+    text-align: center;
+}
+
+#error-message {
+    color: #fff;
+    font-size: 100px;
 }
 
