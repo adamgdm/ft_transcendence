@@ -348,18 +348,17 @@ body {
 
 .modal {
     position: absolute;
-    /* display: none; */
+    display: none;
     height: 90vh;
     width: 40vw;
     overflow: hidden;
     background: rgba(28, 27, 25, 0.89);
-
     border: 6px solid transparent;
     border-image: linear-gradient(to bottom, 
-    rgba(225, 201, 154, 0.32)0%, 
+    rgba(225, 201, 154, 0.32) 0%, 
     rgba(247, 105, 66, 0.32) 28%, 
-    rgba(239, 140, 98, 0.32) 60%,
-    rgba(225, 201, 154, 0.32) 99%) 1;                
+    rgba(239, 140, 98, 0.32) 60%, 
+    rgba(225, 201, 154, 0.32) 99%) 1;
 }
 
 .modal-title {
@@ -372,7 +371,7 @@ body {
     text-align: center;
 }
 
-.modal-close-btn    {
+.modal-close-btn {
     position: absolute;
     top: 10px;
     left: 10px;
@@ -381,22 +380,12 @@ body {
     cursor: pointer;
 }
 
-.modal-des {
-    margin-top: 50px;
-    color: var(--white);
-    font-size: x-large;
-    letter-spacing: 3px;
-    word-wrap: break-word;
-    white-space: normal;
-    text-align: center;
-}
-
 
 /******************************************************************************/
 /* SIGNUP MODAL  */
 /******************************************************************************/
 
-#signup-modal {
+[data-modal="signup"] {
     display: none;
 
     /* display: flex;
@@ -405,7 +394,7 @@ body {
     z-index: 1; */
 }
 
-#signup-form {
+[data-form="signup"] {
     margin-top: 100px;
     /* background-color: #A9AD5A; */
     width: 30vw;
@@ -422,7 +411,7 @@ body {
     font-size: large;
 }
 
-.form-input {
+[data-form="signup"] .form-input {
     width: 90%;
     height: 50px;
 
@@ -441,11 +430,11 @@ body {
     outline: none;
 }
 
-.form-text {
+[data-form="signup"] .form-text {
     margin-left:  20px;
 }
 
-.form-submit {
+[data-form="signup"] .form-submit {
     width: 94%;
     height: 80px;
 
@@ -464,9 +453,8 @@ body {
 /* OTP MODAL  */
 /******************************************************************************/
 
-#otp-modal {
+[data-modal="otp"]  {
     display: none;
-    
 
     /* display: flex;
     flex-direction: column;
@@ -474,11 +462,21 @@ body {
     z-index: 1; */
 }
 
-#otp-logo {
+[data-modal="otp"] .otp-logo  {
     margin-top: 100px;
 }
 
-#otp-mail-text  {
+[data-modal="otp"] .modal-des {
+    margin-top: 50px;
+    color: var(--white);
+    font-size: x-large;
+    letter-spacing: 3px;
+    word-wrap: break-word;
+    white-space: normal;
+    text-align: center;
+}
+
+[data-modal="otp"] #otp-mail-text  {
     width: 90%;
     margin-top: 30px;
     color: var(--text-color);
@@ -489,7 +487,7 @@ body {
     white-space: normal;
 }
 
-#otp-form {
+[data-form="otp"]   {
     margin-top: 100px;
     width: 90%;
     display: flex;
@@ -499,7 +497,7 @@ body {
     gap: 80px;
 }
 
-.input-holder   {
+[data-form="otp"] .input-holder   {
     width: 100%;
     height: 100px;
     display: flex;
@@ -507,7 +505,7 @@ body {
     justify-content: space-around;
 }
 
-.form-num-input  {
+[data-form="otp"] .form-input  {
     padding: 2px;
     width: 80px;
     height: 100%;
@@ -526,5 +524,18 @@ body {
     outline: none;
 }
 
+[data-form="otp"] .form-submit {
+    width: 94%;
+    height: 80px;
 
+    padding: 10px;
+    background-color: #FF4622;
+    border: none;
+    border-radius: 4px;
+    color: var(--white);
+    font-size: 50px;
+    font-family: inherit;
+    -webkit-text-stroke: 2px black;
+    cursor: pointer;
+}
 

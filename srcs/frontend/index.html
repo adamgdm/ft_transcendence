@@ -108,53 +108,55 @@
         <div class="buttons">
             <button id="signup-btn">SignUp</button>
             <button id="login-btn">Login</button>
-        </div>        
-        <div class="modal" id="signup-modal">
-            <h1 class="modal-title">Sign UP</h1>
-            <img class="modal-close-btn" id="sign-close-btn" src="assets/exit.svg" alt="close">
-
-            <!-- try to know which one to use modal-form or signup-fom -->
-
-            <form class="modal-form" id="signup-form"> 
+        </div>
+        
+        <!-- SIGNUP Modal -->
+        <div class="modal" data-modal="signup">
+            <h1 class="modal-title">Sign Up</h1>
+            <img class="modal-close-btn" data-close="signup" src="assets/exit.svg" alt="close">
+            <form class="modal-form" data-form="signup">
                 <div class="form-group">
-                    <label for="Fname" class="form-text">First name</label><br>
-                    <input type="text" name="Fname" class="form-input" id="Fname" required>
-                </div>
-                <div class="form-group">
-                    <label for="Lname" class="form-text">Last name</label><br>
-                    <input type="text" name="Lname" class="form-input" id="Lname" required>
+                    <label for="signup-fname" class="form-text">First name</label><br>
+                    <input type="text" name="fname" class="form-input" id="signup-fname" required>
                 </div>
                 <div class="form-group">
-                    <label for="Uname" class="form-text">User name</label><br>
-                    <input type="text" name="Uname" class="form-input" id="Uname" required>
+                    <label for="signup-lname" class="form-text">Last name</label><br>
+                    <input type="text" name="lname" class="form-input" id="signup-lname" required>
                 </div>
-                <div class="form-group" >
-                    <label for="Email"class="form-text">Email</label><br>
-                    <input type="email" name="Email" class="form-input" id="Email" required>
+                <div class="form-group">
+                    <label for="signup-uname" class="form-text">User name</label><br>
+                    <input type="text" name="uname" class="form-input" id="signup-uname" required>
                 </div>
-                <div class="form-group" >
-                    <label for="Passwd" class="form-text">Password</label><br>
-                    <input type="password" name="Passwd" class="form-input" id="Passwd" required>
+                <div class="form-group">
+                    <label for="signup-email" class="form-text">Email</label><br>
+                    <input type="email" name="email" class="form-input" id="signup-email" required>
                 </div>
-                <div class="form-group" >
+                <div class="form-group">
+                    <label for="signup-passwd" class="form-text">Password</label><br>
+                    <input type="password" name="passwd" class="form-input" id="signup-passwd" required>
+                </div>
+                <div class="form-group">
                     <input type="submit" value="Sign Up" class="form-submit">
                 </div>
             </form>
         </div>
-        <div class="modal" id="otp-modal">
-            <h1 class="modal-title">Sign UP - OTP</h1>
-            <img class="modal-close-btn" id="otp-close-btn" src="assets/exit.svg" alt="close">
-            <img src="assets/otp-logo.svg" alt="otp-logo" id="otp-logo">
-            <h2 class="modal-des">We sent a code to your email. Enter it below!</h2>
+
+        <!-- OTP Modal -->
+        <div class="modal" data-modal="otp">
+            <h1 class="modal-title">Sign Up - OTP</h1>
+            <img class="modal-close-btn" data-close="otp" src="assets/exit.svg" alt="close">
+            <img src="assets/otp-logo.svg" alt="otp-logo" class="otp-logo">
+            <h2 class="otp-des">We sent a code to your email. Enter it below!</h2>
             <h2 id="otp-mail-text"></h2>
-            <form class="el-form" id="otp-form">
+
+            <form class="modal-form" data-form="otp">
                 <div class="input-holder">
-                    <input class="form-num-input" id="num-1" type="text" inputmode="numeric" maxlength="1" minlength="1" pattern="[0-9]*" required>
-                    <input class="form-num-input" id="num-2" type="text" inputmode="numeric" maxlength="1" minlength="1" pattern="[0-9]*" required>
-                    <input class="form-num-input" id="num-3" type="text" inputmode="numeric" maxlength="1" minlength="1" pattern="[0-9]*" required>
-                    <input class="form-num-input" id="num-4" type="text" inputmode="numeric" maxlength="1" minlength="1" pattern="[0-9]*" required>
-                    <input class="form-num-input" id="num-5" type="text" inputmode="numeric" maxlength="1" minlength="1" pattern="[0-9]*" required>
-                    <input class="form-num-input" id="num-6" type="text" inputmode="numeric" maxlength="1" minlength="1" pattern="[0-9]*" required>
+                    <input class="form-input" name="num-1" type="text" inputmode="numeric" maxlength="1" minlength="1" pattern="[0-9]*" required>
+                    <input class="form-input" name="num-2" type="text" inputmode="numeric" maxlength="1" minlength="1" pattern="[0-9]*" required>
+                    <input class="form-input" name="num-3" type="text" inputmode="numeric" maxlength="1" minlength="1" pattern="[0-9]*" required>
+                    <input class="form-input" name="num-4" type="text" inputmode="numeric" maxlength="1" minlength="1" pattern="[0-9]*" required>
+                    <input class="form-input" name="num-5" type="text" inputmode="numeric" maxlength="1" minlength="1" pattern="[0-9]*" required>
+                    <input class="form-input" name="num-6" type="text" inputmode="numeric" maxlength="1" minlength="1" pattern="[0-9]*" required>
                 </div>
                 <input type="submit" value="Confirm" class="form-submit">
             </form>

@@ -11,38 +11,88 @@ class User {
     }
   }
 
-const users = []
+  document.addEventListener('DOMContentLoaded', () => {
+    const signupBtn = document.getElementById('signup-btn');
+    const loginBtn = document.getElementById('login-btn');
 
-const signupBtn = document.getElementById('signup-btn')
-const loginBtn = document.getElementById('login-btn')
+    const signupModal = document.querySelector('[data-modal="signup"]');
+    const signupForm = document.querySelector('[data-form="signup"]');
+    const closeSign = document.querySelector('[data-close="signup"]');
 
-const signupModal = document.getElementById('signup-modal')
-const otpModal = document.getElementById('otp-modal')
-const closeSign = document.getElementById('sign-close-btn')
-
-const signupForm = document.getElementById('signup-form')
-const otpForm = document.getElementById('otp-form')
-const closeOtp = document.getElementById('otp-close-btn')
-
-
-// DISPLAY MODAL
-function displayModal(modal)    {
-    modal.style.display = 'flex'
-    modal.style.flexDirection = 'column'
-    modal.style.alignItems = 'center'
-    modal.style.zIndex = '1'
-}
-
-// HIDE MODAL
-function hideModal(modal)   {
-    modal.style.display = 'none'
-}
+    const otpModal = document.querySelector('[data-modal="otp"]');
+    const otpForm = document.querySelector('[data-form="otp"]');
+    const closeOtp = document.querySelector('[data-close="otp"]');
 
 
-// The SIGN UP BUTTON
-signupBtn.addEventListener('click', () => {
-    displayModal(signupModal)
+    const users = []; // Assuming you have a users array to store user data
 
+    function displayModal(modal) {
+        modal.style.display = 'flex';
+        modal.style.flexDirection = 'column';
+        modal.style.alignItems = 'center';
+        modal.style.zIndex = '1';
+    }
+
+    function hideModal(modal) {
+        modal.style.display = 'none';
+    }
+
+    // Event listener for closing the signup modal
+    closeSign.addEventListener('click', () => {
+        hideModal(signupModal);
+        signupForm.reset();
+    });
+
+    // Event listener for closing the OTP modal
+    closeOtp.addEventListener('click', () => {
+        hideModal(otpModal);
+        otpForm.reset();
+    });
+
+    // Event listener for opening the signup modal
+    signupBtn.addEventListener('click', () => {
+        displayModal(signupModal);
+    });
+
+    // Event listener for submitting the signup form
+    signupForm.addEventListener('submit', (e) => {
+        e.preventDefault(); // prevent the page from reloading after submitting
+
+        const firstname = signupForm.querySelector('[name="fname"]').value;
+        const lastname = signupForm.querySelector('[name="lname"]').value;
+        const username = signupForm.querySelector('[name="uname"]').value;
+        const email = signupForm.querySelector('[name="email"]').value;
+        const passwd = signupForm.querySelector('[name="passwd"]').value;
+
+        const newUser = new User(firstname, lastname, username, email, passwd);
+        users.push(newUser);
+        users.forEach(usr => {console.log(usr)})
+
+        signupForm.reset();
+        hideModal(signupModal);
+
+        const otpMailText = otpModal.querySelector('#otp-mail-text')
+        otpMailText.textContent = email;
+        displayModal(otpModal);
+
+        const firstOtpInput = otpForm.querySelector('[name="num-1"]')
+        firstOtpInput.focus();
+    });
+
+    // Event listener for submitting the OTP form
+    otpForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const otpCode = [];
+        for (let i = 1; i <= 6; i++) {
+            const num = otpForm.querySelector(`[name="num-${i}"]`).value;
+            otpCode.push(num);
+        }
+        // otpCode.forEach(num => console.log(num));
+        hideModal(otpModal);
+        otpForm.reset();
+    });
+
+    // Close the signup modal when clicking outside of it
     window.addEventListener("click", (event) => {
         if (!signupModal.contains(event.target) && event.target !== signupBtn) {
             hideModal(signupModal);
@@ -50,69 +100,11 @@ signupBtn.addEventListener('click', () => {
         }
     });
     
+    // Close the OTP modal when clicking outside of it
     window.addEventListener("click", (event) => {
-        if (!otpModal.contains(event.target) && event.target !== otpForm) {
+        if (!otpModal.contains(event.target) && event.target !== signupForm.querySelector('[class="form-submit"]')) {
             hideModal(otpModal);
             otpForm.reset();
         }
     });
-})
-
-// Array.from(closeModal).forEach(close => close.addEventListener('click', () => {
-//     hideModal(signupModal);
-//     hideModal(otpModal);
-//     signupForm.reset();
-//     otpForm.reset();
-// }));
-
-closeSign.addEventListener('click', () => {
-    hideModal(signupModal)
-    signupForm.reset()
-})
-
-closeOtp.addEventListener('click', () => {
-    hideModal(otpModal)
-    otpForm.reset()
-})
-
-// The SIGN UP FORM
-signupForm.addEventListener('submit', (e) => {
-    e.preventDefault()
-
-    const firstname = document.getElementById('Fname').value
-    const lastname = document.getElementById('Lname').value
-    const username = document.getElementById('Uname').value
-    const email = document.getElementById('Email').value
-    const passwd = document.getElementById('Passwd').value
-    
-    const newUser = new User(firstname, lastname, username, email, passwd)
-    users.push(newUser)
-    console.log(users.length)
-    users.forEach(usr => usr.printInfo())
-    
-    signupForm.reset()
-    hideModal(signupModal)
-    displayModal(otpModal)
-    
-
-    document.getElementById('num-1').focus()
-    document.getElementById('otp-mail-text').textContent = newUser.email
-})
-
-
-// The OTP FORM
-otpForm.addEventListener('submit', (e) => {
-    e.preventDefault()
-    
-    const otpCode = []
-
-    for (let i = 1; i <= 6; i++)   {
-        const num = document.getElementById(`num-${i}`)
-        otpCode.push(num.value)
-    }
-    otpForm.reset()
-    hideModal(otpModal)
-
-    // otpCode.forEach(num => console.log(num))    
-    console.log('\n\n')        
-})
+});
