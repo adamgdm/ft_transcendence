@@ -466,7 +466,7 @@ body {
     margin-top: 100px;
 }
 
-[data-modal="otp"] .modal-des {
+[data-modal="otp"] .otp-des {
     margin-top: 50px;
     color: var(--white);
     font-size: x-large;
@@ -476,7 +476,7 @@ body {
     text-align: center;
 }
 
-[data-modal="otp"] #otp-mail-text  {
+[data-modal="otp"] .otp-mail-text  {
     width: 90%;
     margin-top: 30px;
     color: var(--text-color);

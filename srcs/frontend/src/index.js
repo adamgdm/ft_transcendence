@@ -66,12 +66,12 @@ class User {
 
         const newUser = new User(firstname, lastname, username, email, passwd);
         users.push(newUser);
-        users.forEach(usr => {console.log(usr)})
+        users.forEach(usr => {usr.printInfo()})
 
         signupForm.reset();
         hideModal(signupModal);
 
-        const otpMailText = otpModal.querySelector('#otp-mail-text')
+        const otpMailText = otpModal.querySelector('.otp-mail-text')
         otpMailText.textContent = email;
         displayModal(otpModal);
 
