@@ -13,6 +13,8 @@ services:
       - db_data:/var/lib/postgresql/data
     expose:
       - "5432"
+    networks:
+      - blockchain_network
     
   backend:
     build: 
@@ -30,7 +32,26 @@ services:
       - backend_data:/app
     depends_on:
       - db
+      - ganache
+    networks:
+      - blockchain_network
+
+  ganache:
+    image: trufflesuite/ganache:latest
+    ports:
+      - "8545:8545"
+    command:
+      - --wallet.deterministic
+      - --chain.networkId=1337
+      - --chain.chainId=1337
+      - --server.host=0.0.0.0
+    networks:
+      - blockchain_network
 
 volumes:
   db_data:
   backend_data:
+
+networks:
+  blockchain_network:
+    driver: bridge

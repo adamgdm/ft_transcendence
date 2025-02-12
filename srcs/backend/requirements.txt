@@ -14,3 +14,11 @@ sqlparse==0.5.3
 python-decouple==3.6
 psycopg2-binary==2.9.1
 Pillow==8.4.0
+py-solc-x==0.6.0
+python-dotenv==1.0.1
+
+web3==6.11.1
+eth-typing==3.5.1
+
+pytest==8.3.4
+pytest-django==4.10.0
