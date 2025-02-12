@@ -14,10 +14,14 @@ window.onload = function () {
         case '404':
             loadPage('404')
             break
+        case 'settings':
+            loadPage('settings')
+            break
         case 'home':
             loadPage('home')
-        // default:
-        //     loadPage('404')
+            break
+        default:
+            loadPage('404')
     }
 
     // when clicking on items in sidebar
