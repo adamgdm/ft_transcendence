@@ -1,0 +1,398 @@
+@import url(../../style.css);
+
+.homePage {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    background-image: url(../../assets/stars.svg);
+    overflow: hidden;
+}
+
+.homePage .meteoroid {
+    position: absolute;
+    height: 150px;
+    top: 10px;
+    right: 2%;
+    /* text-align: right; */
+}
+
+/******************************************************************************/
+/* LAYOUT SIDE-BAR */
+/******************************************************************************/
+
+[layout="sidebar"] {
+    position: absolute;
+    background-color: #DA8890;
+    height: 90%;
+    width: 5%;
+    top: 2%;
+    left: 2%;
+    padding: 20px 0;
+
+    border-radius: 20px;
+    background-color: rgb(236, 236, 236, 0.39);
+    border: 5px solid #FF4622;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    text-align: center;
+}
+
+[layout="sidebar"]::after {
+    content: "";
+    display: block;
+    width: 100%;
+    height: 2px;
+    background-color: #F5DAA7;
+    position: absolute;
+    bottom: 25%;
+    left: 0;
+}
+
+[layout="sidebar"] .sidebar-logo {
+    margin-top: 20px;
+    width: 50%;
+    display: flex;
+    justify-content: center;
+}
+
+[layout="sidebar"] .sidebar-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 50px; /* Space between icons */
+    flex-grow: 0.4; /* Pushes actions to bottom */
+    width: 50%;
+}
+
+[layout="sidebar"] .sidebar-actions {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    margin-bottom: 20px;
+    flex-grow: 0.2;
+    width: 50%;
+}
+
+/******************************************************************************/
+/* LAYOUT NAV-BAR  */
+/******************************************************************************/
+
+[layout="navbar"] {
+    position: absolute;
+    width: 80%;
+    height: 100px;
+    top: 4%;
+    left: 12%;
+    /* background-color: #F5DAA7; */
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+[layout="navbar"] .navbar-welcome {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+[layout="navbar"] .navbar-welcome img {
+    /* Your styles here */
+    width: 80px;
+    height: 90px;
+    border-radius: 7px;
+    box-shadow: -1px -1px 5px -1px #FF4622;
+}
+
+[layout="navbar"] .navbar-welcome div {
+    margin-top: 20px;
+}
+
+[layout="navbar"] .navbar-welcome h2 {
+    color: var(--text-color);
+    font-size: 30px;
+    margin: 0;
+}
+
+[layout="navbar"] .navbar-welcome p {
+    color: var(--white);
+    font-size: 20px;
+}
+
+[layout="navbar"] .navbar-search {
+    width: 30%;
+    margin-right: 15px;
+
+    display: flex;
+    justify-content: flex-end;
+}
+
+
+[layout="navbar"] .navbar-search input {
+    height: 40px;
+
+    border-radius: 5px;
+    border: none;
+    background-color: #4C4241;
+    font-family: "bungee", serif;
+    color: var(--white);
+    font-size: large;
+    padding-left: 15px;
+    outline: none;
+}
+
+
+/******************************************************************************/
+/* LAYOUT HOME-CONTENT  */
+/******************************************************************************/
+
+[layout="home-content"] {
+    position: absolute;
+    top: 15%;
+    left: 12%;
+    height: 80%;
+    width: 86%;
+
+    display: flex;
+    gap: 60px;
+}
+
+/********************************************/
+/* user-info-section  */
+/********************************************/
+
+[layout="home-content"] .user-info-section {
+    flex-grow: 1;
+    /* border: 2px solid #F5DAA7; */
+
+    display: flex;
+    flex-direction: column;
+}
+
+/***************************/
+/* user-profile  */
+/***************************/
+
+[layout="home-content"] .user-profile {
+    height: 300px;
+    padding-left: 50px;
+    border-radius: 10px; /* Rounded corners */
+    
+    /* Border with a linear gradient */
+    border: 2px solid transparent;
+    background-clip: padding-box, border-box;
+    background-origin: padding-box, border-box;
+    background-image:
+        linear-gradient(#1C1B19, #1C1B19), /* Inner solid background */
+        linear-gradient(to bottom, 
+            rgba(225, 201, 154, 0.32) 0%, 
+            rgba(247, 105, 66, 0.32) 28%, 
+            rgba(239, 140, 98, 0.32) 60%,
+            rgba(225, 201, 154, 0.32) 99%
+        ); /* Border gradient */
+
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 50px;
+}
+
+[profileElement="picture"] {
+    width: 200px;
+    height: 200px;
+    border-radius: 100px; /* Circle shape */
+    overflow: hidden;
+}
+
+[profileElement="picture"] img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Ensure the image covers the entire area */
+}
+
+[profileElement="fullName"] {
+    color: var(--other-text-color);
+}
+
+[profileElement="userName"] {
+    color: var(--white);
+    font-size: 30px;
+}
+
+
+/***************************/
+/* user-game-stats  */
+/***************************/
+
+[layout="home-content"] .user-game-stats {
+    height: 100px;
+    margin-top: 20px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.user-game-stats .game-stat {
+    height: 100%;
+    width: 300px;
+    padding: 0;
+    border-radius: 5px; /* Rounded corners */
+
+    /* Border with a linear gradient */
+    border: 2px solid transparent;
+    background-clip: padding-box, border-box;
+    background-origin: padding-box, border-box;
+    background-image:
+        linear-gradient(#1C1B19, #1C1B19), /* Inner solid background */
+        linear-gradient(to bottom, 
+            rgba(225, 201, 154, 0.32) 0%, 
+            rgba(247, 105, 66, 0.32) 28%, 
+            rgba(239, 140, 98, 0.32) 60%,
+            rgba(225, 201, 154, 0.32) 99%
+        ); /* Border gradient */
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+.user-game-stats .game-stat h3 {
+    font-size: 30px;
+    color: var(--other-text-color);
+    margin: 0;
+}
+
+.user-game-stats .game-stat span {
+    color: var(--white);
+    font-size: 30px;
+}
+
+
+/***************************/
+/* h1  */
+/***************************/
+
+[layout="home-content"] .your-last-battles {
+    margin-top: 50px;
+    font-size: 40px;
+    color: var(--text-color);
+}
+
+/***************************/
+/* user-match-history  */
+/***************************/
+
+
+[layout="home-content"] .user-match-history {
+    height: 200px;
+    flex-grow: 1;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+}
+
+.user-match-history [match] {
+    height: 100px;
+
+    padding: 5px;
+    border-radius: 5px; /* Rounded corners */
+    /* Border with a linear gradient */
+    border: 2px solid transparent;
+    background-clip: padding-box, border-box;
+    background-origin: padding-box, border-box;
+    background-image:
+        linear-gradient(#1C1B19, #1C1B19), /* Inner solid background */
+        linear-gradient(to bottom, 
+            rgba(225, 201, 154, 0.32) 0%, 
+            rgba(247, 105, 66, 0.32) 28%, 
+            rgba(239, 140, 98, 0.32) 60%,
+            rgba(225, 201, 154, 0.32) 99%
+        ); /* Border gradient */
+    
+    display: flex;
+    justify-content: space-around;
+}
+
+.user-match-history div[match] div[player] {
+    display: flex;
+    align-items: center;
+    gap: 50px; /* Space between the player pic, name, and score */
+}
+
+.user-match-history div[match] div[player] .pic,
+.user-match-history div[match] div[player] .pic {
+    width: 80px;
+    height: 80px;
+    border-radius: 100%;
+    background-color: #4C4241;
+    overflow: hidden;
+}
+
+.user-match-history div[match] div[player] .pic img,
+.user-match-history div[match] div[player] .pic img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.user-match-history div[match] div[player] .user {
+    color: var(--white);
+}
+
+.user-match-history div[match] div[player] .score {
+    color: var(--text-color);
+}
+
+/********************************************/
+/* user-progress-section  */
+/********************************************/
+
+[layout="home-content"] .user-progress-section {
+    flex-basis: 30%;
+    background-color: #1C1B19; /* Set solid background */
+    border-radius: 10px; /* Rounded corners */
+
+    /* Border with a linear gradient */
+    border: 2px solid transparent;
+    background-clip: padding-box, border-box;
+    background-origin: padding-box, border-box;
+    background-image:
+        linear-gradient(#1C1B19, #1C1B19), /* Inner solid background */
+        linear-gradient(to bottom, 
+            rgba(225, 201, 154, 0.32) 0%, 
+            rgba(247, 105, 66, 0.32) 28%, 
+            rgba(239, 140, 98, 0.32) 60%,
+            rgba(225, 201, 154, 0.32) 99%
+        ); /* Border gradient */
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.user-progress-section .your-planet {
+    font-size: 60px;
+    color: var(--text-color);
+}
+
+.user-progress-section .user-planet     {
+    height: 400px;
+    width: 400px;
+    border-radius: 100px;
+    overflow: hidden;
+}
+
+.user-progress-section .user-planet img {
+    height: 100%;
+    width: 100%;
+    object-fit: cover;
+}
+
+
+
+

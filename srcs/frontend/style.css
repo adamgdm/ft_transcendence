@@ -5,11 +5,9 @@
     --text-color: #DA8890;
     --light-green: #A9AD5A;
     --dark-green: #313833;
+    --other-text-color: #F5DAA7;
     --white: #fff;
 }
-
-
-
   
 body, html {
     background-color: var(--space-color);
