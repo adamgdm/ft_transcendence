@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'gameBackend',
     'corsheaders',
     'channels',
+    'blockchain'
 ]
 
 MIDDLEWARE = [
