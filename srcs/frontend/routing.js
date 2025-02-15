@@ -20,6 +20,9 @@ window.onload = function () {
         case 'home':
             loadPage('home')
             break
+        case 'play':
+            loadPage('play')
+            break
         default:
             loadPage('404')
     }
