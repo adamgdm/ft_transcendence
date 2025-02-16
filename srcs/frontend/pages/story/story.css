@@ -440,10 +440,10 @@
 }
 
 /******************************************************************************/
-/* OTP MODAL  */
+/* verification MODAL  */
 /******************************************************************************/
 
-[data-modal="otp"]  {
+[data-modal="email-verification"]  {
     display: none;
 
     /* display: flex;
@@ -452,11 +452,11 @@
     z-index: 1; */
 }
 
-[data-modal="otp"] .otp-logo  {
+[data-modal="email-verification"] .verification-logo  {
     margin-top: 100px;
 }
 
-[data-modal="otp"] .otp-des {
+[data-modal="email-verification"] .verification-des {
     margin-top: 50px;
     color: var(--white);
     font-size: x-large;
@@ -466,7 +466,7 @@
     text-align: center;
 }
 
-[data-modal="otp"] .otp-mail-text  {
+[data-modal="email-verification"] .verification-mail-text  {
     width: 90%;
     margin-top: 30px;
     color: var(--text-color);
@@ -477,7 +477,7 @@
     white-space: normal;
 }
 
-[data-form="otp"]   {
+[data-form="email-verification"]   {
     margin-top: 100px;
     width: 90%;
     display: flex;
@@ -487,7 +487,7 @@
     gap: 80px;
 }
 
-[data-form="otp"] .input-holder   {
+[data-form="email-verification"] .input-holder   {
     width: 100%;
     height: 100px;
     display: flex;
@@ -495,7 +495,7 @@
     justify-content: space-around;
 }
 
-[data-form="otp"] .form-input  {
+[data-form="email-verification"] .form-input  {
     padding: 2px;
     width: 80px;
     height: 100%;
@@ -519,7 +519,7 @@
     outline: none;
 }
 
-[data-form="otp"] .form-submit {
+[data-form="email-verification"] .form-submit {
     width: 94%;
     height: 80px;
 
@@ -539,12 +539,12 @@
 /******************************************************************************/
 
 [data-modal="login"] {
-    /* display: none; */
+    display: none;
 
-    display: flex;
+    /* display: flex;
     flex-direction: column;
     align-items: center;
-    z-index: 1;
+    z-index: 1; */
 }
 
 [data-form="login"] {

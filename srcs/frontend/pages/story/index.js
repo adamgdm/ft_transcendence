@@ -23,9 +23,9 @@ export function storyActions() {
     const signupForm = document.querySelector('[data-form="signup"]');
     const closeSign = document.querySelector('[data-close="signup"]');
 
-    const otpModal = document.querySelector('[data-modal="otp"]');
-    const otpForm = document.querySelector('[data-form="otp"]');
-    const closeOtp = document.querySelector('[data-close="otp"]');
+    const vefiricationModal = document.querySelector('[data-modal="email-verification"]');
+    const vefiricationForm = document.querySelector('[data-form="email-verification"]');
+    const closeVerification = document.querySelector('[data-close="email-verification"]');
 
 
     const users = []; // Assuming you have a users array to store user data
@@ -47,10 +47,10 @@ export function storyActions() {
         signupForm.reset();
     });
 
-    // Event listener for closing the OTP modal
-    closeOtp.addEventListener('click', () => {
-        hideModal(otpModal);
-        otpForm.reset();
+    // Event listener for closing the VERIFICATION modal
+    closeVerification.addEventListener('click', () => {
+        hideModal(vefiricationModal);
+        vefiricationForm.reset();
     });
 
     // Event listener for opening the signup modal
@@ -75,25 +75,25 @@ export function storyActions() {
         signupForm.reset();
         hideModal(signupModal);
 
-        const otpMailText = otpModal.querySelector('.otp-mail-text')
-        otpMailText.textContent = email;
-        displayModal(otpModal);
+        const verificationMailText = vefiricationModal.querySelector('.verification-mail-text')
+        verificationMailText.textContent = email;
+        displayModal(vefiricationModal);
 
-        const firstOtpInput = otpForm.querySelector('[name="num-1"]')
-        firstOtpInput.focus();
+        const firstVerifInput = vefiricationForm.querySelector('[name="num-1"]')
+        firstVerifInput.focus();
     });
 
-    // Event listener for submitting the OTP form
-    otpForm.addEventListener('submit', (e) => {
+    // Event listener for submitting the VERIFICATION form
+    vefiricationForm.addEventListener('submit', (e) => {
         e.preventDefault();
-        const otpCode = [];
+        const verifCode = [];
         for (let i = 1; i <= 6; i++) {
-            const num = otpForm.querySelector(`[name="num-${i}"]`).value;
-            otpCode.push(num);
+            const num = vefiricationForm.querySelector(`[name="num-${i}"]`).value;
+            verifCode.push(num);
         }
-        // otpCode.forEach(num => console.log(num));
-        hideModal(otpModal);
-        otpForm.reset();
+        // verifCode.forEach(num => console.log(num));
+        hideModal(vefiricationModal);
+        vefiricationForm.reset();
     });
 
     // Close the signup modal when clicking outside of it
@@ -104,11 +104,11 @@ export function storyActions() {
         }
     });
     
-    // Close the OTP modal when clicking outside of it
+    // Close the VERIFICATION modal when clicking outside of it
     window.addEventListener("click", (event) => {
-        if (!otpModal.contains(event.target) && event.target !== signupForm.querySelector('[class="form-submit"]')) {
-            hideModal(otpModal);
-            otpForm.reset();
+        if (!vefiricationModal.contains(event.target) && event.target !== signupForm.querySelector('[class="form-submit"]')) {
+            hideModal(vefiricationModal);
+            vefiricationForm.reset();
         }
     });   
 }
