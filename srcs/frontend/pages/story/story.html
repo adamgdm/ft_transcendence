@@ -151,5 +151,27 @@
                 <input type="submit" value="Confirm" class="form-submit">
             </form>
         </div>
+
+        <!-- LOGIN Modal -->
+        <div class="modal" data-modal="login">
+            <h1 class="modal-title">Login</h1>
+            <img class="modal-close-btn" data-close="signup" src="assets/exit.svg" alt="close">
+            <h2 class="login-des">Welcom back,<br>Login with your email and password</h2>
+            
+            <form class="modal-form" data-form="login">
+                <div class="form-group">
+                    <label for="login-email" class="form-text">Email</label><br>
+                    <input type="email" name="email" class="form-input" id="login-email" required>
+                </div>
+                <div class="form-group">
+                    <label for="login-passwd" class="form-text">Password</label><br>
+                    <input type="password" name="passwd" class="form-input" id="login-passwd" required>
+                </div>
+                <div class="form-group">
+                    <input type="submit" value="Login" class="form-submit">
+                </div>
+            </form>
+            <button class="login-forpass-btn">forget password</button>
+        </div>
     </section>
 </div>
