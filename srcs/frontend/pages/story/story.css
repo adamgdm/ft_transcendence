@@ -342,6 +342,8 @@
             rgba(239, 140, 98, 0.32) 60%,
             rgba(225, 201, 154, 0.32) 99%
         );
+
+    pointer-events: all;
 }
 
 .modal-title {

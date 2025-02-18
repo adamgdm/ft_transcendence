@@ -1,7 +1,5 @@
 export function storyActions() {
 
-    console.log('haliloywaaa')
-
     class User {
         constructor(fname, lname, uname, email, passwd) {
         this.fname = fname;
@@ -16,39 +14,34 @@ export function storyActions() {
     }
 
     const signupBtn = document.getElementById('signup-btn');
-    console.log("cc heramina" + signupBtn)
     const loginBtn = document.getElementById('login-btn');
 
     const signupModal = document.querySelector('[data-modal="signup"]');
     const signupForm = document.querySelector('[data-form="signup"]');
-    const closeSign = document.querySelector('[data-close="signup"]');
+    const close = document.querySelectorAll('[data-close]');
 
     const vefiricationModal = document.querySelector('[data-modal="email-verification"]');
     const vefiricationForm = document.querySelector('[data-form="email-verification"]');
-    const closeVerification = document.querySelector('[data-close="email-verification"]');
 
 
     const users = []; // Assuming you have a users array to store user data
 
     function displayModal(modal) {
         modal.classList.add("active")
+        document.body.classList.add("open-modal")
     }
 
     function hideModal(modal) {
         modal.classList.remove("active")
+        document.body.classList.remove("open-modal")
     }
 
     // Event listener for closing the signup modal
-    closeSign.addEventListener('click', () => {
-        hideModal(signupModal);
-        signupForm.reset();
-    });
-
-    // Event listener for closing the VERIFICATION modal
-    closeVerification.addEventListener('click', () => {
-        hideModal(vefiricationModal);
-        vefiricationForm.reset();
-    });
+    close.forEach(item => {item.addEventListener('click', () => {
+        const parent = item.parentElement
+        console.log(item.parentElement.getAttribute('data-modal'))
+        hideModal(parent)
+    })})
 
     // Event listener for opening the signup modal
     signupBtn.addEventListener('click', () => {
@@ -89,23 +82,10 @@ export function storyActions() {
             verifCode.push(num);
         }
         // verifCode.forEach(num => console.log(num));
-        hideModal(vefiricationModal);
         vefiricationForm.reset();
-    });
+        hideModal(vefiricationModal);
 
-    // Close the signup modal when clicking outside of it
-    window.addEventListener("click", (event) => {
-        if (!signupModal.contains(event.target) && event.target !== signupBtn) {
-            hideModal(signupModal);
-            signupForm.reset();
-        }
+        const firstVerifInput = vefiricationForm.querySelector('[name="num-1"]')
+        firstVerifInput.focus();
     });
-    
-    // Close the VERIFICATION modal when clicking outside of it
-    window.addEventListener("click", (event) => {
-        if (!vefiricationModal.contains(event.target) && event.target !== signupForm.querySelector('[class="form-submit"]')) {
-            hideModal(vefiricationModal);
-            vefiricationForm.reset();
-        }
-    });   
 }
