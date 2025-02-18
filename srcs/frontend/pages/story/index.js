@@ -31,14 +31,11 @@ export function storyActions() {
     const users = []; // Assuming you have a users array to store user data
 
     function displayModal(modal) {
-        modal.style.display = 'flex';
-        modal.style.flexDirection = 'column';
-        modal.style.alignItems = 'center';
-        modal.style.zIndex = '1';
+        modal.classList.add("active")
     }
 
     function hideModal(modal) {
-        modal.style.display = 'none';
+        modal.classList.remove("active")
     }
 
     // Event listener for closing the signup modal

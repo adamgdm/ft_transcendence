@@ -250,21 +250,6 @@
     transform: rotate(70deg);
 }
 
-/* trying a best way to center the divs; u can use css to rout the files instead of use the anchor
-
-/* .bottons {
-    width: 100vw;
-    display: flex;
-    justify-content: space-around;
-}
-
-.bottons > button {
-    width: 400px;
-    height: 200px;
-    font-size: 3rem;
-    font-family: "bungee", serif;
-} */
-
 .buttons {
     display: flex;
     justify-content: space-around;
@@ -273,10 +258,6 @@
     height: 33vh;
     margin: auto auto;
     z-index: 1;
-    
-
-    /* background-color: #F3DC50;
-    border: 2px solid blueviolet; */
     
     transform: translateY(40%) scale(1.2);
 }
@@ -317,6 +298,25 @@
     transform: translateY(-5%);
     box-shadow: 0 0 50px 5px var(--stars-color);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /******************************************************************************/
 /* MODAL  */
@@ -369,12 +369,19 @@
 /******************************************************************************/
 
 [data-modal="signup"] {
-    display: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.08s ease-in-out, visibility 0.08s ease-in-out;
 
-    /* display: flex;
+    display: flex;
     flex-direction: column;
     align-items: center;
-    z-index: 1; */
+    z-index: 1;
+}
+
+[data-modal="signup"].active {
+    opacity: 100%;
+    visibility: visible;
 }
 
 [data-form="signup"] {
@@ -418,8 +425,6 @@
     outline: none;
 }
 
-
-
 [data-form="signup"] .form-text {
     margin-left:  20px;
 }
@@ -440,16 +445,23 @@
 }
 
 /******************************************************************************/
-/* verification MODAL  */
+/* VERIFICATION MODAL  */
 /******************************************************************************/
 
 [data-modal="email-verification"]  {
-    display: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.08s ease-in-out, visibility 0.08s ease-in-out;
 
-    /* display: flex;
+    display: flex;
     flex-direction: column;
     align-items: center;
-    z-index: 1; */
+    z-index: 1;
+}
+
+[data-modal="email-verification"].active {
+    opacity: 100%;
+    visibility: visible;
 }
 
 [data-modal="email-verification"] .verification-logo  {
@@ -539,12 +551,19 @@
 /******************************************************************************/
 
 [data-modal="login"] {
-    display: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.08s ease-in-out, visibility 0.08s ease-in-out;
 
-    /* display: flex;
+    display: flex;
     flex-direction: column;
     align-items: center;
-    z-index: 1; */
+    z-index: 1;
+}
+
+[data-modal="login"].active {
+    opacity: 100%;
+    visibility: visible;
 }
 
 [data-form="login"] {
