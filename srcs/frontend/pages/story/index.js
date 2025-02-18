@@ -13,15 +13,23 @@ export function storyActions() {
         }
     }
 
-    const signupBtn = document.getElementById('signup-btn');
-    const loginBtn = document.getElementById('login-btn');
+    const signupBtn = document.getElementById('signup-btn')
+    const loginBtn = document.getElementById('login-btn')
 
-    const signupModal = document.querySelector('[data-modal="signup"]');
-    const signupForm = document.querySelector('[data-form="signup"]');
-    const close = document.querySelectorAll('[data-close]');
+    const close = document.querySelectorAll('[data-close]')
 
-    const vefiricationModal = document.querySelector('[data-modal="email-verification"]');
-    const vefiricationForm = document.querySelector('[data-form="email-verification"]');
+    const signupModal = document.querySelector('[data-modal="signup"]')
+    const signupForm = document.querySelector('[data-form="signup"]')
+
+    const vefiricationModal = document.querySelector('[data-modal="email-verification"]')
+    const vefiricationForm = document.querySelector('[data-form="email-verification"]')
+
+    const loginModal = document.querySelector('[data-modal="login"]')
+    const loginForm = document.querySelector('[data-form="login"]')
+    const loginForBtn = document.getElementsByClassName('login-forpass-btn')[0]
+
+    const forgotPassModal = document.querySelector('[data-modal="forgot-password"]')
+    const forgotPassForm = document.querySelector('[data-form="forgot-password"]')
 
 
     const users = []; // Assuming you have a users array to store user data
@@ -36,17 +44,23 @@ export function storyActions() {
         document.body.classList.remove("open-modal")
     }
 
-    // Event listener for closing the signup modal
+    // Event listener for closing the SIGNUP modal
     close.forEach(item => {item.addEventListener('click', () => {
+        console.log("close clicked")
         const parent = item.parentElement
         console.log(item.parentElement.getAttribute('data-modal'))
         hideModal(parent)
     })})
 
-    // Event listener for opening the signup modal
+    // Event listener for opening the SIGNUP modal
     signupBtn.addEventListener('click', () => {
         displayModal(signupModal);
     });
+
+    // Event listener for opening the LOGIN modal
+    loginBtn.addEventListener('click', () => {
+        displayModal(loginModal)
+    })
 
     // Event listener for submitting the signup form
     signupForm.addEventListener('submit', (e) => {
@@ -88,4 +102,60 @@ export function storyActions() {
         const firstVerifInput = vefiricationForm.querySelector('[name="num-1"]')
         firstVerifInput.focus();
     });
+
+    // Event listener for submitting the LOGIN form
+    loginForm.addEventListener('submit', (e) => {
+        e.preventDefault()
+
+        const email = loginForm.querySelector('#login-email').value
+        const pass = loginForm.querySelector('#login-passwd').value
+
+        ////////////////////////////////////
+        // send data to adaam to verify it
+        ///////////////////////////////////
+
+        console.log("Login informations:  " + email + "  " + pass)
+
+        loginForm.reset()
+        hideModal(loginModal)
+    })
+
+    // Event listener for the FORGOT PASSWORD button in login modal
+    loginForBtn.addEventListener('click', () => {
+        hideModal(loginModal)
+        displayModal(forgotPassModal)
+        forgotPassForm.reset()
+        
+        const steps = document.querySelectorAll("[for-step]");
+        let currentStep = 1;
+        showStep(currentStep);
+
+        function showStep(stepNumber) {
+            steps.forEach(step => {
+                step.classList.add("hidden");
+                if (step.getAttribute('for-step') == stepNumber) {
+                    step.classList.remove("hidden");
+                }
+            });
+        }
+
+        document.getElementById("sendCode").addEventListener("click", () => {
+            // Simulate sending code and move to step 2
+            currentStep = 2;
+            showStep(currentStep);
+        });
+
+        document.getElementById("verifyCode").addEventListener("click", () => {
+            // Simulate verifying code and move to step 3
+            currentStep = 3;
+            showStep(currentStep);
+        });
+
+        document.getElementById("resetPassword").addEventListener("click", () => {
+            console.log("reset Password clicked")
+            currentStep = 1
+            hideModal(forgotPassModal)
+        });
+    })
+
 }

@@ -155,7 +155,7 @@
         <!-- LOGIN Modal -->
         <div class="modal" data-modal="login">
             <h1 class="modal-title">Login</h1>
-            <img class="modal-close-btn" data-close="signup" src="assets/exit.svg" alt="close">
+            <img class="modal-close-btn" data-close="login" src="assets/exit.svg" alt="close">
             <h2 class="login-des">Welcom back,<br>Login with your email and password</h2>
             
             <form class="modal-form" data-form="login">
@@ -171,7 +171,33 @@
                     <input type="submit" value="Login" class="form-submit">
                 </div>
             </form>
-            <button class="login-forpass-btn">forget password</button>
+            <button class="login-forpass-btn">forgot password</button>
+        </div>
+
+        <!-- FORGOT PASSWORD Modal -->
+        <div class="modal" data-modal="forgot-password">
+            <img class="modal-close-btn" data-close="forgot-password" src="assets/exit.svg" alt="close">
+            <form class="modal-form" data-form="forgot-password">
+                <div class="step1" for-step="1">
+                    <h1 class="modal-title">forgot Password ?</h1> 
+                    <h2 class="forgot-password-des">Enter your email address to receive a reset code.</h2>
+                    <input type="email" id="forgot-mail" name="forgot-mail" placeholder="Enter you email">
+                    <button type="button" id="sendCode">Send Code</button>
+                </div>
+                <div class="step2" for-step="2">
+                    <h1 class="modal-title">Enter Reset Code</h1> 
+                    <h2 class="forgot-password-des">We sent a reset code to your email. Enter it below.</h2>
+                    <input type="number" id="reset-code" name="reset-code" step="any" placeholder="Enter Reset Code">
+                    <button type="button" id="verifyCode">Verify Code</button>
+                </div>
+                <div class="step3" for-step="3">
+                    <h1 class="modal-title">Reset Password</h1> 
+                    <h2 class="forgot-password-des">Enter your new password below.</h2>
+                    <input type="password" id="new-password" placeholder="New Password">
+                    <input type="password" id="confirm-password" placeholder="Confirm Password">
+                    <button type="button" id="resetPassword">Reset Password</button>
+                </div>
+            </form>
         </div>
     </section>
 </div>

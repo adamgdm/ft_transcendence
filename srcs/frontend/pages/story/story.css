@@ -654,3 +654,102 @@
     -webkit-text-stroke: 2px black;
     cursor: pointer;
 }
+
+/******************************************************************************/
+/* FORGOT PASSWORD MODAL  */
+/******************************************************************************/
+
+[data-modal="forgot-password"] {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.08s ease-in-out, visibility 0.08s ease-in-out;
+
+    display: flex;
+    flex-direction: column;
+    z-index: 1;
+}
+
+[data-modal="forgot-password"].active {
+    opacity: 100%;
+    visibility: visible;
+}
+
+[for-step] {
+    position: absolute;
+
+    top: 10rem;
+    width: 100%;
+    /* border: 2px solid #DA8890; */
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    color: var(--white);
+}
+
+[for-step] .forgot-password-des {
+    color: var(--white);
+    font-size: x-large;
+    letter-spacing: 3px;
+    word-wrap: break-word;
+    white-space: normal;
+    text-align: center;
+}
+
+[for-step] input {
+    margin-top: 2rem;
+    width: 50%;
+    height: 50px;
+    border-radius: 10px;
+    
+    border: 5px solid transparent;
+    background-clip: padding-box, border-box;
+    background-origin: padding-box, border-box;
+    background-color: #1C1B19; /* Fallback solid color */
+    background-image:
+        linear-gradient(#1C1B19, #1C1B19), /* Inner solid background */
+        linear-gradient(to bottom,  
+            rgb(90, 82, 65, 0.99) 0%,  
+            rgba(97, 54, 40, 0.8) 50%,  
+            rgba(90, 82, 65, 0.99) 100%  
+        );
+
+    color: var(--white);
+    font-size: x-large;
+    font-family: inherit;
+    padding: 10px;
+    outline: none;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+input[type="number"] {
+    -moz-appearance: textfield; /* Hides the spinner in Firefox */
+    appearance: textfield; /* Standard property for other browsers */
+}
+
+[for-step] button {
+    width: 50%;
+    height: 60px;
+    margin-top: 50px;
+
+    padding: 10px;
+    background-color: #FF4622;
+    border: none;
+    border-radius: 8px;
+    color: var(--white);
+    font-size: 30px;
+    font-family: inherit;
+    -webkit-text-stroke: 2px black;
+    cursor: pointer;
+}
+
+.hidden {
+    display: none;
+}
