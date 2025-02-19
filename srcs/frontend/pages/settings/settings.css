@@ -245,8 +245,10 @@
     height: 78%;
     display: flex;
     flex-direction: column;
-    margin-top: 6%;
+    margin-top: 5%;
     margin-left: 7%;
+
+    /* border: 2px solid #D53C1F; */
 }
 
 [setting-part="password-and-auth"] {
@@ -274,8 +276,8 @@
 }
 
 .profile-picture-container [profileElement="pic"] {
-    width: 100px;
-    height: 100px;
+    width: 80px;
+    height: 80px;
     border-radius: 100px;
     background-color: #FF4622;
     overflow: hidden;
@@ -353,7 +355,7 @@
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 50px;
+    gap: 30px;
 }
 
 .personal-information-container div[change] {
@@ -396,7 +398,7 @@
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 50px;
+    gap: 30px;
 }
 
 .password-and-auth-container div[change] {
@@ -457,8 +459,6 @@
     border-radius: 8px;
     cursor: pointer;
     transition: 0.3s;
-    align-self: center;
-    margin-top: 20px;
 }
 
 .settings-content button[type="submit"]:hover {

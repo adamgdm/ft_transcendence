@@ -176,7 +176,7 @@
 /***************************/
 
 [layout="home-content"] .user-profile {
-    height: 300px;
+    height: 250px;
     padding-left: 50px;
     border-radius: 10px; /* Rounded corners */
     
@@ -196,7 +196,8 @@
     display: flex;
     justify-content: flex-start;
     align-items: center;
-    gap: 50px;
+    gap: 30px;
+
 }
 
 [profileElement="picture"] {
@@ -276,6 +277,7 @@
 /***************************/
 
 [layout="home-content"] .your-last-battles {
+    margin-left: 3px;
     margin-top: 50px;
     font-size: 40px;
     color: var(--text-color);
