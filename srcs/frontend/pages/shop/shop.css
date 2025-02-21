@@ -1,0 +1,301 @@
+.shopPage {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    background-image: url(../../assets/stars.svg);
+    overflow: hidden;
+}
+
+.shopPage .meteoroid {
+    position: absolute;
+    height: 150px;
+    top: 10px;
+    right: 2%;
+    /* text-align: right; */
+}
+
+/******************************************************************************/
+/* LAYOUT SIDE-BAR */
+/******************************************************************************/
+
+[layout="sidebar"] {
+    position: absolute;
+    background-color: #DA8890;
+    height: 90%;
+    width: 5%;
+    top: 2%;
+    left: 2%;
+    padding: 20px 0;
+
+    border-radius: 20px;
+    background-color: rgb(236, 236, 236, 0.39);
+    border: 5px solid #FF4622;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    text-align: center;
+}
+
+[layout="sidebar"]::after {
+    content: "";
+    display: block;
+    width: 100%;
+    height: 2px;
+    background-color: #F5DAA7;
+    position: absolute;
+    bottom: 25%;
+    left: 0;
+}
+
+[layout="sidebar"] .sidebar-logo {
+    margin-top: 20px;
+    width: 50%;
+    display: flex;
+    justify-content: center;
+}
+
+[layout="sidebar"] .sidebar-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 50px; /* Space between icons */
+    flex-grow: 0.4; /* Pushes actions to bottom */
+    width: 50%;
+}
+
+[layout="sidebar"] .sidebar-actions {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    margin-bottom: 20px;
+    flex-grow: 0.2;
+    width: 50%;
+}
+
+/******************************************************************************/
+/* LAYOUT NAV-BAR  */
+/******************************************************************************/
+
+[layout="navbar"] {
+    position: absolute;
+    width: 80%;
+    height: 100px;
+    top: 4%;
+    left: 12%;
+    /* background-color: #F5DAA7; */
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+[layout="navbar"] .navbar-welcome {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+[layout="navbar"] .navbar-welcome img {
+    /* Your styles here */
+    width: 80px;
+    height: 90px;
+    border-radius: 7px;
+    box-shadow: -1px -1px 5px -1px #FF4622;
+}
+
+[layout="navbar"] .navbar-welcome div {
+    margin-top: 20px;
+}
+
+[layout="navbar"] .navbar-welcome h2 {
+    color: var(--text-color);
+    font-size: 30px;
+    margin: 0;
+}
+
+[layout="navbar"] .navbar-welcome p {
+    color: var(--white);
+    font-size: 20px;
+}
+
+[layout="navbar"] .navbar-search {
+    width: 30%;
+    margin-right: 15px;
+
+    display: flex;
+    justify-content: flex-end;
+}
+
+
+[layout="navbar"] .navbar-search input {
+    height: 40px;
+
+    border-radius: 5px;
+    border: none;
+    background-color: #4C4241;
+    font-family: "bungee", serif;
+    color: var(--white);
+    font-size: large;
+    padding-left: 15px;
+    outline: none;
+}
+
+/******************************************************************************/
+/* LAYOUT SHOP-CONTENT  */
+/******************************************************************************/
+
+[layout="shop-content"] {
+    position: absolute;
+    top: 15%;
+    left: 12%;
+    height: 80%;
+    width: 86%;
+
+    border-radius: 10px; /* Rounded corners */
+    
+    /* Border with a linear gradient */
+    border: 2px solid transparent;
+    background-clip: padding-box, border-box;
+    background-origin: padding-box, border-box;
+    background-image:
+        linear-gradient(#1C1B19, #1C1B19), /* Inner solid background */
+        linear-gradient(to bottom, 
+            rgba(225, 201, 154, 0.32) 0%, 
+            rgba(247, 105, 66, 0.32) 28%, 
+            rgba(239, 140, 98, 0.32) 60%,
+            rgba(225, 201, 154, 0.32) 99%
+        ); /* Border gradient */
+}
+
+[layout="shop-content"]::after {
+    content: "";
+    display: block;
+    width: 90%;
+    height: 2px;
+    position: absolute;
+    top: 10%;
+    left: 5%;
+
+    /* Apply linear gradient */
+    background-image: linear-gradient(to bottom, 
+        rgba(225, 201, 154, 0.32) 0%, 
+        rgba(247, 105, 66, 0.32) 28%, 
+        rgba(239, 140, 98, 0.32) 60%,
+        rgba(225, 201, 154, 0.32) 99%
+    );
+}
+
+.line1 {
+    margin-top: -15px;
+    width: 100%;
+    height: 2px;
+    background-image: linear-gradient(to bottom, 
+        rgba(225, 201, 154, 0.32) 0%, 
+        rgba(247, 105, 66, 0.32) 28%, 
+        rgba(239, 140, 98, 0.32) 60%,
+        rgba(225, 201, 154, 0.32) 99%
+    );
+    /* position: absolute; */
+}
+
+.line2 {
+    margin-top: -15px;
+    width: 100%;
+    height: 2px;
+    background-image: linear-gradient(to bottom, 
+        rgba(225, 201, 154, 0.32) 0%, 
+        rgba(247, 105, 66, 0.32) 28%, 
+        rgba(239, 140, 98, 0.32) 60%,
+        rgba(225, 201, 154, 0.32) 99%
+    );
+    /* position: absolute; */
+}
+
+[layout="shop-content"] .shop {
+    position: absolute;
+    left: 5%;
+    font-size: 40px;
+    color: var(--text-color);
+}
+
+/*******************************************/
+/* shop content  */
+/*******************************************/
+
+.shop-content {
+    width: 88%;
+    height: 85%;
+    display: flex;
+    flex-direction: column;
+    margin-top: 5%;
+    margin-left: 7%;
+
+    /* border: 2px solid #D53C1F; */
+    color: var(--white);
+}
+
+.planet-item img,
+.avatar-item img {
+    width: 150px; 
+    height: 150px; 
+    object-fit: contain;
+}
+.planets-container, .avatars-container {
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+/***********************/
+/* PLANETS  */
+/***********************/
+
+.planets-container {
+    margin-top: 3em;
+    /* border: 1px solid #D53C1F; */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.planet-item {
+    text-align: center;
+    background: linear-gradient(to bottom, 
+    rgba(247, 105, 66) 0%, 
+    rgba(246, 111, 72) 35%,
+    rgba(225, 201, 154, 0.3) 96%
+    );;
+    background-clip: text;               /* Standard property */
+    -webkit-background-clip: text;       /* WebKit browsers (Chrome, Safari, Edge) */
+    -moz-background-clip: text;          /* Mozilla Firefox (older versions) */
+    -ms-background-clip: text;           /* Internet Explorer (not well supported) */
+    -o-background-clip: text;            /* Opera (older versions) */
+    -webkit-text-fill-color: transparent; /* Hide the original text color */
+}
+
+/***********************/
+/* AVATARS  */
+/***********************/
+
+.avatars-container {
+    margin-top: 3em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    /* border: 1px solid #D53C1F; */
+}
+
+.avatar-item {
+    text-align: center;
+    background: linear-gradient(to bottom, 
+    rgba(247, 105, 66) 0%, 
+    rgba(246, 111, 72) 35%,
+    rgba(225, 201, 154, 0.3) 96%
+    );;
+    background-clip: text;               /* Standard property */
+    -webkit-background-clip: text;       /* WebKit browsers (Chrome, Safari, Edge) */
+    -moz-background-clip: text;          /* Mozilla Firefox (older versions) */
+    -ms-background-clip: text;           /* Internet Explorer (not well supported) */
+    -o-background-clip: text;            /* Opera (older versions) */
+    -webkit-text-fill-color: transparent; /* Hide the original text color */
+}
