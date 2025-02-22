@@ -1,7 +1,7 @@
 import { storyActions } from "./pages/story/index.js"
 import { scrollAction } from "./pages/story/scroll.js"
 
-let isAutheticated = false
+let isAutheticated = true
 
 const authenticatedPages = ['home', 'settings', 'shop', 'play']
 
@@ -89,14 +89,14 @@ function loadContentIntoLayout(path)    {
     request.send();
 }
 
-function setupSidebarNavigation() {
-    document.querySelectorAll('.sidebar-menu').forEach(item => {
-        item.addEventListener('click', () => {
-            const path = item.getAttribute('value') || '';
-            window.location.hash = path;
-        });
-    });
-}
+// function setupSidebarNavigation() {
+//     document.querySelectorAll('.sidebar-menu').forEach(item => {
+//         item.addEventListener('click', () => {
+//             const path = item.getAttribute('value') || '';
+//             window.location.hash = path;
+//         });
+//     });
+// }
 
 function loadPage(path) {
     const content = document.getElementById('content');

@@ -7,6 +7,7 @@
     --dark-green: #313833;
     --other-text-color: #F5DAA7;
     --white: #fff;
+    --navbar-color: #4C4241
 }
   
 body, html {
@@ -55,7 +56,7 @@ body.open-modal {
 
     border-radius: 20px;
     background-color: rgb(236, 236, 236, 0.39);
-    border: 5px solid #FF4622;
+    border: 3px solid #FF4622;
 
     display: flex;
     flex-direction: column;
@@ -81,24 +82,34 @@ body.open-modal {
     width: 50%;
     display: flex;
     justify-content: center;
+    /* border: 2px solid #fff; */
 }
 
 [layout="sidebar"] .sidebar-menu {
     display: flex;
     flex-direction: column;
-    gap: 50px; /* Space between icons */
+    align-items: center;
+    gap: 60px; /* Space between icons */
     flex-grow: 0.4; /* Pushes actions to bottom */
     width: 50%;
+    /* border: 2px solid #FF4622; */
 }
 
 [layout="sidebar"] .sidebar-actions {
     display: flex;
     flex-direction: column;
     justify-content: space-around;
-    margin-bottom: 20px;
-    flex-grow: 0.2;
+    align-items: center;
+    flex-grow: 0.3;
     width: 50%;
+    /* border: 2px solid #F3DC50; */
 }
+
+[layout="sidebar"] .icon {
+    color: #000000;
+    opacity: 78%;
+}
+
 
 /******************************************************************************/
 /* LAYOUT NAV-BAR  */
@@ -161,7 +172,7 @@ body.open-modal {
 
     border-radius: 5px;
     border: none;
-    background-color: #4C4241;
+    background-color: var(--navbar-color);
     font-family: "bungee", serif;
     color: var(--white);
     font-size: large;
