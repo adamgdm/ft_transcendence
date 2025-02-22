@@ -88,15 +88,17 @@ function loadContentIntoLayout(path)    {
     };
     request.send();
 }
-
-// function setupSidebarNavigation() {
-//     document.querySelectorAll('.sidebar-menu').forEach(item => {
-//         item.addEventListener('click', () => {
-//             const path = item.getAttribute('value') || '';
-//             window.location.hash = path;
-//         });
-//     });
-// }
+function setupSidebarNavigation() {
+    document.querySelectorAll('.sidebar-menu i, .sidebar-actions i').forEach(item => {
+        item.addEventListener('click', () => {
+            const target = item.getAttribute('data-target');
+            console.log(target)
+            if (target) {
+                window.location.hash = target;
+            }
+        });
+    });
+}
 
 function loadPage(path) {
     const content = document.getElementById('content');

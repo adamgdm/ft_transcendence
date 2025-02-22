@@ -108,6 +108,7 @@ body.open-modal {
 [layout="sidebar"] .icon {
     color: #000000;
     opacity: 78%;
+    cursor: pointer;
 }
 
 
