@@ -1,102 +1,148 @@
 import { storyActions } from "./pages/story/index.js"
 import { scrollAction } from "./pages/story/scroll.js"
 
+let isAutheticated = false
+
+const authenticatedPages = ['home', 'settings', 'shop', 'play']
+
 window.onload = function () {
-    // when typing the url first time
-    const fragId = window.location.hash.substring(1)
-    console.log("this frag is : " + fragId)
-
-    switch (fragId) {
-        case "story":
-        case "":
-            loadPage('story')
-            break
-        case '404':
-            loadPage('404')
-            break
-        case 'settings':
-            loadPage('settings')
-            break
-        case 'home':
-            loadPage('home')
-            break
-        case 'play':
-            loadPage('play')
-            break
-        case 'shop':
-            loadPage('shop')
-            break
-        default:
-            loadPage('404')
-    }
-
-    // when clicking on items in sidebar
-    // document.querySelectorAll('.menu-item').forEach(item => {
-    //     item.addEventListener('click', () => {
-    //         const path = item.getAttribute('value')
-    //         loadPage(path)
-    //         if (path == "") {
-    //             window.location.hash = ""
-    //             return
-    //         }
-    //         else    {
-    //             window.location.hash = path
-    //         }
-    //     })
-
-    // })
-
-    // track changes on the url
+    const fragId = window.location.hash.substring(1) || 'story'
+    routeToPage(fragId)
+    
     window.addEventListener('hashchange', () => {
-        const path = window.location.hash.substring(1)
-        loadPage(path)
+        const path = window.location.hash.substring(1) || 'story'
+        routeToPage(path)
     })
+}
 
-
-    function updateStylesheet(href) {
-        let linkTag = document.querySelector("link[data-section-style]");
-        if (!linkTag){
-            linkTag = document.createElement("link");
-        linkTag.rel = "stylesheet";
-        linkTag.dataset.dynamic = "true";
-        document.head.appendChild(linkTag);
-    }
-    linkTag.href = href;
+function routeToPage(path) {
+    if (!isValidRoute(path)) {
+        loadPage('404')
+        return
     }
 
-    // the function that loads pages
-    function loadPage(path) {
-        const content = document.getElementById('content')
-
-        try {
-            const request = new XMLHttpRequest()
-            request.open('GET', `pages/${path}/${path}.html`)
-            request.send()
-            request.onload = function () {
-                if (request.status == 200) {
-                    content.innerHTML = request.responseText
-                    updateStylesheet(`pages/${path}/${path}.css`)
-                    switch (path) {
-                        case "story":
-                        case "":
-                            storyActions()
-                            scrollAction()
-                            scroll
-                            break
-                        default:
-                            break
-                    }
-                }
-                else {
-                    loadPage('404')
-                }
-            }
+    if (authenticatedPages.includes(path))  {
+        if (!isAutheticated) {
+            window.location.hash = 'story'
+            return
         }
-        catch {
-            console.log("Error loading page:", error);
-            request.onerror = function () {
+
+        loadAuthenticatedLayout(path)
+    }
+    else {
+        loadPage(path)
+    }
+}
+
+function isValidRoute(path) {
+    const validRoutes = ['story', 'home','play', 'shop', 'settings', '404']
+    return validRoutes.includes(path)
+}
+
+function loadAuthenticatedLayout(contentPath) {
+    const content = document.getElementById('content')
+
+    if (!document.querySelector('.layout-container')) {
+        const layoutRequest = new XMLHttpRequest()
+        layoutRequest.open('GET', 'layout/authenticated-layout.html')
+        layoutRequest.onload = function () {
+            if (layoutRequest.status === 200) {
+                content.innerHTML = layoutRequest.responseText
+                console.log("authenticated layout rendered")
+                loadContentIntoLayout(contentPath);
+
+                setupSidebarNavigation()
+            }
+            else {
                 loadPage('404')
             }
         }
+        layoutRequest.onerror = function() {
+            loadPage('404');
+        };
+        layoutRequest.send();
+    }
+    else {
+        loadContentIntoLayout(contentPath);
+    }
+}
+
+function loadContentIntoLayout(path)    {
+    const contentContainer = document.querySelector('.page-content-container')
+    if (!contentContainer) return
+
+    const request = new XMLHttpRequest()
+    request.open('GET', `pages/${path}/${path}.html`)
+    request.onload = function () {
+        if (request.status === 200) {
+            contentContainer.innerHTML = request.responseText
+            updateStylesheet(`pages/${path}/${path}.css`)
+            executePageScripts(path)
+        }
+        else {
+            contentContainer.innerHTML = '<p>Error loading content</p>';
+        }
+    } 
+    request.onerror = function() {
+        contentContainer.innerHTML = '<p>Error loading content</p>';
+    };
+    request.send();
+}
+
+function setupSidebarNavigation() {
+    document.querySelectorAll('.sidebar-menu').forEach(item => {
+        item.addEventListener('click', () => {
+            const path = item.getAttribute('value') || '';
+            window.location.hash = path;
+        });
+    });
+}
+
+function loadPage(path) {
+    const content = document.getElementById('content');
+    
+    try {
+        const request = new XMLHttpRequest();
+        request.open('GET', `pages/${path}/${path}.html`);
+        request.onload = function() {
+            if (request.status === 200) {
+                content.innerHTML = request.responseText;
+                updateStylesheet(`pages/${path}/${path}.css`);
+                executePageScripts(path);
+            } else {
+                loadPage('404');
+            }
+        };
+        request.onerror = function() {
+            loadPage('404');
+        };
+        request.send();
+    } catch (error) {
+        console.log("Error loading page:", error);
+        loadPage('404');
+    }
+}
+
+function updateStylesheet(href) {
+    let linkTag = document.querySelector("link[data-section-style]");
+    if (!linkTag) {
+        linkTag = document.createElement("link");
+        linkTag.rel = "stylesheet";
+        linkTag.dataset.sectionStyle = "true";
+        document.head.appendChild(linkTag);
+    }
+    linkTag.href = href;
+}
+
+function executePageScripts(path) {
+    switch (path) {
+        case "story":
+            storyActions();
+            scrollAction();
+            
+            break;
+        // Add other page-specific script initializations here
+        default:
+            break;
     }
 }

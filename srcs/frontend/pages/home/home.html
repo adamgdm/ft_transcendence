@@ -1,139 +1,102 @@
 
-<div class="homePage">
-    <img class="meteoroid" src="assets/R-meteoroid.svg" alt="right-meteoroid">
+<div layout="home-content"> <!-- Main container for homepage -->
+    <div class="user-info-section">
 
-    <div layout="sidebar">
-        <div class="sidebar-logo">
-             <a href="#story"><img src="assets/icons/logo.svg" alt="The logo"></a>
-        </div>
-        <div class="sidebar-menu">
-            <a href="#home"><img src="assets/icons/home.svg" alt="Home"></a>
-            
-            <img src="assets/icons/chat.svg" alt="Chat">
-            <img src="assets/icons/notification.svg" alt="Notification">
-            <a href="#play"><img src="assets/icons/play.svg" alt="Play"></a>
-            <a href="#shop"><img src="assets/icons/shop.svg" alt="Shop"></a>
-        </div>
-        <div class="sidebar-actions">
-            <a href="#settings"><img src="assets/icons/settings.svg" alt="Settings"></a>
-            <img src="assets/icons/logout.svg" alt="Logout">
-        </div>
-    </div>
-
-    <div layout="navbar">
-        <div class="navbar-welcome">
-            <img src="assets/Leader.svg" alt="Leader">
+        <div class="user-profile">
+            <div profileElement="picture">
+                <!-- The image is dynamically filled -->
+                <img src="https://cdn.intra.42.fr/users/82d39646cd2423210c305aacf10105a6/okassimi.JPG" alt="user picture">
+            </div>
             <div>
-                <h2>Welcome back, <span></span></h2>
-                <p>are you ready for your journey</p>
+                <h1 profileElement="fullName">OTHMANE, KASSIMI</h1>
+                <h3 profileElement="userName">OKASSIMI</h3>
             </div>
         </div>
-        <div class="navbar-search">
-            <form >
-                <input id="search-bar" type="text" placeholder="🍆 Seach here">
-            </form>
+        
+
+        <div class="user-game-stats">
+            <div gameState="PPP" class="game-stat">
+                <h3>PPP</h3>
+                <span>100</span>
+            </div>
+            <div gameState="title" class="game-stat">
+                <h3>TITLE</h3>
+                <span>100</span>
+            </div>
+            <div gameState="winRatio" class="game-stat">
+                <h3>WIN RATIO</h3>
+                <span>100</span>
+            </div>
+            <div gameState="totalMatches" class="game-stat">
+                <h3>TOTAL MATCHES</h3>
+                <span>100</span>
+            </div>
         </div>
+
+
+        <h1 class="your-last-battles">YOUR LAST BATTLES :</h1>
+
+        <div class="user-match-history">
+            <!-- Last Match -->
+            <div match="last" class="match">
+                <div player="you" class="player">
+                    <div class="pic">
+                        <img src="https://cdn.intra.42.fr/users/82d39646cd2423210c305aacf10105a6/okassimi.JPG" alt="player image">
+                    </div>
+                    <h1 class="user">OKASSIMI</h1>
+                    <h1 class="score">5</h1>
+                </div>
+                <div player="opponent" class="player">
+                    <h1 class="score">5</h1>
+                    <h1 class="user">OKASSIMI</h1>
+                    <div class="pic">
+                        <img src="https://cdn.intra.42.fr/users/96a07aaaaf7c1951448a4cece5db9db6/agoujdam.JPG" alt="player image">
+                    </div>
+                </div>
+            </div>
+        
+            <!-- Previous Match -->
+            <div match="previous" class="match">
+                <div player="you" class="player">
+                    <div class="pic">
+                        <img src="https://cdn.intra.42.fr/users/82d39646cd2423210c305aacf10105a6/okassimi.JPG" alt="player image">
+                    </div>
+                    <h1 class="user">OKASSIMI</h1>
+                    <h1 class="score">5</h1>
+                </div>
+                <div player="opponent" class="player">
+                    <h1 class="score">5</h1>
+                    <h1 class="user">OKASSIMI</h1>
+                    <div class="pic">
+                        <img src="https://cdn.intra.42.fr/users/96a07aaaaf7c1951448a4cece5db9db6/agoujdam.JPG" alt="player image">
+                    </div>
+                </div>
+            </div>
+        
+            <!-- Earlier Match -->
+            <div match="earlier" class="match">
+                <div player="you" class="player">
+                    <div class="pic">
+                        <img src="https://cdn.intra.42.fr/users/82d39646cd2423210c305aacf10105a6/okassimi.JPG" alt="player image">
+                    </div>
+                    <h1 class="user">OKASSIMI</h1>
+                    <h1 class="score">5</h1>
+                </div>
+                <div player="opponent" class="player">
+                    <h1 class="score">5</h1>
+                    <h1 class="user">OKASSIMI</h1>
+                    <div class="pic">
+                        <img src="https://cdn.intra.42.fr/users/96a07aaaaf7c1951448a4cece5db9db6/agoujdam.JPG" alt="player image">
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
-
-    <div layout="home-content"> <!-- Main container for homepage -->
-        <div class="user-info-section">
-
-            <div class="user-profile">
-                <div profileElement="picture">
-                    <!-- The image is dynamically filled -->
-                    <img src="https://cdn.intra.42.fr/users/82d39646cd2423210c305aacf10105a6/okassimi.JPG" alt="user picture">
-                </div>
-                <div>
-                    <h1 profileElement="fullName">OTHMANE, KASSIMI</h1>
-                    <h3 profileElement="userName">OKASSIMI</h3>
-                </div>
-            </div>
-            
-
-            <div class="user-game-stats">
-                <div gameState="PPP" class="game-stat">
-                    <h3>PPP</h3>
-                    <span>100</span>
-                </div>
-                <div gameState="title" class="game-stat">
-                    <h3>TITLE</h3>
-                    <span>100</span>
-                </div>
-                <div gameState="winRatio" class="game-stat">
-                    <h3>WIN RATIO</h3>
-                    <span>100</span>
-                </div>
-                <div gameState="totalMatches" class="game-stat">
-                    <h3>TOTAL MATCHES</h3>
-                    <span>100</span>
-                </div>
-            </div>
-
-
-            <h1 class="your-last-battles">YOUR LAST BATTLES :</h1>
-
-            <div class="user-match-history">
-                <!-- Last Match -->
-                <div match="last" class="match">
-                    <div player="you" class="player">
-                        <div class="pic">
-                            <img src="https://cdn.intra.42.fr/users/82d39646cd2423210c305aacf10105a6/okassimi.JPG" alt="player image">
-                        </div>
-                        <h1 class="user">OKASSIMI</h1>
-                        <h1 class="score">5</h1>
-                    </div>
-                    <div player="opponent" class="player">
-                        <h1 class="score">5</h1>
-                        <h1 class="user">OKASSIMI</h1>
-                        <div class="pic">
-                            <img src="https://cdn.intra.42.fr/users/96a07aaaaf7c1951448a4cece5db9db6/agoujdam.JPG" alt="player image">
-                        </div>
-                    </div>
-                </div>
-            
-                <!-- Previous Match -->
-                <div match="previous" class="match">
-                    <div player="you" class="player">
-                        <div class="pic">
-                            <img src="https://cdn.intra.42.fr/users/82d39646cd2423210c305aacf10105a6/okassimi.JPG" alt="player image">
-                        </div>
-                        <h1 class="user">OKASSIMI</h1>
-                        <h1 class="score">5</h1>
-                    </div>
-                    <div player="opponent" class="player">
-                        <h1 class="score">5</h1>
-                        <h1 class="user">OKASSIMI</h1>
-                        <div class="pic">
-                            <img src="https://cdn.intra.42.fr/users/96a07aaaaf7c1951448a4cece5db9db6/agoujdam.JPG" alt="player image">
-                        </div>
-                    </div>
-                </div>
-            
-                <!-- Earlier Match -->
-                <div match="earlier" class="match">
-                    <div player="you" class="player">
-                        <div class="pic">
-                            <img src="https://cdn.intra.42.fr/users/82d39646cd2423210c305aacf10105a6/okassimi.JPG" alt="player image">
-                        </div>
-                        <h1 class="user">OKASSIMI</h1>
-                        <h1 class="score">5</h1>
-                    </div>
-                    <div player="opponent" class="player">
-                        <h1 class="score">5</h1>
-                        <h1 class="user">OKASSIMI</h1>
-                        <div class="pic">
-                            <img src="https://cdn.intra.42.fr/users/96a07aaaaf7c1951448a4cece5db9db6/agoujdam.JPG" alt="player image">
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-        </div>
-        <div class="user-progress-section">
-            <h1 class="your-planet">your planet</h1>
-            <div class="user-planet">
-                <img src="assets/planets/p1.svg" alt="planet">
-            </div>
+    <div class="user-progress-section">
+        <h1 class="your-planet">your planet</h1>
+        <div class="user-planet">
+            <img src="assets/planets/p1.svg" alt="planet">
         </div>
     </div>
 </div>
