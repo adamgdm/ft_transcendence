@@ -1,21 +1,59 @@
 
 <div layout="choose-mode" class="choose mode active">
-    <div class="play1v1" mode="1v1">
-        <img src="assets/backgrounds/p1v1.svg" alt="p1">
-        <h1>1 vs 1</h1>
-        <h2>challenge another warrrior in a galactic duel for dominance !</h2>
+    <div class="play1v1-card" mode="1v1">
+        <div class="play1v1-inner">
+            <!-- Front of the card -->
+            <div class="play1v1-face play1v1-front">
+                <h1>The Ultimate Battle</h1>
+            </div>
+    
+            <!-- Back of the card with your content -->
+            <div class="play1v1-face play1v1-back">
+                <img src="assets/backgrounds/p1v1.svg" alt="p1">
+                <h1>1 vs 1</h1>
+                <h2>Challenge another warrior in a galactic duel for dominance!</h2>
+            </div>
+        </div>
     </div>
-    <div class="play1vAI" mode="1vAI">
-        <img src="assets/backgrounds/bot.svg" alt="bot">
-        <h1>1 vs Bot</h1>
-        <h2>Sharpen your skills against the AI before facing real warriors!</h2>
+    <div class="play1vAI-card" mode="1vAI">
+        <div class="play1vAI-inner">
+            <!-- Front of the card -->
+            <div class="play1vAI-face play1vAI-front">
+                <h1>Challenge Yourself</h1>
+            </div>
+    
+            <!-- Back of the card with your content -->
+            <div class="play1vAI-face play1vAI-back">
+                <img src="assets/backgrounds/bot.svg" alt="bot">
+                <h1>1 vs Bot</h1>
+                <h2>Sharpen your skills against the AI before facing real warriors!</h2>
+            </div>
+        </div>
     </div>
-    <div class="playTourn" mode="tourn">
-        <img src="assets/backgrounds/pTour.svg" alt="p3">
-        <h1>tournament</h1>
-        <h2>Conquer the tournament and seize the throne as Universal Leader!</h2>
+    
+    <div class="playTourn-card" mode="tourn">
+        <div class="playTourn-inner">
+            <!-- Front of the card -->
+            <div class="playTourn-face playTourn-front">
+                <h1>Who Will Claim Victory?</h1>
+            </div>
+    
+            <!-- Back of the card with your content -->
+            <div class="playTourn-face playTourn-back">
+                <img src="assets/backgrounds/pTour.svg" alt="p3">
+                <h1>Tournament</h1>
+                <h2>Conquer the tournament and seize the throne as Universal Leader!</h2>
+            </div>
+        </div>
     </div>
+    
     <div class="playLocal" mode="local">
         <h1>play locally</h1>
     </div>
 </div>
+<script>
+    document.querySelector('.play1v1-inner').addEventListener('click', function() {
+        console.log('clicked')
+        this.classList.toggle('is-flipped');
+    });
+</script>

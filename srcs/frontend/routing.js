@@ -1,3 +1,4 @@
+import { flip } from "./pages/play/play.js"
 import { storyActions } from "./pages/story/index.js"
 import { scrollAction } from "./pages/story/scroll.js"
 
@@ -143,6 +144,8 @@ function executePageScripts(path) {
             scrollAction();
             
             break;
+        case "play":
+            flip()
         // Add other page-specific script initializations here
         default:
             break;
