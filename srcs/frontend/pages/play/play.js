@@ -1,6 +1,5 @@
 export function flip() {
     document.querySelector('.play1v1-inner').addEventListener('click', function() {
-        console.log('clicked')
         this.classList.toggle('is-flipped')
         setTimeout(() => {
             this.classList.remove('is-flipped')

@@ -46,7 +46,6 @@ export function storyActions() {
 
     // Event listener for closing the SIGNUP modal
     close.forEach(item => {item.addEventListener('click', () => {
-        console.log("close clicked")
         const parent = item.parentElement
         console.log(item.parentElement.getAttribute('data-modal'))
         hideModal(parent)
@@ -152,7 +151,6 @@ export function storyActions() {
         });
 
         document.getElementById("resetPassword").addEventListener("click", () => {
-            console.log("reset Password clicked")
             currentStep = 1
             hideModal(forgotPassModal)
         });

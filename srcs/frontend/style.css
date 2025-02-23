@@ -91,7 +91,7 @@ body.open-modal {
     align-items: center;
     gap: 60px; /* Space between icons */
     flex-grow: 0.4; /* Pushes actions to bottom */
-    width: 50%;
+    width: 100%;
     /* border: 2px solid #FF4622; */
 }
 
@@ -101,14 +101,28 @@ body.open-modal {
     justify-content: space-around;
     align-items: center;
     flex-grow: 0.3;
-    width: 50%;
+    width: 100%;
     /* border: 2px solid #F3DC50; */
 }
 
-[layout="sidebar"] .icon {
+
+
+[layout="sidebar"] .icon-container {
+    height: 70px;
+    width: 100%;
     color: #000000;
     opacity: 78%;
     cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+[layout="sidebar"] .icon-container.clicked {
+    /* width: 95%; */
+    /* margin-left: 10px; */
+    border-radius: 15px 0px 0px 15px ;
+    background-color: rgb(255, 70, 34, 0.95) ;
 }
 
 

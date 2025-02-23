@@ -50,7 +50,7 @@ function loadAuthenticatedLayout(contentPath) {
             if (layoutRequest.status === 200) {
                 content.innerHTML = layoutRequest.responseText
                 console.log("authenticated layout rendered")
-                loadContentIntoLayout(contentPath);
+                loadContentIntoLayout(contentPath)
 
                 setupSidebarNavigation()
             }
@@ -59,12 +59,12 @@ function loadAuthenticatedLayout(contentPath) {
             }
         }
         layoutRequest.onerror = function() {
-            loadPage('404');
-        };
-        layoutRequest.send();
+            loadPage('404')
+        }
+        layoutRequest.send()
     }
     else {
-        loadContentIntoLayout(contentPath);
+        loadContentIntoLayout(contentPath)
     }
 }
 
@@ -81,73 +81,77 @@ function loadContentIntoLayout(path)    {
             executePageScripts(path)
         }
         else {
-            contentContainer.innerHTML = '<p>Error loading content</p>';
+            contentContainer.innerHTML = '<p>Error loading content</p>'
         }
     } 
     request.onerror = function() {
-        contentContainer.innerHTML = '<p>Error loading content</p>';
-    };
-    request.send();
+        contentContainer.innerHTML = '<p>Error loading content</p>'
+    }
+    request.send()
 }
+
 function setupSidebarNavigation() {
-    document.querySelectorAll('.sidebar-menu i, .sidebar-actions i').forEach(item => {
+    document.querySelectorAll('.sidebar-menu div, .sidebar-actions div').forEach(item => {
         item.addEventListener('click', () => {
-            const target = item.getAttribute('data-target');
-            console.log(target)
+            document.querySelectorAll('.sidebar-menu div, .sidebar-actions div').forEach(button => {
+                button.classList.remove('clicked')
+            })
+            const target = item.getAttribute('data-target')
+            item.classList.add('clicked')
             if (target) {
-                window.location.hash = target;
+                window.location.hash = target
             }
-        });
-    });
+        })
+    })
 }
 
 function loadPage(path) {
-    const content = document.getElementById('content');
+    const content = document.getElementById('content')
     
     try {
-        const request = new XMLHttpRequest();
-        request.open('GET', `pages/${path}/${path}.html`);
+        const request = new XMLHttpRequest()
+        request.open('GET', `pages/${path}/${path}.html`)
         request.onload = function() {
             if (request.status === 200) {
-                content.innerHTML = request.responseText;
-                updateStylesheet(`pages/${path}/${path}.css`);
-                executePageScripts(path);
+                content.innerHTML = request.responseText
+                updateStylesheet(`pages/${path}/${path}.css`)
+                executePageScripts(path)
             } else {
-                loadPage('404');
+                loadPage('404')
             }
-        };
+        }
         request.onerror = function() {
-            loadPage('404');
-        };
-        request.send();
+            loadPage('404')
+        }
+        request.send()
     } catch (error) {
-        console.log("Error loading page:", error);
-        loadPage('404');
+        console.log("Error loading page:", error)
+        loadPage('404')
     }
 }
 
 function updateStylesheet(href) {
-    let linkTag = document.querySelector("link[data-section-style]");
+    let linkTag = document.querySelector("link[data-section-style]")
     if (!linkTag) {
-        linkTag = document.createElement("link");
-        linkTag.rel = "stylesheet";
-        linkTag.dataset.sectionStyle = "true";
-        document.head.appendChild(linkTag);
+        linkTag = document.createElement("link")
+        linkTag.rel = "stylesheet"
+        linkTag.dataset.sectionStyle = "true"
+        document.head.appendChild(linkTag)
     }
-    linkTag.href = href;
+    linkTag.href = href
 }
 
 function executePageScripts(path) {
     switch (path) {
         case "story":
-            storyActions();
-            scrollAction();
+            storyActions()
+            scrollAction()
             
-            break;
+            break
         case "play":
             flip()
         // Add other page-specific script initializations here
         default:
-            break;
+            break
     }
 }
