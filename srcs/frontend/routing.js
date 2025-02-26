@@ -93,16 +93,44 @@ function loadContentIntoLayout(path)    {
 function setupSidebarNavigation() {
     document.querySelectorAll('.sidebar-menu div, .sidebar-actions div').forEach(item => {
         item.addEventListener('click', () => {
-            document.querySelectorAll('.sidebar-menu div, .sidebar-actions div').forEach(button => {
-                button.classList.remove('clicked')
-            })
+            handleNotifBtn(item)
             const target = item.getAttribute('data-target')
-            item.classList.add('clicked')
+            if (target != "")    {
+                    document.querySelectorAll('.sidebar-menu div, .sidebar-actions div').forEach(button => {
+                    button.classList.remove('clicked')
+                })
+                item.classList.add('clicked')
+            }
             if (target) {
                 window.location.hash = target
             }
         })
     })
+}
+
+function handleNotifBtn(item) {
+    const notifBar = document.querySelector('[layout="notifbar"]')
+    if (item.classList.contains('notif'))   {
+        if (!notifBar.classList.contains('active')) {
+            showNotifBar(notifBar)
+        }
+        else {
+            hideNotifBar(notifBar)
+            item.classList.remove('clicked')
+        }
+    }
+    else {
+        hideNotifBar(notifBar)
+        item.classList.remove('clicked')
+    }
+}
+
+function showNotifBar(bar) {
+    bar.classList.add('active')
+}
+
+function hideNotifBar(bar) {
+    bar.classList.remove('active')
 }
 
 function loadPage(path) {
