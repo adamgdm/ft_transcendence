@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from .models import Users
 from django.contrib.auth.hashers import make_password
 from .utils import UsernameValidator, PasswordValidator, NameValidator, generate_jwt_token, decode_jwt_token, verify_jwt_token, send_2fa_email
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpRequest, HttpResponse
 from django.db.models import Q
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.hashers import check_password
@@ -14,6 +14,9 @@ from django.utils import timezone
 from .models import BlacklistedTokens, LoggedOutTokens, Friendship
 import json
 import random
+from django.shortcuts import redirect
+from django.contrib.auth import authenticate, login
+import requests
 
 # Register function
 @csrf_exempt
@@ -459,3 +462,64 @@ def get_friend_requests(request):
             })
         return JsonResponse({'friend_requests': friend_requests}, status=200)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+#need to hide data in env
+auth_url_discord = "https://api.intra.42.fr/oauth/authorize?client_id=u-s4t2ud-729aed93b28338bae314686c66e3342c44503b544a2906dcb18c0cfc4080570e&redirect_uri=http%3A%2F%2F127.0.0.1%3A8000%2Foauth2%2Flogin%2Fredirect%2F&response_type=code"
+@csrf_exempt
+def oauth2(request):
+    return JsonResponse({"mssg": "hello"})
+
+@csrf_exempt
+def oauth2_login(request):
+    return redirect(auth_url_discord)
+
+@csrf_exempt
+def oauth2_login_redirect(request):
+    code = request.GET.get("code")
+    print(code)
+    user = exchange_code(code)
+    return JsonResponse({"user": user})
+
+@csrf_exempt
+def exchange_code(code):
+    data = {
+        "grant_type": "authorization_code",
+        "client_id": "u-s4t2ud-729aed93b28338bae314686c66e3342c44503b544a2906dcb18c0cfc4080570e",
+        "client_secret": "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",
+        "code": code,
+        "redirect_uri" : "http://127.0.0.1:8000/oauth2/login/redirect/",#actual domain name
+        # "scope": "public"
+    }
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+    response = requests.post("https://api.intra.42.fr/oauth/token", data=data, headers=headers)
+    print(f'this is the response {response}')
+    access_token = response.json().get("access_token")
+    print(access_token)
+    response = requests.get("https://api.intra.42.fr/v2/me", headers={
+        'Authorization': "Bearer %s" % access_token
+    })
+    print(f"this is the response {response}")
+    user = response.json()
+    print(user)
+    return user
+
+
+    #  +--------+                               +---------------+
+    #  |        |--(A)- Authorization Request ->|   Resource    |
+    #  |        |                               |     Owner     |
+    #  |        |<-(B)-- Authorization Grant ---|               |
+    #  |        |                               +---------------+
+    #  |        |
+    #  |        |                               +---------------+
+    #  |        |--(C)-- Authorization Grant -->| Authorization |
+    #  | Client |                               |     Server    |
+    #  |        |<-(D)----- Access Token -------|               |
+    #  |        |                               +---------------+
+    #  |        |
+    #  |        |                               +---------------+
+    #  |        |--(E)----- Access Token ------>|    Resource   |
+    #  |        |                               |     Server    |
+    #  |        |<-(F)--- Protected Resource ---|               |
+    #  +--------+                               +---------------+
