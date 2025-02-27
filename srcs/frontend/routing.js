@@ -69,7 +69,7 @@ function loadAuthenticatedLayout(contentPath) {
 }
 
 function loadContentIntoLayout(path)    {
-    const contentContainer = document.querySelector('.page-content-container')
+    const contentContainer = document.querySelector('.main-content')
     if (!contentContainer) return
 
     const request = new XMLHttpRequest()
@@ -93,45 +93,40 @@ function loadContentIntoLayout(path)    {
 function setupSidebarNavigation() {
     document.querySelectorAll('.sidebar-menu div, .sidebar-actions div').forEach(item => {
         item.addEventListener('click', () => {
-            handleNotifBtn(item)
-            const target = item.getAttribute('data-target')
-            if (target != "")    {
-                    document.querySelectorAll('.sidebar-menu div, .sidebar-actions div').forEach(button => {
-                    button.classList.remove('clicked')
-                })
-                item.classList.add('clicked')
-            }
+            handleNotifBtn(item);
+            const target = item.getAttribute('data-target');
+
             if (target) {
-                window.location.hash = target
+                document.querySelectorAll('.sidebar-menu div, .sidebar-actions div')
+                    .forEach(button => button.classList.remove('clicked'));
+                    
+                item.classList.add('clicked');
+                window.location.hash = target;
             }
-        })
-    })
+        });
+    });
 }
 
 function handleNotifBtn(item) {
-    const notifBar = document.querySelector('[layout="notifbar"]')
-    if (item.classList.contains('notif'))   {
-        if (!notifBar.classList.contains('active')) {
-            showNotifBar(notifBar)
-        }
-        else {
-            hideNotifBar(notifBar)
-            item.classList.remove('clicked')
-        }
-    }
-    else {
-        hideNotifBar(notifBar)
-        item.classList.remove('clicked')
-    }
-}
+    const notifBar = document.querySelector('[layout="notifbar"]');
 
-function showNotifBar(bar) {
-    bar.classList.add('active')
+    if (item.classList.contains('notif')) {
+        notifBar.classList.toggle('active');
+
+        // Only add clicked if the notification bar becomes active
+        if (!notifBar.classList.contains('active')) {
+            item.classList.remove('clicked');
+        }
+    } else {
+        hideNotifBar(notifBar);
+        item.classList.remove('clicked');
+    }
 }
 
 function hideNotifBar(bar) {
-    bar.classList.remove('active')
+    bar.classList.remove('active');
 }
+
 
 function loadPage(path) {
     const content = document.getElementById('content')

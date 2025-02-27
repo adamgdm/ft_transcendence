@@ -4,11 +4,8 @@
 /******************************************************************************/
 
 [layout="home-content"] {
-    position: absolute;
-    top: 15%;
-    left: 12%;
-    height: 80%;
-    width: 86%;
+    height: 100%;
+    width: 100%;
 
     display: flex;
     gap: 60px;
@@ -20,7 +17,6 @@
 
 [layout="home-content"] .user-info-section {
     flex-grow: 1;
-    /* border: 2px solid #F5DAA7; */
 
     display: flex;
     flex-direction: column;
@@ -33,20 +29,22 @@
 [layout="home-content"] .user-profile {
     height: 250px;
     padding-left: 50px;
-    border-radius: 10px; /* Rounded corners */
+    border-radius: 10px; 
     
-    /* Border with a linear gradient */
+    
+    
     border: 2px solid transparent;
     background-clip: padding-box, border-box;
     background-origin: padding-box, border-box;
     background-image:
-        linear-gradient(#1C1B19, #1C1B19), /* Inner solid background */
+        linear-gradient(#1C1B19, #1C1B19),
+        
         linear-gradient(to bottom, 
             rgba(225, 201, 154, 0.32) 0%, 
             rgba(247, 105, 66, 0.32) 28%, 
             rgba(239, 140, 98, 0.32) 60%,
             rgba(225, 201, 154, 0.32) 99%
-        ); /* Border gradient */
+        ); 
 
     display: flex;
     justify-content: flex-start;
@@ -58,14 +56,14 @@
 [profileElement="picture"] {
     width: 200px;
     height: 200px;
-    border-radius: 100px; /* Circle shape */
+    border-radius: 100px; 
     overflow: hidden;
 }
 
 [profileElement="picture"] img {
     width: 100%;
     height: 100%;
-    object-fit: cover; /* Ensure the image covers the entire area */
+    object-fit: cover;
 }
 
 [profileElement="fullName"] {
@@ -83,30 +81,31 @@
 /***************************/
 
 [layout="home-content"] .user-game-stats {
-    height: 100px;
-    margin-top: 20px;
+    padding-top: 20px;
     display: flex;
-    justify-content: space-between;
+    gap: 15px;
 }
 
 .user-game-stats .game-stat {
     height: 100%;
-    width: 300px;
+    width: 100%;
     padding: 0;
-    border-radius: 5px; /* Rounded corners */
+    border-radius: 5px; 
 
-    /* Border with a linear gradient */
+    
+    
     border: 2px solid transparent;
     background-clip: padding-box, border-box;
     background-origin: padding-box, border-box;
     background-image:
-        linear-gradient(#1C1B19, #1C1B19), /* Inner solid background */
+        linear-gradient(#1C1B19, #1C1B19),
+        
         linear-gradient(to bottom, 
             rgba(225, 201, 154, 0.32) 0%, 
             rgba(247, 105, 66, 0.32) 28%, 
             rgba(239, 140, 98, 0.32) 60%,
             rgba(225, 201, 154, 0.32) 99%
-        ); /* Border gradient */
+        ); 
 
     display: flex;
     flex-direction: column;
@@ -132,8 +131,8 @@
 /***************************/
 
 [layout="home-content"] .your-last-battles {
-    margin-left: 3px;
-    margin-top: 50px;
+    padding-top: 50px;
+    margin: 0;
     font-size: 40px;
     color: var(--text-color);
 }
@@ -156,19 +155,19 @@
     height: 100px;
 
     padding: 5px;
-    border-radius: 5px; /* Rounded corners */
-    /* Border with a linear gradient */
+    border-radius: 5px;
+    
     border: 2px solid transparent;
     background-clip: padding-box, border-box;
     background-origin: padding-box, border-box;
     background-image:
-        linear-gradient(#1C1B19, #1C1B19), /* Inner solid background */
+        linear-gradient(#1C1B19, #1C1B19),
         linear-gradient(to bottom, 
             rgba(225, 201, 154, 0.32) 0%, 
             rgba(247, 105, 66, 0.32) 28%, 
             rgba(239, 140, 98, 0.32) 60%,
             rgba(225, 201, 154, 0.32) 99%
-        ); /* Border gradient */
+        );
     
     display: flex;
     justify-content: space-around;
@@ -210,26 +209,26 @@
 
 [layout="home-content"] .user-progress-section {
     flex-basis: 30%;
-    background-color: #1C1B19; /* Set solid background */
-    border-radius: 10px; /* Rounded corners */
+    background-color: #1C1B19; 
+    border-radius: 10px; 
 
-    /* Border with a linear gradient */
     border: 2px solid transparent;
     background-clip: padding-box, border-box;
     background-origin: padding-box, border-box;
     background-image:
-        linear-gradient(#1C1B19, #1C1B19), /* Inner solid background */
+        linear-gradient(#1C1B19, #1C1B19),
         linear-gradient(to bottom, 
             rgba(225, 201, 154, 0.32) 0%, 
             rgba(247, 105, 66, 0.32) 28%, 
             rgba(239, 140, 98, 0.32) 60%,
             rgba(225, 201, 154, 0.32) 99%
-        ); /* Border gradient */
+        );
 
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    text-align: center;
 }
 
 .user-progress-section .your-planet {

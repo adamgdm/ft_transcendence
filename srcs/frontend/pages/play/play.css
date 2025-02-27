@@ -4,11 +4,8 @@
 /******************************************************************************/
 
 [layout="choose-mode"] {
-    position: absolute;
-    top: 15%;
-    left: 12%;
-    height: 80%;
-    width: 86%;
+    height: 100%;
+    width: 100%;
 
     display: flex;
     justify-content: space-around;
@@ -55,7 +52,6 @@
     height: 100%;
     transition: transform 1s;
     transform-style: preserve-3d;
-    cursor: pointer;
     position: relative;
 }
 
@@ -103,11 +99,6 @@
     border: 2px solid var(--stars-color);
 }
 
-[layout="choose-mode"] [mode="1v1"] img {
-    height: 500px;
-    top: -1rem;
-    object-fit: cover;
-}
 
 .play1v1-card .play1v1-front h1, 
 .play1v1-card .play1v1-front h2 {
@@ -125,6 +116,10 @@
     font-weight: 600;
 }
 
+[layout="choose-mode"] [mode="1v1"] img {
+    height: 500px;
+    width: 100%;
+}
 
 /***************************/
 /*         1vAI            */
@@ -155,7 +150,6 @@
     height: 100%;
     transition: transform 1s;
     transform-style: preserve-3d;
-    cursor: pointer;
     position: relative;
 }
 
@@ -221,8 +215,7 @@
 
 [layout="choose-mode"] [mode="1vAI"] img {
     height: 500px;
-    width: 600px;
-    object-fit: contain;
+    width: 120%;
 }
 
 /***************************/
@@ -254,7 +247,6 @@
     height: 100%;
     transition: transform 1s;
     transform-style: preserve-3d;
-    /* cursor: pointer; */
     position: relative;
 }
 
@@ -283,7 +275,6 @@
     box-sizing: border-box;
     border-radius: 16px;
     border: 2px solid var(--stars-color);
-    overflow: hidden;
 }
 
 .playTourn-card .playTourn-back {
@@ -301,7 +292,7 @@
     flex-direction: column;
     align-items: center;
     gap: 100px;
-    /* align-items: center; */
+    align-items: center;
     text-align: center;
     border: 2px solid var(--stars-color);
 }
@@ -319,14 +310,13 @@
 
 .playTourn-card .playTourn-front h2 {
     font-size: 24px;
-    font-weight: 600;
+
 }
 
 [layout="choose-mode"] [mode="tourn"] img {
-    height: 600px;
-    margin-left: 150px;
-    margin-top: -100px;
-    object-fit: contain;
+    height: 500px;
+    width: 100%;
+    margin-left: 42px;
 }
 
 /***********************************************************************/
