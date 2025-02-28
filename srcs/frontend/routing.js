@@ -68,9 +68,15 @@ function loadAuthenticatedLayout(contentPath) {
     }
 }
 
-function loadContentIntoLayout(path)    {
-    const contentContainer = document.querySelector('.main-content')
-    if (!contentContainer) return
+function loadContentIntoLayout(path) {
+    const contentContainer = document.querySelector('.content-wrapper')
+    const loader = document.querySelector('.loading-div')
+
+    if (!contentContainer || !loader) return
+
+    // Show the loader
+    loader.classList.remove('fade-out')
+    contentContainer.style.opacity = "0"
 
     const request = new XMLHttpRequest()
     request.open('GET', `pages/${path}/${path}.html`)
@@ -79,52 +85,61 @@ function loadContentIntoLayout(path)    {
             contentContainer.innerHTML = request.responseText
             updateStylesheet(`pages/${path}/${path}.css`)
             executePageScripts(path)
-        }
-        else {
+
+            setTimeout(() => {
+                loader.classList.add('fade-out')
+                contentContainer.style.opacity = "1"
+            }, 1000)
+        } else {
             contentContainer.innerHTML = '<p>Error loading content</p>'
+            loader.classList.add('fade-out')
         }
-    } 
-    request.onerror = function() {
-        contentContainer.innerHTML = '<p>Error loading content</p>'
     }
+
+    request.onerror = function () {
+        contentContainer.innerHTML = '<p>Error loading content</p>'
+        loader.classList.add('fade-out')
+    }
+
     request.send()
 }
+
 
 function setupSidebarNavigation() {
     document.querySelectorAll('.sidebar-menu div, .sidebar-actions div').forEach(item => {
         item.addEventListener('click', () => {
-            handleNotifBtn(item);
-            const target = item.getAttribute('data-target');
+            handleNotifBtn(item)
+            const target = item.getAttribute('data-target')
 
             if (target) {
                 document.querySelectorAll('.sidebar-menu div, .sidebar-actions div')
-                    .forEach(button => button.classList.remove('clicked'));
+                    .forEach(button => button.classList.remove('clicked'))
                     
-                item.classList.add('clicked');
-                window.location.hash = target;
+                item.classList.add('clicked')
+                window.location.hash = target
             }
-        });
-    });
+        })
+    })
 }
 
 function handleNotifBtn(item) {
-    const notifBar = document.querySelector('[layout="notifbar"]');
+    const notifBar = document.querySelector('[layout="notifbar"]')
 
     if (item.classList.contains('notif')) {
-        notifBar.classList.toggle('active');
+        notifBar.classList.toggle('active')
 
         // Only add clicked if the notification bar becomes active
         if (!notifBar.classList.contains('active')) {
-            item.classList.remove('clicked');
+            item.classList.remove('clicked')
         }
     } else {
-        hideNotifBar(notifBar);
-        item.classList.remove('clicked');
+        hideNotifBar(notifBar)
+        item.classList.remove('clicked')
     }
 }
 
 function hideNotifBar(bar) {
-    bar.classList.remove('active');
+    bar.classList.remove('active')
 }
 
 
