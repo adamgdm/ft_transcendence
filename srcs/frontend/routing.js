@@ -1,8 +1,10 @@
+import { home } from "./pages/home/home.js";
 import { flip } from "./pages/play/play.js"
 import { storyActions } from "./pages/story/index.js"
 import { scrollAction } from "./pages/story/scroll.js"
 
-let isAutheticated = true
+
+let isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
 
 const authenticatedPages = ['home', 'settings', 'shop', 'play']
 
@@ -23,7 +25,7 @@ function routeToPage(path) {
     }
 
     if (authenticatedPages.includes(path))  {
-        if (!isAutheticated) {
+        if (!isAuthenticated) {
             window.location.hash = 'story'
             return
         }
@@ -188,6 +190,8 @@ function executePageScripts(path) {
             break
         case "play":
             flip()
+        case "home":
+            home()
         // Add other page-specific script initializations here
         default:
             break

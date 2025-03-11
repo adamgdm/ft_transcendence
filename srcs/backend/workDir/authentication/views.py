@@ -66,40 +66,44 @@ def register(request):
         return JsonResponse({'message': 'User registered successfully'}, status=201)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
-# Verify email function
 @csrf_exempt
 def verify_email(request):
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-        except json.JSONDecodeError:
-            return JsonResponse({'error': 'could not fetch data'}, status=400)
-        email = data.get('email')
-        otp_password = data.get('code')
-        if not all([email, otp_password]):
-            return JsonResponse({'error': 'Missing fields'}, status=400)
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Invalid request method'}, status=405)
 
-        try:
-            user = Users.objects.get(email=email) 
-        except Users.DoesNotExist:
-            return JsonResponse({'error': 'No user found with the email entered'}, status=400)
-        
-        if not user.otp_password:
-            return JsonResponse({'error': 'Verification code not generated'}, status=400)
-        
-        if user.otp_password != otp_password:
-            return JsonResponse({'error': 'Invalid code'}, status=400)
-        
-        if user.otp_expiry < timezone.now():
-            return JsonResponse({'error': 'Code expired'}, status=400)
-        
-        user.email_verified = True
-        user.otp_password = ''
-        user.otp_expiry = None
-        user.save()
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Could not fetch data'}, status=400)
 
-        return JsonResponse({'message': 'Email verified successfully'}, status=200)
-    return JsonResponse({'error': 'Invalid request method'}, status=405)
+    email = data.get('email', '').strip()
+    otp_password = str(data.get('code', '')).strip()  # Ensure OTP is treated as a string
+
+    if not email or not otp_password:
+        return JsonResponse({'error': 'Missing fields'}, status=400)
+
+    try:
+        user = Users.objects.get(email=email)
+    except Users.DoesNotExist:
+        return JsonResponse({'error': 'No user found with the email entered'}, status=400)
+
+    stored_otp = str(user.otp_password).strip() if user.otp_password else None  # Ensure stored OTP is a string
+
+    if not stored_otp:
+        return JsonResponse({'error': 'Verification code not generated'}, status=400)
+
+    if stored_otp != otp_password:
+        return JsonResponse({'error': 'Invalid code'}, status=400)
+
+    if user.otp_expiry and user.otp_expiry < timezone.now():
+        return JsonResponse({'error': 'Code expired'}, status=400)
+
+    user.email_verified = True
+    user.otp_password = ''
+    user.otp_expiry = None
+    user.save()
+
+    return JsonResponse({'message': 'Email verified successfully'}, status=200)
 
 # Login function
 @csrf_exempt

@@ -175,6 +175,19 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # CORS settings, Cors is a middleware that allows to make requests from different origins
 CORS_ORIGIN_ALLOW_ALL = True
 
+# Allow credentials to be included in the request
+CORS_ALLOW_CREDENTIALS = True
+
+# Specify the frontend domain
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5500",  # Frontend URL
+]
+
+# This is required if using CSRF protection
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5500",  # Frontend URL
+]
+
 # HTTPS settings
 SECURE_SSL_REDIRECT = True
 SESSION_COOKIE_SECURE = True
