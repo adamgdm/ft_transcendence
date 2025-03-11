@@ -8,12 +8,9 @@ from .models import BlacklistedTokens, Users, LoggedOutTokens
 def check_auth(func):
     @wraps(func)
     def checking_jwt(request, *args, **kwargs):
-        token = request.headers.get('Authorization')
+        token = request.COOKIES.get('token')
         if token is None:
             return JsonResponse({'error': 'Token is missing'}, status=401)
-        
-        if token.startswith('Bearer '):
-            token = token.split(' ')[1]
 
         payload = decode_jwt_token(token)
         if payload is None:
@@ -44,10 +41,17 @@ def check_auth(func):
         if remaining_time <= timedelta(seconds=150):
             BlacklistedTokens.objects.create(token=token)
             new_token = generate_jwt_token(user)
-            request.META['HTTP_AUTHORIZATION'] = f'Bearer {new_token}'
+            # Instead of modifying headers, prepare the response with new cookie
             response = func(request, *args, **kwargs)
-            response['Authorization'] = f'Bearer {new_token}'
+            # Set new token in cookies
+            response.set_cookie(
+                'token',
+                new_token,
+                httponly=True,
+                secure=getattr(settings, 'SESSION_COOKIE_SECURE', False),
+                samesite='Lax',
+                max_age=601
+            )
             return response
         return func(request, *args, **kwargs)
     return checking_jwt
-            

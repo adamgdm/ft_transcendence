@@ -76,3 +76,25 @@ def send_2fa_email(mail, otp):
         logger.error(f'Failed to send email: {e}')
         return False
     return True
+
+def send_2fa_email_verification(mail, otp):
+    subject = 'Verify It\'s your email!'
+    body = (
+        f'<h1>Hello there!</h1><br>'
+        f'<p>Your Verification number is: {otp}</p><br>'
+        f'<p>This Verification number will expire in 15 minutes.</p><br>'
+        f'<p>If you did not request this, please ignore this email.</p>'
+    )
+    from_email = settings.EMAIL_HOST_USER
+    recipient_list = [mail]
+    
+    
+    email = EmailMessage(subject=subject, body=body, from_email=from_email, to=recipient_list)
+    email.content_subtype = 'html'
+    
+    try:
+        email.send()
+    except Exception as e:
+        logger.error(f'Failed to send email: {e}')
+        return False
+    return True

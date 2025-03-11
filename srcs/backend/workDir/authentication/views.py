@@ -3,7 +3,7 @@ from django.core.validators import EmailValidator
 from django.core.exceptions import ValidationError
 from .models import Users
 from django.contrib.auth.hashers import make_password
-from .utils import UsernameValidator, PasswordValidator, NameValidator, generate_jwt_token, decode_jwt_token, verify_jwt_token, send_2fa_email
+from .utils import UsernameValidator, PasswordValidator, NameValidator, generate_jwt_token, decode_jwt_token, verify_jwt_token, send_2fa_email, send_2fa_email_verification
 from django.http import JsonResponse
 from django.db.models import Q
 from django.views.decorators.csrf import csrf_exempt
@@ -11,6 +11,7 @@ from django.contrib.auth.hashers import check_password
 from .decorators import check_auth
 from datetime import datetime, timedelta
 from django.utils import timezone
+from django.conf import settings
 from .models import BlacklistedTokens, LoggedOutTokens, Friendship
 import json
 import random
@@ -52,11 +53,52 @@ def register(request):
                 first_name=first_name,
                 last_name=last_name,
                 email=email,
-                password_hash=hash_pass
+                password_hash=hash_pass,
+                otp_password = random.randint(100000, 999999),
+                otp_expiry = timezone.now() + timedelta(minutes=5),
             )
         except Exception as e: 
             return JsonResponse({'error': f'An error occured: {e}'}, status=500)
+        
+        # Send email verification
+        if send_2fa_email_verification(email, user.otp_password):
+            return JsonResponse({'error': 'Could not send Verification Email'}, status=500)
         return JsonResponse({'message': 'User registered successfully'}, status=201)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+# Verify email function
+@csrf_exempt
+def verify_email(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'could not fetch data'}, status=400)
+        email = data.get('email')
+        otp_password = data.get('code')
+        if not all([email, otp_password]):
+            return JsonResponse({'error': 'Missing fields'}, status=400)
+
+        try:
+            user = Users.objects.get(email=email) 
+        except Users.DoesNotExist:
+            return JsonResponse({'error': 'No user found with the email entered'}, status=400)
+        
+        if not user.otp_password:
+            return JsonResponse({'error': 'Verification code not generated'}, status=400)
+        
+        if user.otp_password != otp_password:
+            return JsonResponse({'error': 'Invalid code'}, status=400)
+        
+        if user.otp_expiry < timezone.now():
+            return JsonResponse({'error': 'Code expired'}, status=400)
+        
+        user.email_verified = True
+        user.otp_password = ''
+        user.otp_expiry = None
+        user.save()
+
+        return JsonResponse({'message': 'Email verified successfully'}, status=200)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 # Login function
@@ -86,13 +128,22 @@ def login(request):
                 if not send_2fa_email(email, otp):
                     return JsonResponse({'error': 'Could not send OTP'}, status=500)
                 return JsonResponse({'message': 'Two factor authentication enabled'}, status=200)
-            jwt_token = generate_jwt_token(user)
-            user.last_login = timezone.now()
-            user.save()
-            return JsonResponse({
-                'message': 'Login successful',
-                'token': jwt_token
-                }, status=200)
+        jwt_token = generate_jwt_token(user)
+        user.last_login = timezone.now()
+        user.save()
+        response = JsonResponse({
+            'message': 'Login successful'
+            }, status=200)
+        response.set_cookie(
+            'token',
+            jwt_token,
+            httponly=True,
+            secure=getattr(settings, 'SESSION_COOKIE_SECURE', False),
+            samesite='Lax',
+            max_age=601
+        )
+        return response
+
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 @csrf_exempt
@@ -122,24 +173,29 @@ def login_otp(request):
         user.last_login = timezone.now()
         user.save()
         jwt_token = generate_jwt_token(user)
-        return JsonResponse({
+        response = JsonResponse({
             'message': 'Login successful',
-            'token': jwt_token
             }, status=200)
+        response.set_cookie(
+            'token',
+            jwt_token,
+            httponly=True,
+            secure=getattr(settings, 'SESSION_COOKIE_SECURE', False),
+            samesite='Lax',
+            max_age=601
+        )
+        return response
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 @csrf_exempt
 def enable_2fa(request):
     if request.method == 'POST':
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return JsonResponse({'error': 'Authorization header missing'}, status=401)
-        
-        token = auth_header.split(' ')[1]
+        token = request.COOKIES.get('token')
+        if not token:
+            return JsonResponse({'error': 'Token is missing'}, status=401)
         user_id = verify_jwt_token(token)
         if not user_id:
             return JsonResponse({'error': 'Invalid token'}, status=401)
-        
         try:
             user = Users.objects.get(id=user_id)
         except Users.DoesNotExist:
@@ -156,11 +212,10 @@ def enable_2fa(request):
 @csrf_exempt
 def disable_2fa(request):
     if request.method == 'POST':
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return JsonResponse({'error': 'Authorization header missing'}, status=401)
-        
-        token = auth_header.split(' ')[1]
+        # get token from cookie 
+        token = request.COOKIES.get('token')
+        if not token:
+            return JsonResponse({'error': 'Token is missing'}, status=401)
         user_id = verify_jwt_token(token)
         if not user_id:
             return JsonResponse({'error': 'Invalid token'}, status=401)

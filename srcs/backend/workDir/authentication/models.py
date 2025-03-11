@@ -24,7 +24,8 @@ class Users(models.Model):
     account_status = models.CharField(max_length=15, choices=AccountStatusChoices.choices, default=AccountStatusChoices.ACTIVE)
     two_factor_enabled = models.BooleanField(default=False)
     two_factor_info = models.OneToOneField('TwoFactorData', on_delete=models.CASCADE, null=True, blank=True)
-    
+
+    is_Email_Verified = models.BooleanField(default=False)
     registration_date = models.DateTimeField(auto_now_add=True)
     online_status = models.DateTimeField(auto_now_add=True)
     last_login = models.DateTimeField(null=True, blank=True)
