@@ -4,6 +4,7 @@ WORKDIR /app
 
 COPY requirements.txt .
 
+RUN apt-get update && apt-get install -y vim
 RUN pip install --no-cache-dir -r requirements.txt
 
 RUN mkdir -p ssl \
@@ -14,4 +15,10 @@ COPY workDir/ .
 
 EXPOSE 8000
 
-CMD ["bash", "-c", "sleep 10 && python3 manage.py makemigrations && python3 manage.py migrate && daphne -e ssl:8000:privateKey=ssl/key.pem:certKey=ssl/cert.pem backend.asgi:application"]
+# Create an entrypoint script
+
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
+
+# Use the entrypoint script instead of direct command
+ENTRYPOINT ["./entrypoint.sh"]
