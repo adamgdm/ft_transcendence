@@ -1,5 +1,6 @@
 import { home } from "./pages/home/home.js";
 import { flip } from "./pages/play/play.js"
+import { settings } from "./pages/settings/settings.js";
 import { storyActions } from "./pages/story/index.js"
 import { scrollAction } from "./pages/story/scroll.js"
 
@@ -186,12 +187,16 @@ function executePageScripts(path) {
         case "story":
             storyActions()
             scrollAction()
-            
             break
         case "play":
             flip()
+            break
         case "home":
             home()
+            break
+        case "settings":
+            settings()
+            break
         // Add other page-specific script initializations here
         default:
             break

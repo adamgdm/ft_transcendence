@@ -12,7 +12,7 @@ export function home() {
         if (response.status != 200) {
             throw new Error('Network response was not ok: ' + response.status);
         }
-        return response.json();
+        return response.json(); 
     })
     .then(userData => {
         // Process the retrieved user data
