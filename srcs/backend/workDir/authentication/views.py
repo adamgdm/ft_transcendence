@@ -143,7 +143,7 @@ def login(request):
             jwt_token,
             httponly=True,
             secure=getattr(settings, 'SESSION_COOKIE_SECURE', False),
-            samesite='Lax',
+            samesite='None',
             max_age=601
         )
         return response
@@ -185,13 +185,14 @@ def login_otp(request):
             jwt_token,
             httponly=True,
             secure=getattr(settings, 'SESSION_COOKIE_SECURE', False),
-            samesite='Lax',
+            samesite='None',
             max_age=601
         )
         return response
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 @csrf_exempt
+@check_auth
 def enable_2fa(request):
     if request.method == 'POST':
         token = request.COOKIES.get('token')
@@ -214,6 +215,7 @@ def enable_2fa(request):
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 @csrf_exempt
+@check_auth
 def disable_2fa(request):
     if request.method == 'POST':
         # get token from cookie 
