@@ -183,6 +183,121 @@
     font-family: inherit;
 }
 
+/*****************************************************************/
+/* Email verification styles */
+.email-field-container {
+    position: relative; /* Required for absolute positioning of verification box */
+}
+
+.email-input-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.email-input-group input {
+    flex: 1;
+}
+
+.verify-btn {
+    height: 50px;
+    min-width: 80px;
+    padding: 0 15px;
+    background-color: #FF4622;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 16px;
+    transition: background-color 0.3s;
+    flex-shrink: 0;
+}
+
+.verify-btn:hover {
+    background-color: #D53C1F;
+}
+
+/* Verification box (absolutely positioned) */
+.verification-box {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    max-width: 400px;
+    background-color: #2A2925;
+    border: 2px solid rgba(247, 105, 66, 0.32);
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 10px;
+    z-index: 100;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    display: none; /* Hidden by default */
+}
+
+.verification-box::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: 20px;
+    width: 15px;
+    height: 15px;
+    background-color: #2A2925;
+    border-top: 2px solid rgba(247, 105, 66, 0.32);
+    border-left: 2px solid rgba(247, 105, 66, 0.32);
+    transform: rotate(45deg);
+}
+
+.verification-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.verification-content p {
+    margin: 0;
+    color: var(--white);
+    font-size: 14px;
+}
+
+.verification-input-group {
+    display: flex;
+    gap: 10px;
+}
+
+.verification-input-group input {
+    flex: 1;
+    height: 40px;
+    background-color: rgba(208, 174, 174, 0.72);
+    outline: none;
+    border: none;
+    border-radius: 5px;
+    padding-left: 10px;
+    font-size: 16px;
+    font-family: inherit;
+}
+
+#verification-message {
+    font-size: 14px;
+}
+
+.success-message {
+    color: #4CAF50;
+}
+
+.error-message {
+    color: #F44336;
+}
+
+/* Style for verified email */
+.verified-email {
+    background-color: rgba(76, 175, 80, 0.1) !important;
+    border-left: 4px solid #4CAF50 !important;
+}
+
+/*****************************************************************/
+
 .password-and-auth-container div[change] input[type="checkbox"] {
     width: 30px;
     height: 30px;

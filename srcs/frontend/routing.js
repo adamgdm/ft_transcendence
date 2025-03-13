@@ -1,5 +1,6 @@
 import { home } from "./pages/home/home.js";
 import { flip } from "./pages/play/play.js"
+import { settings } from "./pages/settings/settings.js";
 import { storyActions } from "./pages/story/index.js"
 import { scrollAction } from "./pages/story/scroll.js"
 
@@ -55,6 +56,7 @@ function loadAuthenticatedLayout(contentPath) {
                 loadContentIntoLayout(contentPath)
 
                 setupSidebarNavigation()
+                setupSearchBar();
             }
             else {
                 loadPage('404')
@@ -124,6 +126,72 @@ function setupSidebarNavigation() {
     })
 }
 
+function setupSearchBar() {
+    const searchInput = document.getElementById('search-bar');
+    const userSuggestionsBox = document.createElement('div');
+    userSuggestionsBox.classList.add('user-suggestions');
+    
+    // Append the suggestions box below the search input
+    const navbarSearch = document.querySelector('.navbar-search');
+    navbarSearch.appendChild(userSuggestionsBox);
+    
+    // Example user list (this should come from your database or API)
+    const users = ['Alice', 'Aob', 'Aharlie', 'Aavid', 'Ava', 'Frank', 'Grace', 'Henry'];
+
+    // Listen for input changes
+    searchInput.addEventListener('input', function() {
+        const query = searchInput.value.toLowerCase();
+        userSuggestionsBox.innerHTML = ''; // Clear previous suggestions
+
+        if (query.length > 0) {
+            // Filter users based on the query
+            const filteredUsers = users.filter(user => user.toLowerCase().startsWith(query)).slice(0, 3);
+            
+            // Display up to 3 matching users
+            filteredUsers.forEach(user => {
+                const suggestionDiv = document.createElement('div');
+                suggestionDiv.textContent = user;
+                
+                // Create the invite button
+                const inviteButton = document.createElement('button');
+                inviteButton.classList.add('invite-btn');
+                inviteButton.innerHTML = '<i class="fa-solid fa-user-plus"></i> Invite'; // Invite icon
+
+                // Add click event to the invite button
+                inviteButton.addEventListener('click', function() {
+                    console.log(`Invite sent to ${user}`); // Replace with your invite logic
+                });
+
+                // Append the invite button to the suggestion
+                suggestionDiv.appendChild(inviteButton);
+                
+                // Add click event to fill the search input with the selected username
+                suggestionDiv.addEventListener('click', function() {
+                    searchInput.value = user;
+                    userSuggestionsBox.style.display = 'none'; // Hide the suggestions
+                });
+
+                userSuggestionsBox.appendChild(suggestionDiv);
+            });
+        }
+
+        // Show/hide the suggestions box based on input
+        if (userSuggestionsBox.children.length > 0) {
+            userSuggestionsBox.style.display = 'block';
+        } else {
+            userSuggestionsBox.style.display = 'none';
+        }
+    });
+
+    // Hide suggestions when clicking outside
+    document.addEventListener('click', function(event) {
+        if (!navbarSearch.contains(event.target)) {
+            userSuggestionsBox.style.display = 'none';
+        }
+    });
+}
+
+
 function handleNotifBtn(item) {
     const notifBar = document.querySelector('[layout="notifbar"]')
 
@@ -190,8 +258,13 @@ function executePageScripts(path) {
             break
         case "play":
             flip()
+            break
         case "home":
             home()
+            break
+        case "settings":
+            settings()
+            break
         // Add other page-specific script initializations here
         default:
             break

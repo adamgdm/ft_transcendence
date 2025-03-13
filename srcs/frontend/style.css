@@ -164,16 +164,15 @@ body.open-modal {
 .layout-container nav .navbar-search {
     width: 30%;
     margin-right: 15px;
-
     display: flex;
     justify-content: flex-end;
+    position: relative;
 }
 
 .layout-container nav .navbar-search input {
     height: 40px;
     width: 100%;
     padding-left: 15px;
-
     border: none;
     border-radius: 5px;
     background-color: var(--navbar-color);
@@ -181,6 +180,61 @@ body.open-modal {
     color: var(--white);
     font-size: large;
     outline: none;
+}
+
+/* Style the user suggestions box */
+.user-suggestions {
+    width: 100%;
+    max-width: 400px;
+    margin-top: 5px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+    position: absolute;
+    z-index: 10;
+    display: none;
+    padding: 10px 0;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    top: 100%;
+}
+
+/* Style each suggestion item */
+.user-suggestions div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 15px;
+    color: var(--white);
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.user-suggestions div:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Style the invite button */
+.user-suggestions .invite-btn {
+    background-color: #FF4622;
+    color: var(--white);
+    border: none;
+    border-radius: 5px;
+    padding: 5px 10px;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.user-suggestions .invite-btn:hover {
+    background-color: #FF6A4C;
+}
+
+.user-suggestions .invite-btn i {
+    font-size: 16px;
 }
 
 /******************************************************************************/
