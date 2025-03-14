@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.core.validators import EmailValidator
 from django.core.exceptions import ValidationError
-from .models import Users
+from .models import Users, Oauth2AuthenticationData
 from django.contrib.auth.hashers import make_password
 from .utils import UsernameValidator, PasswordValidator, NameValidator, generate_jwt_token, decode_jwt_token, verify_jwt_token, send_2fa_email
 from django.http import JsonResponse, HttpRequest, HttpResponse
@@ -476,16 +476,21 @@ def oauth2_login(request):
 @csrf_exempt
 def oauth2_login_redirect(request):
     code = request.GET.get("code")
-    print(code)
-    user = exchange_code(code)
-    return JsonResponse({"user": user})
+    if not code:
+        return JsonResponse({"error": "No authorization code provided"}, status=400)
+
+    try:
+        user_data = exchange_code(code)
+        return JsonResponse(user_data)
+    except Exception as e:
+        return JsonResponse({"error EXCHANGECODE": f"Authentication failed: {str(e)}"}, status=500)
 
 @csrf_exempt
 def exchange_code(code):
     data = {
         "grant_type": "authorization_code",
         "client_id": "u-s4t2ud-729aed93b28338bae314686c66e3342c44503b544a2906dcb18c0cfc4080570e",
-        "client_secret": "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",
+        "client_secret": "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",
         "code": code,
         "redirect_uri" : "http://127.0.0.1:8000/oauth2/login/redirect/",#actual domain name
         # "scope": "public"
@@ -493,17 +498,91 @@ def exchange_code(code):
     headers = {
         "Content-Type": "application/x-www-form-urlencoded"
     }
-    response = requests.post("https://api.intra.42.fr/oauth/token", data=data, headers=headers)
-    print(f'this is the response {response}')
-    access_token = response.json().get("access_token")
-    print(access_token)
-    response = requests.get("https://api.intra.42.fr/v2/me", headers={
-        'Authorization': "Bearer %s" % access_token
-    })
-    print(f"this is the response {response}")
-    user = response.json()
-    print(user)
-    return user
+    try:
+        response = requests.post("https://api.intra.42.fr/oauth/token", data=data, headers=headers)
+        if response.status_code != 200:
+            raise Exception(f"Failed to exchange code {response.text} and this is the response {response.status_code}")
+
+        token_data = response.json()
+
+        access_token = token_data.get("access_token")
+        expires_in = token_data.get("expires_in")
+        refresh_token = token_data.get("refresh_token")
+        created_at = token_data.get("created_at")
+        secret_valid_until = token_data.get("secret_valid_until")
+
+        # print(f'this is the response {response}') i gotta integrate the refresh token function here !!!!!!!!!!!!!!!!!
+        print(access_token)
+        print("=================================================")
+
+
+        user_response = requests.get("https://api.intra.42.fr/v2/me", headers={
+            'Authorization': "Bearer %s" % access_token
+        })
+        if user_response.status_code != 200:
+            raise Exception(f"Failed to get user data {user_response.text}")
+        user_data = user_response.json()
+        print(response.json())
+# ///////////////////////////////////////////////////////////////////////////////////////
+        try:
+            user, created = Users.objects.get_or_create(
+                intra_id=user_data.get('id'),
+                defaults={
+                    'user_name': user_data.get('login'),
+                    'email': user_data.get('email'),
+                    'first_name': user_data.get('first_name'),
+                    'last_name': user_data.get('last_name'),
+                    'profile_pic_42': user_data.get('image').get("link"),
+                    'intra_url': user_data.get('url'),
+                    'oauth2_authentified': True
+                    # Add any other fields you want to store
+                }
+            )
+
+            # Store OAuth2 data
+            oauth_data, created = Oauth2AuthenticationData.objects.update_or_create(
+                user=user,  # Link to user
+                defaults={
+                    'Oauth2_id': user_data.get('id'),
+                    'Oauth2Token': access_token,
+                    'Oauth2TokenExpiresIn': expires_in,
+                    'Oauth2RefreshToken': refresh_token,
+                    'Oauth2CreateAt': created_at,
+                    'Oauth2ValidUntil': secret_valid_until
+                }
+            )
+            # return JsonResponse(Oauth2AuthenticationData.objects.all())
+            # print(Oauth2AuthenticationData.objects.all()) 
+            # Log the user in (optional, depends on your authentication system)
+
+            # Return success response with user data
+            return user_data
+                # 'success': True,
+                # 'user': {
+                #     'id': user.id,
+                #     'username': user.user_name,
+                #     'email': user.email,
+                #     'first_name': user.first_name,
+                #     'last_name': user.last_name,
+                #     'profile_pic': user.profile_pic_42
+                # }
+            # }
+        except Exception as e:
+            raise Exception(f"Error creating/updating user: {str(e)}")
+    
+    except Exception as e:
+        raise Exception(f"Authentication failed: {str(e)}")
+        # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        # try:
+        #     user = Users.objects.create(
+        #         user_name=
+        #     )
+        # print(f"this is the response {response}")
+
+        # user = response.json()
+
+
+        # return user
 
 
     #  +--------+                               +---------------+
@@ -523,3 +602,116 @@ def exchange_code(code):
     #  |        |                               |     Server    |
     #  |        |<-(F)--- Protected Resource ---|               |
     #  +--------+                               +---------------+
+
+# def refresh_token(token):
+#     data = {
+#         "grant-type" : "refresh_token",
+#         "client_id": "u-s4t2ud-729aed93b28338bae314686c66e3342c44503b544a2906dcb18c0cfc4080570e",
+#         "client_secret": "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",
+#         "refresh_token" : token
+#         # "scope": "public"
+#     }
+#     headers = {
+#         "Content-Type" : "application/x-www-form-urlencoded"
+#     }
+
+#     try:
+#         response = requests.post("https://api.intra.42.fr/oauth/token", data=data, headers=headers)
+#     except Exception:
+#         return JsonResponse({'error': 'could not fetch data'}, status=400)
+    
+#     response = response.json()
+    
+#     access_token = response.get("access_token")
+#     expires_in = response.get("expires_in")
+#     refresh_token = response.get("refresh_token")
+#     created_at = response.get("created_at")
+#     secret_valid_until = response.get("secret_valid_until")
+    
+#     try:
+#         oauthData = Oauth2AuthenticationData.objects.create(
+#             Oauth2_id = 
+#             Oauth2Token = access_token
+#             Oauth2TokenExpiresIn = expires_in 
+#             Oauth2RefreshToken = refresh_token
+#             Oauth2CreateAt = created_at
+#             Oauth2ValidUntil = secret_valid_until
+#         )
+#     except Exception as e: 
+#             return JsonResponse({'error': f'An error occured: {e}'}, status=500)
+    
+#     # print(f'this is the response {response}')
+#     print(access_token)
+#     print("=================================================")
+#     print(response.json())
+#     try:
+#         response = requests.get("https://api.intra.42.fr/v2/me", headers={
+#             'Authorization': "Bearer %s" % access_token
+#         })
+#     except Exception:
+#         return JsonResponse({'error': 'could not fetch data'}, status=400)
+#     # try:
+#     #     user = Users.objects.create(
+#     #         user_name=
+#     #     )
+#     print(f"this is the response {response}")
+    
+#     user = response.json()
+    
+    
+#     return user
+
+def refresh_token_if_needed(user_id):
+    try:
+        oauth_data = Oauth2AuthenticationData.objects.get(user_id=user_id)
+        
+        # Call the refresh endpoint
+        data = {
+            "grant_type": "refresh_token",
+            "client_id": "u-s4t2ud-729aed93b28338bae314686c66e3342c44503b544a2906dcb18c0cfc4080570e",
+            "client_secret": "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",
+            "refresh_token": oauth_data.Oauth2RefreshToken
+        }
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded"
+        }
+        
+        response = requests.post("https://api.intra.42.fr/oauth/token", data=data, headers=headers)
+        if response.status_code == 200:
+            token_data = response.json()
+            
+            # Update the database
+            oauth_data.Oauth2Token = token_data.get("access_token")
+            oauth_data.Oauth2TokenExpiresIn = token_data.get("expires_in")
+            oauth_data.Oauth2RefreshToken = token_data.get("refresh_token", oauth_data.Oauth2RefreshToken)
+            oauth_data.Oauth2CreateAt = token_data.get("created_at")
+            oauth_data.save()
+            
+            return oauth_data.Oauth2Token
+        else:
+            return None
+    except Exception:
+        return None
+# #   +--------+                                           +---------------+
+# #   |        |--(A)------- Authorization Grant --------->|               |
+# #   |        |                                           |               |
+# #   |        |<-(B)----------- Access Token -------------|               |
+# #   |        |               & Refresh Token             |               |
+# #   |        |                                           |               |
+# #   |        |                            +----------+   |               |
+# #   |        |--(C)---- Access Token ---->|          |   |               |
+# #   |        |                            |          |   |               |
+# #   |        |<-(D)- Protected Resource --| Resource |   | Authorization |
+# #   | Client |                            |  Server  |   |     Server    |
+# #   |        |--(E)---- Access Token ---->|          |   |               |
+# #   |        |                            |          |   |               |
+# #   |        |<-(F)- Invalid Token Error -|          |   |               |
+# #   |        |                            +----------+   |               |
+# #   |        |                                           |               |
+# #   |        |--(G)----------- Refresh Token ----------->|               |
+# #   |        |                                           |               |
+# #   |        |<-(H)----------- Access Token -------------|               |
+# #   +--------+           & Optional Refresh Token        +---------------+
+# # Unlike access tokens, refresh tokens are
+# # intended for use only with authorization servers and are never sent
+# # to resource servers.

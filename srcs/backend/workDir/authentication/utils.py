@@ -4,6 +4,7 @@ import jwt
 from datetime import datetime, timedelta
 from backend import settings
 from django.core.mail import EmailMessage
+import math
 
 def UsernameValidator(user_name):
     if not user_name.isalnum():
@@ -76,3 +77,35 @@ def send_2fa_email(mail, otp):
         logger.error(f'Failed to send email: {e}')
         return False
     return True
+
+def probability(rating1, rating2):
+    # Calculate and return the expected score
+    return 1.0 / (1 + math.pow(10, (rating1 - rating2) / 400.0))
+
+# Function to calculate Elo rating
+# K is a constant.
+# outcome determines the outcome: 1 for Player A win, 0 for Player B win, 0.5 for draw.
+def elo_rating(Ra, Rb, K, outcome):
+    Pb = probability(Ra, Rb)
+    Pa = probability(Rb, Ra)
+    K = 30
+
+    # Update the Elo Ratings
+    Ra = Ra + K * (outcome - Pa)
+    Rb = Rb + K * ((1 - outcome) - Pb)
+
+    # Print updated ratings
+    print("Updated Ratings:-")
+    print(f"Ra = {Ra} Rb = {Rb}")
+
+# Current ELO ratings
+Ra = 1200
+Rb = 1000
+
+# K is a constant
+
+# Outcome: 1 for Player A win, 0 for Player B win, 0.5 for draw
+outcome = 1
+
+# Function call
+elo_rating(Ra, Rb, K, outcome)
