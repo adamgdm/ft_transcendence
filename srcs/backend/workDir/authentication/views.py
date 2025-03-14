@@ -408,12 +408,12 @@ def update_profile(request):
         if 'userName' in data:
             # Check if username is available
             if Users.objects.filter(user_name=data['userName']).exclude(id=user.id).exists():
-                return JsonResponse({'success': False, 'error': 'Username already taken'})
+                return JsonResponse({'success': False, 'error': 'Username already taken'}, status=400)
             user.user_name = data['userName']
         if 'email' in data:
             # Check if email is available
             if Users.objects.filter(email=data['email']).exclude(id=user.id).exists():
-                return JsonResponse({'success': False, 'error': 'Email already in use'})
+                return JsonResponse({'success': False, 'error': 'Email already in use'}, status=400)
             user.email = data['email']
             
         # Save changes

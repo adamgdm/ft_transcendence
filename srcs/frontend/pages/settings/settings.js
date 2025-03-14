@@ -1,181 +1,287 @@
 export function settings() {
+    /*************************
+    * Profile Picture change *
+    *************************/
+    const fileInput = document.getElementById('change-avatar-1');
+    const deleteButton = document.getElementById('change-avatar-2');
+    const profileImage = document.querySelector('[profileElement="pic"] img');
+    const defaultImage = "https://articles-images.sftcdn.net/wp-content/uploads/sites/3/2016/01/wallpaper-for-facebook-profile-photo.jpg";
 
-    const form = document.getElementById('myForm')
-    let isSubmitting = false
-
-    form.addEventListener('submit', (e) => {
-        e.preventDefault()
-        
-        // Prevent multiple submissions
-        if (isSubmitting) return
-        
-        if (!validateForm()) return
-        
-        isSubmitting = true
-        // Disable submit button
-        const submitBtn = form.querySelector('button[type="submit"]')
-        const originalBtnText = submitBtn.textContent
-        submitBtn.disabled = true
-        submitBtn.textContent = 'Saving...'
-        
-        // Create a promise array for all requests
-        const promises = []
-        
-        // Add personal info update if needed
-        const personalInfoPromise = updatePersonalInfo()
-        if (personalInfoPromise) promises.push(personalInfoPromise)
-        
-        // Add password update if needed
-        if (document.getElementById('currentPassword').value) {
-            const passwordPromise = updatePassword()
-            if (passwordPromise) promises.push(passwordPromise)
+    // Handle profile picture upload and preview
+    function handleProfilePictureUpload(event) {
+        const file = event.target.files[0]; // Get the selected file
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                profileImage.src = e.target.result; // Set the preview image
+            };
+            reader.readAsDataURL(file); // Read the file as a data URL
         }
-        
-        // Add OTP update if needed
-        const otpPromise = updateOTPSetting()
-        if (otpPromise) promises.push(otpPromise)
-        
-        // When all promises are done, re-enable the form
-        Promise.all(promises)
-            .finally(() => {
-                isSubmitting = false
-                submitBtn.disabled = false
-                submitBtn.textContent = originalBtnText
-            });
-    })
-
-    const validateForm = () => {
-        // validation logic
-        return true
     }
 
-    const updatePersonalInfo = () => {
+    // Handle profile picture deletion
+    function handleProfilePictureDelete() {
+        profileImage.src = defaultImage; // Reset to default image
+        fileInput.value = ""; // Clear file input
+    }
+
+    // Attach event listeners
+    fileInput.addEventListener('change', handleProfilePictureUpload);
+    deleteButton.addEventListener('click', handleProfilePictureDelete);
+    
+    /**********************
+     * Email Verification *
+     **********************/
+    const verifyEmailBtn = document.getElementById('verify-email-btn');
+    const verificationBox = document.getElementById('verification-box');
+    const submitCodeBtn = document.getElementById('submit-code-btn');
+    const emailInput = document.getElementById('change-email');
+    const codeInput = document.getElementById('verification-code');
+    const verificationMessage = document.getElementById('verification-message');
+    
+    let emailVerified = false; // Track email verification status
+    
+    // Initialize the original email attribute
+    emailInput.setAttribute('data-original-email', '');
+    
+// When verify button is clicked
+verifyEmailBtn.addEventListener('click', function(event) {
+    // Prevent any form submission that might be triggered
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const email = emailInput.value.trim();
+    if (!email || !isValidEmail(email)) {
+        alert('Please enter a valid email address');
+        return;
+    }
+    
+    if (verificationBox.style.display === 'block') {
+        sendVerificationCode(email);
+        verificationMessage.textContent = 'Verification code resent';
+        verificationMessage.className = 'success-message';
+    } else {
+        verificationBox.style.display = 'block';
+        sendVerificationCode(email);
+    }
+    
+    verifyEmailBtn.textContent = 'Resend';
+});
+
+// When submit code button is clicked
+submitCodeBtn.addEventListener('click', function(event) {
+    // Prevent any form submission that might be triggered
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const code = codeInput.value.trim();
+    if (!code) {
+        verificationMessage.textContent = 'Please enter the verification code';
+        verificationMessage.className = 'error-message';
+        return;
+    }
+    verifyCode(code);
+});
+    
+    // Hide verification box when clicking outside
+    document.addEventListener('click', function(event) {
+        const isClickInside = verificationBox.contains(event.target) || verifyEmailBtn.contains(event.target);
+        if (!isClickInside && verificationBox.style.display === 'block' && !emailInput.classList.contains('verified-email')) {
+            verificationBox.style.display = 'none';
+            verifyEmailBtn.textContent = 'Verify';
+        }
+    });
+    
+    function isValidEmail(email) {
+        const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return re.test(email);
+    }
+    
+    function sendVerificationCode(email) {
+        console.log('Sending verification code to: ' + email);
+        verificationMessage.textContent = 'Verification code sent to your email';
+        verificationMessage.className = 'success-message';
+    }
+    
+    function verifyCode(code) {
+        if (code === '123456') {
+            verificationMessage.textContent = 'Email verified successfully!';
+            verificationMessage.className = 'success-message';
+            emailInput.setAttribute('readonly', true);
+            emailInput.classList.add('verified-email');
+            verifyEmailBtn.textContent = 'Verified';
+            verifyEmailBtn.style.backgroundColor = '#4CAF50';
+            verifyEmailBtn.disabled = true;
+            emailVerified = true; // Set emailVerified to true
+            setTimeout(() => verificationBox.style.display = 'none', 2000);
+            console.log('Email verification successful - update backend');
+        } else {
+            verificationMessage.textContent = 'Invalid code. Please try again.';
+            verificationMessage.className = 'error-message';
+        }
+    }
+    
+    /**********************
+     * Form Submission *
+     **********************/
+    const form = document.getElementById('myForm');
+    let isSubmitting = false;
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (isSubmitting || !validateForm()) return;
+        isSubmitting = true;
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalBtnText = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Saving...';
+        const promises = [];
+        
+        const emailInput = document.getElementById('change-email');
+        const isEmailChanged = emailInput.value !== emailInput.getAttribute('data-original-email');
+        
+        // Check if email is verified if it was changed
+        if (isEmailChanged && !emailVerified) { // Only check verification at form submission
+            alert('Please verify your email before submitting');
+            isSubmitting = false;
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalBtnText;
+            return; // Stop form submission entirely if email is not verified
+        }
+        
+        // If we get here, the email is either unchanged or verified
+        const personalInfoPromise = updatePersonalInfo();
+        if (personalInfoPromise) promises.push(personalInfoPromise);
+        
+        // If password was entered, update password
+        if (document.getElementById('currentPassword').value) {
+            const passwordPromise = updatePassword();
+            if (passwordPromise) promises.push(passwordPromise);
+        }
+        
+        const otpPromise = updateOTPSetting();
+        if (otpPromise) promises.push(otpPromise);
+        
+        Promise.all(promises)
+            .then(() => {
+                // Only reset the form if all promises resolve successfully
+                form.reset();
+                showNotification('Settings updated successfully', 'success');
+                
+                // Reset email verification state after successful submission
+                emailInput.setAttribute('data-original-email', emailInput.value);
+                emailInput.classList.remove('verified-email');
+                emailInput.removeAttribute('readonly');
+                verifyEmailBtn.textContent = 'Verify';
+                verifyEmailBtn.style.backgroundColor = '';
+                verifyEmailBtn.disabled = false;
+            })
+            .catch(error => {
+                showNotification('An error occurred', 'error');
+            })
+            .finally(() => {
+                isSubmitting = false;
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalBtnText;
+            });
+    });
+    
+    /**********************
+     * Profile Updates *
+     **********************/
+    function updatePersonalInfo() {
         const formData = {
             lastName: document.getElementById('change-lastName').value,
             firstName: document.getElementById('change-firstName').value,
             userName: document.getElementById('change-userName').value,
             email: document.getElementById('change-email').value
-        }
+        };
         
         // Remove empty fields
-        Object.keys(formData).forEach(key => {
-            if (!formData[key]) delete formData[key]
-        });
+        Object.keys(formData).forEach(key => { if (!formData[key]) delete formData[key]; });
         
-        if (Object.keys(formData).length === 0) return
+        // If no form data, return without doing anything
+        if (Object.keys(formData).length === 0) return;
+        
+        console.log("Form data being sent to backend:", JSON.stringify(formData, null, 2));
 
-        // Send API request
+
+        // Send form data to backend
         return fetch('https://localhost:8000/update_profile/', {
             method: 'POST',
             credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(formData)
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showNotification('Profile updated successfully');
-            } else {
-                showNotification('Error: ' + data.error, 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showNotification('An error occurred', 'error');
-        });
-
-    }
-
-    const updatePassword = () => {
-        const currentPassword = document.getElementById('currentPassword').value
-        const newPassword = document.getElementById('change-newPassword').value
-        const confirmPassword = document.getElementById('change-confirmPassword').value
-
-        if (!currentPassword) {
-            alert('Please enter your current password', 'error');
-            return;
-        }
-    
-        if (!newPassword) {
-            alert('Please enter a new password', 'error');
-            return;
-        }
-
-        if (newPassword !== confirmPassword) {
-            alert('New passwords do not match', 'error')
-            return
-        }
-
-        return fetch('https://localhost:8000/modify_password/', {
-            method: 'POST',
-            credentials: 'include',
-            body: JSON.stringify({
-                currentPassword,
-                new_password: confirmPassword
+            .then(response => {
+                if (!response.ok) {
+                    // Check if the response is not OK (status code other than 2xx)
+                    return response.json().then(errorData => {
+                        // Handle the error based on the response status and message
+                        if (response.status === 400 && errorData.error) {
+                            alert(errorData.error); // Show error alert
+                        }
+                        throw new Error(errorData.error || 'Something went wrong');
+                    });
+                }
+                return response.json(); // Return the response data if no error
             })
+            .then(data => {
+                // Handle success response
+                showNotification('Settings updated successfully', 'success');
+            })
+            .catch(error => {
+                // Handle any other errors (including the ones thrown above)
+                showNotification(error.message, 'error');
+            });
+
+    }
+    
+    /**********************
+     * Form Validation *
+     **********************/
+    function validateForm() {
+        return true; // Add actual validation logic here
+    }
+    
+    function updatePassword() {
+        const currentPassword = document.getElementById('currentPassword').value;
+        const newPassword = document.getElementById('change-newPassword').value;
+        const confirmPassword = document.getElementById('change-confirmPassword').value;
+        
+        if (!currentPassword || !newPassword || newPassword !== confirmPassword) {
+            alert('Check your password inputs');
+            return;
+        }
+        
+        return fetch('https://localhost:8000/modify_password/', {
+            method: 'POST', 
+            credentials: 'include', 
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ currentPassword, new_password: confirmPassword })
         })
         .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showNotification('Password updated successfully');
-                // Clear password fields
-                document.getElementById('currentPassword').value = '';
-                document.getElementById('change-newPassword').value = '';
-                document.getElementById('change-confirmPassword').value = '';
-            } else {
-                showNotification('Errorb: ' + data.error, 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showNotification('An error occurred', 'error');
-        });
+        .then(data => showNotification(data.success ? 'Password updated successfully' : 'Error: ' + data.error, data.success ? 'success' : 'error'))
+        .catch(error => showNotification('An error occurred', 'error'));
     }
-
+    
     function updateOTPSetting() {
         const enableOTP = document.getElementById('change-otpLogin').checked;
-
-        return fetch('https://localhost:8000/profile/', {
-            method: 'GET',
-            credentials: 'include'
-        })
-        .then(response => {
-            if (response.status !== 200)
-                throw new Error(`Error fetching the profile data: ${response.status}`);
-            return response.json()
-        })
+        return fetch('https://localhost:8000/profile/', { method: 'GET', credentials: 'include' })
+        .then(response => response.json())
         .then(data => {
-            if (data.two_factor_enabled === enableOTP) {
-                console.log('OTP didn\'t change')
-                return null
+            if (data.two_factor_enabled !== enableOTP) {
+                return fetch(enableOTP ? 'https://localhost:8000/enable_2fa/' : 'https://localhost:8000/disable_2fa/', { 
+                    method: 'POST', 
+                    credentials: 'include' 
+                })
+                .then(response => response.json())
+                .then(data => showNotification(data.success ? '2FA settings updated' : 'Error: ' + data.error, data.success ? 'success' : 'error'));
             }
-
-            return fetch(enableOTP ? 'https://localhost:8000/enable_2fa/' : 'https://localhost:8000/disable_2fa/',
-                    {
-                        method: 'POST',
-                        credentials: 'include'
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            showNotification('2FA settings updated');
-                        } else {
-                            showNotification('Error: ' + data.error, 'error');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        showNotification('An error occurred', 'error');
-                    });
         })
-        .catch(error => console.error('Fetch error: ', error.message))
-        
-
+        .catch(error => console.error('Fetch error:', error.message));
     }
-
+    
     function showNotification(message, type = 'success') {
-        // Implement notification display logic
         console.log(type + ': ' + message);
     }
-
-        
 }
