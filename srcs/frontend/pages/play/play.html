@@ -1,5 +1,24 @@
 
 <div layout="choose-mode" class="choose mode active">
+    <div class="playLocally-card" mode="1vAI">
+        <div class="playLocally-inner">
+            <!-- Front of the card -->
+            <div class="playLocally-face playLocally-front">
+                <img src="assets/backgrounds/robot.svg" alt="bot">
+                <h1>Local Game</h1>
+                <h2>Sharpen with your friends locally before facing real warriors!</h2>
+            </div>
+    
+            <!-- Back of the card -->
+            <div class="playLocally-face playLocally-back">
+                <h1>Challenge Yourself</h1>
+                <div class="playLocally-button buttons">
+                    <span> Play Now </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="play1v1-card" mode="1v1">
         <div class="play1v1-inner">
             <!-- Front of the card -->
@@ -8,25 +27,18 @@
                 <h1>1 vs 1</h1>
                 <h2>Challenge another warrior in a galactic duel for dominance!</h2>
             </div>
-            
+    
             <!-- Back of the card -->
             <div class="play1v1-face play1v1-back">
                 <h1>The Ultimate Battle</h1>
-            </div>
-        </div>
-    </div>
-    <div class="play1vAI-card" mode="1vAI">
-        <div class="play1vAI-inner">
-            <!-- Front of the card -->
-            <div class="play1vAI-face play1vAI-front">
-                <img src="assets/backgrounds/robot.svg" alt="bot">
-                <h1>1 vs Bot</h1>
-                <h2>Sharpen your skills against the AI before facing real warriors!</h2>
+                <input type="text" id="friendSearch" placeholder="Search friends..." oninput="searchFriends()">
+                <ul id="friendsList">
+                    <!-- Friends will be dynamically inserted here -->
+                </ul>
             </div>
     
-            <!-- Back of the card -->
-            <div class="play1vAI-face play1vAI-back">
-                <h1>Challenge Yourself</h1>
+            <div class="playOnline-button buttons">
+                <span> Play Now </span>
             </div>
         </div>
     </div>
@@ -77,7 +89,4 @@
         </div>
     </div>
     
-    <div class="playLocal" mode="local">
-        <h1>play locally</h1>
-    </div>
 </div>

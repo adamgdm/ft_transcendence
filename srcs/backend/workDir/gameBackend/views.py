@@ -11,7 +11,7 @@ import json
 
 games = {}
 
-def create_new_game(player_1, player_2=None, game_opponent='same_computer'):
+def create_new_game(player_1, player_2=None, game_opponent='local'):
     return {
         'ball_x': 0.5,
         'ball_y': 0.5,
@@ -40,48 +40,36 @@ def create_new_game(player_1, player_2=None, game_opponent='same_computer'):
 def create_game(request):
     global games
     if request.method == 'POST':
-        if 'player_1' not in request.POST:
-            return JsonResponse({'error': 'At least one player is required'}, status=400)
-        
-        player_1 = request.POST.get('player_1')
-        player_2 = request.POST.get('player_2')
-        game_opponent = request.POST.get('game_opponent')
+        player = request.POST.get('player')
+        user_id = Users.objects.get(id=request.user_id)
 
-        if not player_2:
-            player_2 = None
+        if not player:
+            player = None
 
-        if not game_opponent:
-            return JsonResponse({'error': 'Game opponent is required'}, status=400)
-        
         game_name = request.POST.get('game_name', 'Untitled Game')
         
-        try:
-            user_1 = Users.objects.filter(user_name=player_1).first()
-            if not user_1:
-                return JsonResponse({'error': 'Player 1 not found'}, status=404)
-        except:
-            return JsonResponse({'error': 'Player 1 not found'}, status=404)
-
-        if player_2:
+        if player:
             try:
-                user_2 = Users.objects.filter(user_name=player_2).first()
-                if not user_2:
+                player = Users.objects.filter(user_name=player).first()
+                if not player:
                     return JsonResponse({'error': 'Player 2 not found'}, status=404)
+                game_opponent = 'online'
             except:
                 return JsonResponse({'error': 'Player 2 not found'}, status=404)
         else:
-            user_2 = user_1
+            player = user_id
+            game_opponent = 'local'
 
         try:
             game = Match.objects.create(
                 match_name=game_name,
-                player_1=user_1,
-                player_2=user_2,
+                player_1=user_id,
+                player_2=player,
                 game_opponent=game_opponent
             )
             game_id = str(game.id) 
-            games[game_id] = create_new_game(player_1, player_2, game_opponent)
-            return JsonResponse({'message': 'Game created successfully', 'game_id': game_id}, status=201)
+            games[game_id] = create_new_game(user_id.user_name, player.user_name, game_opponent)
+            return JsonResponse({'message': 'Game created successfully', 'game_id': game_id, 'user': player.user_name}, status=201)
         except Exception as e:
             return JsonResponse({'error': f'Failed to create game: {str(e)}'}, status=500)
     
@@ -136,20 +124,21 @@ async def game_update(game_id):
                 game_info['ball_speed_x'] = -game_info['ball_speed_x']
                 game_info['ball_speed_y'] = (game_info['ball_y'] - game_info['paddle2_y']) * 0.2
     
-    # If ball goes out of bounds
-    if game_info['ball_x'] < game_info['paddle1_x'] - game_info['paddle_bounds_x']:
-        game_info['score2'] += 1
+    # If ball goes out of bounds (before bounce check)
+    if game_info['ball_x'] < game_info['paddle1_x'] - game_info['paddle_bounds_x']:  
+        game_info['score2'] += 1  # Player 2 scores
         print(f"Score updated: Player 2 scored. New score: {game_info['score2']}")
         game_reset(game_id)
         await asyncio.sleep(2)
+        return game_info  # Return early to avoid further processing
 
-
-   
-    if game_info['ball_x'] > game_info['paddle2_x'] + game_info['paddle_bounds_x']:
-        game_info['score1'] += 1
+    if game_info['ball_x'] > game_info['paddle2_x'] + game_info['paddle_bounds_x']:  
+        game_info['score1'] += 1  # Player 1 scores
         print(f"Score updated: Player 1 scored. New score: {game_info['score1']}")
         game_reset(game_id)
         await asyncio.sleep(2)
+        return game_info  # Return early to avoid further processing
+
 
 
 

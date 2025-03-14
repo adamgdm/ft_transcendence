@@ -1,11 +1,43 @@
 import json
 import asyncio
+from datetime import datetime, timedelta
+from django.conf import settings
+from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
+from authentication.utils import decode_jwt_token
+from authentication.models import BlacklistedTokens, LoggedOutTokens, Users
 
-# Define the lock globally
 games_lock = asyncio.Lock()
 
 class PongConsumer(AsyncWebsocketConsumer):
+    @database_sync_to_async
+    def check_wsAuth(self, scope):
+        token = scope["cookies"].get("token")
+        if not token:
+            return None, "Token is missing"
+
+        payload = decode_jwt_token(token)
+        if payload is None:
+            return None, "Token is invalid"
+        
+        exp = datetime.utcfromtimestamp(payload["exp"])
+        if exp <= datetime.utcnow():
+            return None, "Token has expired"
+
+        if BlacklistedTokens.objects.filter(token=token).exists():
+            return None, "Token is blacklisted"
+
+        if LoggedOutTokens.objects.filter(token=token).exists():
+            return None, "Token is invalid"
+
+        try:
+            user = Users.objects.get(id=payload["user_id"])
+            user.online_status = datetime.utcnow() + timedelta(minutes=2)
+            user.save()
+            return user.user_name, "Success"
+        except Users.DoesNotExist:
+            return None, "User not found"
+
     async def connect(self):
         try:
             from .views import games  # Lazy import to avoid AppRegistryNotReady error
@@ -15,13 +47,26 @@ class PongConsumer(AsyncWebsocketConsumer):
             return
 
         self.game_id = self.scope['url_route']['kwargs']['game_id']
-        self.client_id = self.scope['url_route']['kwargs']['user_id']
         self.room_group_name = f'pong_{self.game_id}'
+        
+        # Check authentication and set client_id as an instance attribute
+        self.client_id, result = await self.check_wsAuth(self.scope)
+        if self.client_id is None:
+            print(f"Authentication failed: {result}")
+            await self.close()
+            return
 
         async with games_lock:
-            while self.game_id not in games:
+            timeout = 60  # seconds
+            elapsed = 0
+            while self.game_id not in games and elapsed < timeout:
                 print(f"Game ID {self.game_id} not found in games")
                 await asyncio.sleep(1)
+                elapsed += 1
+            if self.game_id not in games:
+                print(f"Timeout waiting for game {self.game_id}")
+                await self.close()
+                return
 
             game = games[self.game_id]
 
@@ -35,13 +80,10 @@ class PongConsumer(AsyncWebsocketConsumer):
             elif self.client_id == game['player_2']:
                 game['player2_status'] = 'online'
 
-        await self.channel_layer.group_add(
-            self.room_group_name,
-            self.channel_name
-        )
-
+        await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
 
+        # Send initial game state
         await self.send(text_data=json.dumps({
             'paddle1_x': game['paddle1_x'],
             'paddle2_x': game['paddle2_x'],
@@ -50,11 +92,15 @@ class PongConsumer(AsyncWebsocketConsumer):
             'paddle_bounds_y': game['paddle_bounds_y']
         }))
 
-        if game['game_opponent'] in ['same_computer', 'AI']:
-            await self.send(text_data=json.dumps({'message': 'Same computer or AI game, starting now...'}))
+        # Send game mode to client
+        await self.send(text_data=json.dumps({
+            'game_opponent': game['game_opponent']
+        }))
+
+        if game['game_opponent'] in ['local', 'online']:
+            await self.send(text_data=json.dumps({'message': 'local or online, starting now...'}))
             asyncio.create_task(self.game_update_loop())
         
-        # Indicate which player is online
         status = game['player1_status'] if self.client_id == game['player_1'] else game['player2_status']
         await self.send(text_data=json.dumps({'player': self.client_id, 'status': status}))
 
@@ -75,22 +121,18 @@ class PongConsumer(AsyncWebsocketConsumer):
             return
 
         try:
-            await self.channel_layer.group_discard(
-                self.room_group_name,
-                self.channel_name
-            )
+            await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
         except Exception as e:
             print(f"Error discarding group: {str(e)}")
 
         async with games_lock:
-            game = games.get(self.game_id, None)
-            if game:
+            game = games.get(self.game_id)
+            if game and hasattr(self, 'client_id'):
                 if self.client_id == game['player_1']:
                     game['player1_status'] = 'offline'
                 elif self.client_id == game['player_2']:
                     game['player2_status'] = 'offline'
-
-        print(f"Player {self.client_id} disconnected from game {self.game_id}")
+                print(f"Player {self.client_id} disconnected from game {self.game_id}")
 
     async def receive(self, text_data):
         try:
@@ -102,29 +144,76 @@ class PongConsumer(AsyncWebsocketConsumer):
         text_data_json = json.loads(text_data)
         action = text_data_json['action']
         player_id = text_data_json['player_id']
+        paddle = text_data_json.get('paddle')  # For local mode, specifies which paddle to control
 
-        if action not in ['upStart', 'upStop', 'downStart', 'downStop']:
-            await self.send(text_data=json.dumps({'error': 'Invalid action'}))
-            return
-
+        # Validate action based on game mode
         async with games_lock:
             game_state = games.get(self.game_id)
             if not game_state:
                 await self.send(text_data=json.dumps({'error': 'Game not found'}))
                 return
 
+            valid_actions = ['upStart', 'upStop', 'downStart', 'downStop']
+            if game_state['game_opponent'] == 'local':
+                valid_actions.extend(['wStart', 'wStop', 'sStart', 'sStop'])
+
+            if action not in valid_actions:
+                await self.send(text_data=json.dumps({'error': 'Invalid action'}))
+                return
+
+            if game_state['status'] == 'Done':
+                await self.send(text_data=json.dumps({'status': 'Done'}))
+
+            # Determine which player is sending the action
             player = 'player1' if game_state['player_1'] == player_id else 'player2'
 
-            if action == 'upStart':
-                game_state[f'{player}_moving'] = 'up'
-            elif action == 'upStop':
-                if game_state.get(f'{player}_moving') == 'up':
-                    game_state[f'{player}_moving'] = None
-            elif action == 'downStart':
-                game_state[f'{player}_moving'] = 'down'
-            elif action == 'downStop':
-                if game_state.get(f'{player}_moving') == 'down':
-                    game_state[f'{player}_moving'] = None
+            # Handle actions for local mode
+            if game_state['game_opponent'] == 'local':
+                # In local mode, player_1 controls both paddles
+                if player_id == game_state['player_1']:
+                    target_paddle = paddle  # Use the paddle specified in the message ('player1' or 'player2')
+                    if not target_paddle:
+                        await self.send(text_data=json.dumps({'error': 'Paddle not specified in local mode'}))
+                        return
+                    if target_paddle not in ['player1', 'player2']:
+                        await self.send(text_data=json.dumps({'error': 'Invalid paddle specified'}))
+                        return
+
+                    if action == 'wStart':
+                        game_state[f'{target_paddle}_moving'] = 'up'
+                    elif action == 'wStop':
+                        if game_state.get(f'{target_paddle}_moving') == 'up':
+                            game_state[f'{target_paddle}_moving'] = None
+                    elif action == 'sStart':
+                        game_state[f'{target_paddle}_moving'] = 'down'
+                    elif action == 'sStop':
+                        if game_state.get(f'{target_paddle}_moving') == 'down':
+                            game_state[f'{target_paddle}_moving'] = None
+                    elif action == 'upStart':
+                        game_state[f'{target_paddle}_moving'] = 'up'
+                    elif action == 'upStop':
+                        if game_state.get(f'{target_paddle}_moving') == 'up':
+                            game_state[f'{target_paddle}_moving'] = None
+                    elif action == 'downStart':
+                        game_state[f'{target_paddle}_moving'] = 'down'
+                    elif action == 'downStop':
+                        if game_state.get(f'{target_paddle}_moving') == 'down':
+                            game_state[f'{target_paddle}_moving'] = None
+                else:
+                    await self.send(text_data=json.dumps({'error': f'Only player_1 can control paddles in local mode'}))
+                    return
+            else:
+                # Online mode: each player controls their own paddle
+                if action == 'upStart':
+                    game_state[f'{player}_moving'] = 'up'
+                elif action == 'upStop':
+                    if game_state.get(f'{player}_moving') == 'up':
+                        game_state[f'{player}_moving'] = None
+                elif action == 'downStart':
+                    game_state[f'{player}_moving'] = 'down'
+                elif action == 'downStop':
+                    if game_state.get(f'{player}_moving') == 'down':
+                        game_state[f'{player}_moving'] = None
 
         await self.send(text_data=json.dumps({'success': True}))
 

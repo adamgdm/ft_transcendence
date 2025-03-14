@@ -8,13 +8,12 @@ class Match(models.Model):
         CANCELLED = 'cancelled'
     
     class GameOpponentChoices(models.TextChoices):
-        SAME_COMPUTER = 'same_computer'
-        AI = 'AI'
+        LOCAL = 'local'
         ONLINE = 'online'
     id = models.AutoField(primary_key=True)
     match_name = models.CharField(max_length=255)
     match_status = models.CharField(max_length=15, choices=MatchStatusChoices.choices, default=MatchStatusChoices.PENDING)
-    game_opponent = models.CharField(max_length=15, choices=GameOpponentChoices.choices, default=GameOpponentChoices.SAME_COMPUTER)
+    game_opponent = models.CharField(max_length=15, choices=GameOpponentChoices.choices, default=GameOpponentChoices.LOCAL)
     player_1 = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='player_1')
     player_2 = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='player_2')
     score_player_1 = models.IntegerField(null=True, blank=True)

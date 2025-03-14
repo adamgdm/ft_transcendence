@@ -8,6 +8,8 @@ from django.http import JsonResponse
 from django.db.models import Q
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.hashers import check_password
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 from .decorators import check_auth
 from datetime import datetime, timedelta
 from django.utils import timezone
@@ -397,16 +399,65 @@ def add_friend(request):
             return JsonResponse({'error': 'No friend specified'}, status=400)
         
         friend_id = request.POST['friend_id']
-        friend = Users.objects.get(id=friend_id)
-        if not friend:
+        try:
+            friend = Users.objects.get(id=friend_id)
+        except Users.DoesNotExist:
             return JsonResponse({'error': 'Friend not found'}, status=404)
         
         user = Users.objects.get(id=request.user_id)
         if Friendship.objects.filter(from_user=user, to_user=friend).exists() or Friendship.objects.filter(from_user=friend, to_user=user).exists():
             return JsonResponse({'error': 'Friendship already exists'}, status=400)
         
-        Friendship.objects.create(from_user=user, to_user=friend)
-        return JsonResponse({'message': 'Friend added successfully'}, status=200)
+        Friendship.objects.create(from_user=user, to_user=friend, friendship_status='pending')
+        
+        # Async notification
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"friendship_group_{friend.id}",
+            {
+                'type': 'friend_request_notification',
+                'message': f'{user.user_name} sent you a friend request.',
+                'from_user_id': user.id,
+                'from_username': user.user_name
+            }
+        )
+        
+        return JsonResponse({'message': 'Friend request sent successfully'}, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+@check_auth
+def cancel_invite(request):
+    if request.method == 'POST':
+        if 'friend_id' not in request.POST:
+            return JsonResponse({'error': 'No friend specified'}, status=400)
+        
+        friend_id = request.POST['friend_id']
+        try:
+            friend = Users.objects.get(id=friend_id)
+        except Users.DoesNotExist:
+            return JsonResponse({'error': 'Friend not found'}, status=404)
+        
+        user = Users.objects.get(id=request.user_id)
+        friendship = Friendship.objects.filter(from_user=user, to_user=friend, friendship_status='pending').first()
+        if not friendship:
+            return JsonResponse({'error': 'Friend request not found or already processed'}, status=404)
+        
+        friendship.delete()
+        
+        # Async notification
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"friendship_group_{friend.id}",
+            {
+                'type': 'friend_update_notification',
+                'message': f'{user.user_name} canceled the friend request.',
+                'friend_id': user.id
+            }
+        )
+        
+        return JsonResponse({'message': 'Friend request canceled successfully'}, status=200)
+    
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 @csrf_exempt
@@ -417,46 +468,30 @@ def remove_friend(request):
             return JsonResponse({'error': 'No friend specified'}, status=400)
         
         friend_id = request.POST['friend_id']
-        friend = Users.objects.get(id=friend_id)
-        if not friend:
+        try:
+            friend = Users.objects.get(id=friend_id)
+        except Users.DoesNotExist:
             return JsonResponse({'error': 'Friend not found'}, status=404)
         
         user = Users.objects.get(id=request.user_id)
-        friendship = Friendship.objects.filter(from_user=user, to_user=friend).first() or Friendship.objects.filter(from_user=friend, to_user=user).first()
+        friendship = Friendship.objects.filter(Q(from_user=user, to_user=friend) | Q(from_user=friend, to_user=user)).first()
         if not friendship:
             return JsonResponse({'error': 'Friendship does not exist'}, status=400)
         
         friendship.delete()
+        
+        # Async notification
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"friendship_group_{friend.id}",
+            {
+                'type': 'friend_update_notification',
+                'message': f'{user.user_name} removed you as a friend.',
+                'friend_id': user.id
+            }
+        )
+        
         return JsonResponse({'message': 'Friend removed successfully'}, status=200)
-    return JsonResponse({'error': 'Invalid request method'}, status=405)
-
-@csrf_exempt
-@check_auth
-def get_friends(request):
-    if request.method ==  'GET':
-        user = Users.objects.get(id=request.user_id)
-        friends = Friendship.objects.filter(Q(from_user=user) | Q(to_user=user), friendship_status='accepted')
-        if not friends:
-            return JsonResponse({'message': 'No friends found'}, status=200)
-        friend_list = []
-        for friend in friends:
-            if friend.from_user == user:
-                friend_list.append({
-                    'id': friend.to_user.id,
-                    'user_name': friend.to_user.user_name,
-                    'first_name': friend.to_user.first_name,
-                    'last_name': friend.to_user.last_name,
-                    'online_status': friend.to_user.online_status
-                })
-            else:
-                friend_list.append({
-                    'id': friend.from_user.id,
-                    'user_name': friend.from_user.user_name,
-                    'first_name': friend.from_user.first_name,
-                    'last_name': friend.from_user.last_name,
-                    'online_status': friend.from_user.online_status
-                })
-        return JsonResponse({'friends': friend_list}, status=200)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 @csrf_exempt
@@ -467,17 +502,30 @@ def accept_friend(request):
             return JsonResponse({'error': 'No friend specified'}, status=400)
         
         friend_id = request.POST['friend_id']
-        friend = Users.objects.get(id=friend_id)
-        if not friend:
+        try:
+            friend = Users.objects.get(id=friend_id)
+        except Users.DoesNotExist:
             return JsonResponse({'error': 'Friend not found'}, status=404)
         
         user = Users.objects.get(id=request.user_id)
-        friendship = Friendship.objects.filter(from_user=friend, to_user=user).first()
+        friendship = Friendship.objects.filter(from_user=friend, to_user=user, friendship_status='pending').first()
         if not friendship:
             return JsonResponse({'error': 'Friend request not found'}, status=404)
         
         friendship.friendship_status = 'accepted'
         friendship.save()
+        
+        # Async notification
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"friendship_group_{friend.id}",
+            {
+                'type': 'friend_update_notification',
+                'message': f'{user.user_name} accepted your friend request!',
+                'friend_id': user.id
+            }
+        )
+        
         return JsonResponse({'message': 'Friend request accepted successfully'}, status=200)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
@@ -489,34 +537,28 @@ def reject_friend(request):
             return JsonResponse({'error': 'No friend specified'}, status=400)
         
         friend_id = request.POST['friend_id']
-        friend = Users.objects.get(id=friend_id)
-        if not friend:
+        try:
+            friend = Users.objects.get(id=friend_id)
+        except Users.DoesNotExist:
             return JsonResponse({'error': 'Friend not found'}, status=404)
         
         user = Users.objects.get(id=request.user_id)
-        friendship = Friendship.objects.filter(from_user=friend, to_user=user).first()
+        friendship = Friendship.objects.filter(from_user=friend, to_user=user, friendship_status='pending').first()
         if not friendship:
             return JsonResponse({'error': 'Friend request not found'}, status=404)
         
         friendship.delete()
+        
+        # Async notification
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"friendship_group_{friend.id}",
+            {
+                'type': 'friend_update_notification',
+                'message': f'{user.user_name} rejected your friend request.',
+                'friend_id': user.id
+            }
+        )
+        
         return JsonResponse({'message': 'Friend request rejected successfully'}, status=200)
-    return JsonResponse({'error': 'Invalid request method'}, status=405)
-
-@csrf_exempt
-@check_auth
-def get_friend_requests(request):
-    if request.method == 'GET':
-        user = Users.objects.get(id=request.user_id)
-        friendships = Friendship.objects.filter(to_user=user, friendship_status='pending')
-        if not friendships:
-            return JsonResponse({'message': 'No friend requests'}, status=200)
-        friend_requests = []
-        for friendship in friendships:
-            friend_requests.append({
-                'id': friendship.from_user.id,
-                'user_name': friendship.from_user.user_name,
-                'first_name': friendship.from_user.first_name,
-                'last_name': friendship.from_user.last_name,
-            })
-        return JsonResponse({'friend_requests': friend_requests}, status=200)
     return JsonResponse({'error': 'Invalid request method'}, status=405)

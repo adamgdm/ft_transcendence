@@ -1,3 +1,4 @@
+import { game } from "./pages/game/game.js";
 import { home } from "./pages/home/home.js";
 import { flip } from "./pages/play/play.js"
 import { storyActions } from "./pages/story/index.js"
@@ -6,7 +7,7 @@ import { scrollAction } from "./pages/story/scroll.js"
 
 let isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
 
-const authenticatedPages = ['home', 'settings', 'shop', 'play']
+const authenticatedPages = ['home', 'settings', 'shop', 'play', 'game']
 
 window.onload = function () {
     const fragId = window.location.hash.substring(1) || 'story'
@@ -18,7 +19,7 @@ window.onload = function () {
     })
 }
 
-function routeToPage(path) {
+window.routeToPage = function (path) {
     if (!isValidRoute(path)) {
         loadPage('404')
         return
@@ -38,7 +39,7 @@ function routeToPage(path) {
 }
 
 function isValidRoute(path) {
-    const validRoutes = ['story', 'home','play', 'shop', 'settings', '404']
+    const validRoutes = ['story', 'home','play', 'shop', 'settings', '404', 'game']
     return validRoutes.includes(path)
 }
 
@@ -190,9 +191,13 @@ function executePageScripts(path) {
             break
         case "play":
             flip()
+            break
         case "home":
             home()
-        // Add other page-specific script initializations here
+            break
+        case "game":
+            game()
+            break
         default:
             break
     }

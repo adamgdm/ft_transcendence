@@ -19,6 +19,7 @@ urlpatterns = [
     path('logout/', views.logout, name='logout'),
     # Friendships
     path('add_friend/', views.add_friend, name='add_friend'),
+    path('cancel_invite/', views.cancel_invite, name='cancel_invite'),
     path('remove_friend/', views.remove_friend, name='remove_friend'),
     path('get_friends/', views.get_friends, name='get_friends'),
     path('accept_friend/', views.accept_friend, name='accept_friend'),

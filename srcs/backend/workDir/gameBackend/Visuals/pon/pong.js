@@ -170,7 +170,7 @@ function initializeWebSocket(player, game_id) {
 
 let player1 = 'player1';
 let player2 = 'player1';
-let game_opponent = 'same_computer';
+let game_opponent = 'local';
 
 async function start_game() {
     game_id = await create_game(player1, player2, game_opponent);
