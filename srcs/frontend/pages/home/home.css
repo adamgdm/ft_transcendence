@@ -29,29 +29,26 @@
 [layout="home-content"] .user-profile {
     height: 250px;
     padding-left: 50px;
-    border-radius: 10px; 
-    
-    
-    
+    border-radius: 10px;
     border: 2px solid transparent;
     background-clip: padding-box, border-box;
     background-origin: padding-box, border-box;
     background-image:
         linear-gradient(#1C1B19, #1C1B19),
-        
         linear-gradient(to bottom, 
             rgba(225, 201, 154, 0.32) 0%, 
             rgba(247, 105, 66, 0.32) 28%, 
             rgba(239, 140, 98, 0.32) 60%,
             rgba(225, 201, 154, 0.32) 99%
-        ); 
-
+        );
+    
     display: flex;
-    justify-content: flex-start;
+    justify-content: space-between; /* Pushes button to the right */
     align-items: center;
     gap: 30px;
-
+    padding-right: 50px; /* Adds space on the right */
 }
+
 
 [profileElement="picture"] {
     width: 200px;
@@ -75,6 +72,155 @@
     font-size: 30px;
 }
 
+.see-friends-btn {
+    background: #FF4322;
+    color: #000;
+    font-size: 18px;
+    font-family: inherit;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.3s ease-in-out;
+    margin-left: auto;
+    align-self: flex-end;
+    margin-bottom: 50px;
+}
+
+.see-friends-btn:hover {
+    transform: scale(1.05);
+}
+
+.friends-modal {
+    position: absolute;
+    top: 40px;
+    right: 40px;
+    height: 945px;
+    width: 593px;
+    background-color: var(--space-color);
+    border-radius: 10px;
+    border: 2px solid #FF4622;
+    z-index: 1;
+    opacity: 0;
+    visibility: hidden;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding-top: 50px;
+    border: 2px solid red;
+}
+
+/* Hide scrollbar for WebKit browsers (Chrome, Safari, etc.) */
+.friends-modal::-webkit-scrollbar {
+    width: 0; /* Remove scrollbar width */
+    background: transparent; /* Make scrollbar track transparent */
+}
+
+/* Hide scrollbar for Firefox */
+.friends-modal {
+    scrollbar-width: none; /* Firefox */
+}
+
+/* Hide scrollbar for IE and Edge */
+.friends-modal {
+    -ms-overflow-style: none; /* IE and Edge */
+}
+
+.hidden { display: none; }
+
+.close-btn {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    background: red;
+    border-radius: 40px;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.search-bar-container {
+    width: 90%;
+    display: flex;
+    justify-content: center;
+}
+
+.search-bar {
+    font-family: inherit;
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 16px;
+}
+
+.friends-list {
+    width: 100%;
+    height: 100%;
+    padding-top: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    overflow-y: auto;
+}
+
+/* Hide scrollbar for WebKit browsers (Chrome, Safari, etc.) */
+.friends-list::-webkit-scrollbar {
+    width: 0; /* Remove scrollbar width */
+    background: transparent; /* Make scrollbar track transparent */
+}
+
+/* Hide scrollbar for Firefox */
+.friends-list {
+    scrollbar-width: none; /* Firefox */
+}
+
+/* Hide scrollbar for IE and Edge */
+.friends-list {
+    -ms-overflow-style: none; /* IE and Edge */
+}
+
+.friend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    width: 90%;
+    background-color: rgba(34, 34, 34, 0.9);
+    border-radius: 5px;
+    box-shadow: 0 0 3px rgba(255, 255, 255, 0.8),
+            0 0 3px rgba(173, 216, 230, 0.6),
+            0 0 3px rgba(255, 255, 255, 0.4);
+}
+
+.friend-item img {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+}
+
+.friend-item p {
+    font-size: 18px;
+    flex-grow: 1;
+}
+
+.remove-friend {
+    background-color: red;
+    color: black;
+    font-family: inherit;
+    border: none;
+    padding: 5px 15px;
+    cursor: pointer;
+    border-radius: 5px;
+    font-size: 10px;
+}
+
+.remove-friend:hover {
+    background-color: darkred;
+}
 
 /***************************/
 /* user-game-stats  */
@@ -176,7 +322,7 @@
 .user-match-history div[match] div[player] {
     display: flex;
     align-items: center;
-    gap: 50px; /* Space between the player pic, name, and score */
+    gap: 50px;
 }
 
 .user-match-history div[match] div[player] .pic,
