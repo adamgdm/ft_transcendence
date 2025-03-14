@@ -457,3 +457,12 @@ body.open-modal {
 [layout="notifbar"] .decline-btn:hover {
     background-color: #e53935;
 }
+
+.accept-btn {
+    background: #2196F3; 
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+}
