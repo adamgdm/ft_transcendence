@@ -2,7 +2,7 @@
 <div layout="settings-content">
     <h2 class="settings">Settings</h2>
     <div class="line"></div>
-    <form id="myForm">
+    <form id="myForm" autocomplete="off">
         <div class="settings-container">
             <div setting-part="profile-picture" class="profile-picture">
                 <h2>Profile Picture</h2>
@@ -11,8 +11,13 @@
                     <div profileElement="pic">
                         <img src="https://cdn.intra.42.fr/users/82d39646cd2423210c305aacf10105a6/okassimi.JPG" alt="Profile Picture">
                     </div>
+                    <!-- <div profileElement="form">
+                        <input id="change-avatar-1" type="file" value="Change Avatar">
+                        <input id="change-avatar-2" type="button" value="Delete Avatar">
+                    </div> -->
                     <div profileElement="form">
-                        <input id="change-avatar-1" type="button" value="Change Avatar">
+                        <label for="change-avatar-1" class="custom-file-upload">Change Avatar</label>
+                        <input id="change-avatar-1" type="file" accept="image/*">
                         <input id="change-avatar-2" type="button" value="Delete Avatar">
                     </div>
                 </div>
@@ -34,12 +39,29 @@
                         <label for="change-userName">Username</label>
                         <input id="change-userName" type="text">
                     </div>
-                    <div change="email">
+                    <div change="email" class="email-field-container">
                         <label for="change-email">Email</label>
-                        <input id="change-email" type="text">
+                        <div class="email-input-group">
+                            <input id="change-email" type="text">
+                            <button id="verify-email-btn" class="verify-btn">Verify</button>
+                        </div>
+                        
+                        <!-- Absolute positioned verification box -->
+                        <div id="verification-box" class="verification-box">
+                            <div class="verification-content">
+                                <p>Enter the verification code sent to your email</p>
+                                <div class="verification-input-group">
+                                    <input id="verification-code" type="text" placeholder="Enter code">
+                                    <button id="submit-code-btn" class="verify-btn">Submit Code</button>
+                                </div>
+                                <span id="verification-message"></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
+            
+            
 
             <div setting-part="password-and-auth" class="password-and-auth">
                 <h2>Password & Authentication</h2>

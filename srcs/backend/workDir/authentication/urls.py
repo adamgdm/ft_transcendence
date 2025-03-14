@@ -17,6 +17,7 @@ urlpatterns = [
     path('modify_email/', views.modify_email, name='modify_email'),
     path('modify_password/', views.modify_password, name='modify_password'),
     path('logout/', views.logout, name='logout'),
+    path('update_profile/', views.update_profile, name='update_profile'),
     # Friendships
     path('add_friend/', views.add_friend, name='add_friend'),
     path('cancel_invite/', views.cancel_invite, name='cancel_invite'),

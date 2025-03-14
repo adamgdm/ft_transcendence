@@ -12,7 +12,7 @@ export function home() {
         if (response.status != 200) {
             throw new Error('Network response was not ok: ' + response.status);
         }
-        return response.json();
+        return response.json(); 
     })
     .then(userData => {
         // Process the retrieved user data
@@ -28,5 +28,14 @@ export function home() {
     })
     .catch(error => {
         console.error('Error:', error);
+    });
+    
+    document.querySelector(".see-friends-btn").addEventListener("click", function() {
+        document.getElementById("friends-modal").style.opacity = "1";
+        document.getElementById("friends-modal").style.visibility = "visible";
+    });
+    document.querySelector(".close-btn").addEventListener("click", function() {
+        document.getElementById("friends-modal").style.opacity = "0";
+        document.getElementById("friends-modal").style.visibility = "hidden";
     });
 }

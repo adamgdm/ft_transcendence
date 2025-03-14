@@ -164,16 +164,15 @@ body.open-modal {
 .layout-container nav .navbar-search {
     width: 30%;
     margin-right: 15px;
-
     display: flex;
     justify-content: flex-end;
+    position: relative;
 }
 
 .layout-container nav .navbar-search input {
     height: 40px;
     width: 100%;
     padding-left: 15px;
-
     border: none;
     border-radius: 5px;
     background-color: var(--navbar-color);
@@ -182,6 +181,92 @@ body.open-modal {
     font-size: large;
     outline: none;
 }
+
+.user-suggestions {
+    width: 100%;
+    max-width: 400px;
+    margin-top: 5px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+    position: absolute;
+    z-index: 10;
+    display: none;
+    padding: 10px 0;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    top: 100%;
+}
+
+.user-suggestions div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 15px;
+    color: var(--white);
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.user-suggestions div:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Style the add button */
+.user-suggestions .add-btn {
+    background-color: #FF4622;
+    color: var(--white);
+    border: none;
+    border-radius: 5px;
+    padding: 5px 10px;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.user-suggestions .add-btn:hover {
+    background-color: #FF6A4C;
+}
+
+/* Style the pending button */
+.user-suggestions .pending-btn {
+    background-color: orange;
+    color: var(--white);
+    border: none;
+    border-radius: 5px;
+    padding: 5px 10px;
+    font-size: 14px;
+    cursor: not-allowed;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.user-suggestions .pending-btn:hover {
+    background-color: darkorange;
+}
+
+.user-suggestions .cancel-btn {
+    background-color: #555;
+    color: var(--white);
+    border: none;
+    border-radius: 5px;
+    padding: 5px 10px;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: 5px;
+}
+
+.user-suggestions .cancel-btn:hover {
+    background-color: #777;
+}
+
 
 /******************************************************************************/
 /* MAIN-CONTENT */
@@ -262,16 +347,18 @@ body.open-modal {
 
 [layout="notifbar"] {
     position: absolute;
-    top: 15%;
-    left: 10%;
-    height: 75%;
-    width: 20%;
+    top: 185px;
+    left: 200px;
+    height: 913px;
+    width: 450px;
+    min-width: 400px;
     background-color: var(--space-color);
-    border-radius: 15px;
+    border-radius: 10px;
     border: 2px solid #FF4622;
     z-index: 1;
     opacity: 0;
     visibility: hidden;
+    overflow: hidden;
 }
 
 [layout="notifbar"]::after {
@@ -282,7 +369,6 @@ body.open-modal {
     position: absolute;
     top: 8%;
     left: 5%;
-
     background-image: linear-gradient(to bottom, 
         rgba(225, 201, 154, 0.32) 0%, 
         rgba(247, 105, 66, 0.32) 28%, 
@@ -291,12 +377,83 @@ body.open-modal {
     );
 }
 
+[layout="notifbar"].active {
+    opacity: 100%;
+    visibility: visible;
+}
+
 [layout="notifbar"] .title {
     margin-left: 20px;
     color: var(--text-color);
 }
 
-[layout="notifbar"].active {
-    opacity: 100%;
-    visibility: visible;
+[layout="notifbar"] .notif-container {
+    height: calc(100% - 80px);
+    overflow-y: auto;
+    padding: 10px 20px;
+    margin-top: 10px;
+}
+
+[layout="notifbar"] .notif-container::-webkit-scrollbar {
+    width: 0;
+    background: transparent;
+}
+
+[layout="notifbar"] .notif-container {
+    scrollbar-width: none;
+}
+
+[layout="notifbar"] .notif-container {
+    -ms-overflow-style: none;
+}
+
+[layout="notifbar"] .notif-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    margin-bottom: 10px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: var(--text-color);
+    transition: background-color 0.3s ease;
+}
+
+[layout="notifbar"] .notif-item:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+[layout="notifbar"] .notif-text {
+    flex-grow: 1;
+    margin-right: 10px;
+    font-size: 14px;
+}
+
+[layout="notifbar"] .accept-btn,
+[layout="notifbar"] .decline-btn {
+    padding: 5px 10px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-left: 5px;
+    transition: background-color 0.3s ease;
+}
+
+[layout="notifbar"] .accept-btn {
+    background-color: #4CAF50;
+    color: white;
+}
+
+[layout="notifbar"] .accept-btn:hover {
+    background-color: #45a049;
+}
+
+[layout="notifbar"] .decline-btn {
+    background-color: #f44336;
+    color: white;
+}
+
+[layout="notifbar"] .decline-btn:hover {
+    background-color: #e53935;
 }

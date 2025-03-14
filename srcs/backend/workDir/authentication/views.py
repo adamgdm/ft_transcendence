@@ -362,10 +362,16 @@ def modify_email(request):
 @check_auth
 def modify_password(request):
     if request.method == 'POST':
-        if 'new_password' not in request.POST:
-            return JsonResponse({'error': 'No password specified'}, status=400)
+        data = json.loads(request.body)
         
-        new_password = request.POST['new_password']
+        # Verify required fields
+        if 'currentPassword' not in data or 'new_password' not in data:
+            return JsonResponse({'error': 'Missing required fields'}, status=400)
+        
+        current_password = data['currentPassword']
+        new_password = data['new_password']
+        
+        
         if not PasswordValidator(new_password):
             return JsonResponse({'error': 'Invalid password'}, status=400)
         
@@ -373,8 +379,8 @@ def modify_password(request):
         user.password_hash = make_password(new_password)
         user.last_password_change = timezone.now()
         user.save()
-        return JsonResponse({'message': 'Password updated successfully'}, status=200)
-    return JsonResponse({'error': 'Invalid request method'}, status=405)
+        return JsonResponse({'success': True}, status=200)
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
 
 @csrf_exempt
 @check_auth
@@ -388,6 +394,35 @@ def logout(request):
         LoggedOutTokens.objects.create(token=token)
         return JsonResponse({'message': 'Logged out successfully'}, status=200)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+@check_auth
+def update_profile(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        user = Users.objects.get(id=request.user_id) 
+
+        # Update fields if provided
+        if 'firstName' in data:
+            user.first_name = data['firstName']
+        if 'lastName' in data:
+            user.last_name = data['lastName']
+        if 'userName' in data:
+            # Check if username is available
+            if Users.objects.filter(user_name=data['userName']).exclude(id=user.id).exists():
+                return JsonResponse({'success': False, 'error': 'Username already taken'}, status=400)
+            user.user_name = data['userName']
+        if 'email' in data:
+            # Check if email is available
+            if Users.objects.filter(email=data['email']).exclude(id=user.id).exists():
+                return JsonResponse({'success': False, 'error': 'Email already in use'}, status=400)
+            user.email = data['email']
+            
+        # Save changes
+        user.save()
+        return JsonResponse({'success': True})
+
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
 
 # Friendship methods
 
