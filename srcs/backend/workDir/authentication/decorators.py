@@ -49,7 +49,7 @@ def check_auth(func):
                 new_token,
                 httponly=True,
                 secure=getattr(settings, 'SESSION_COOKIE_SECURE', False),
-                samesite='Lax',
+                samesite='None',
                 max_age=601
             )
             return response

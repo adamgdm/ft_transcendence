@@ -254,7 +254,6 @@ function executePageScripts(path) {
         case "story":
             storyActions()
             scrollAction()
-            
             break
         case "play":
             flip()
