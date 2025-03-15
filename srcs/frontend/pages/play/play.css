@@ -424,6 +424,7 @@
 }
 
 .playTourn-card .playTourn-back .tourn-created .cancel-btn {
+    display: none;
     margin-top: 100px;
     cursor: pointer;
 }

@@ -26,6 +26,9 @@ urlpatterns = [
     path('accept_friend/', views.accept_friend, name='accept_friend'),
     path('reject_friend/', views.reject_friend, name='reject_friend'),
     path('get_friend_requests/', views.get_friend_requests, name='get_friend_requests'),
+    path('get_sent_friend_requests/', views.get_sent_friend_requests, name='get_sent_friend_requests'),
+    path('get_friendship_status/', views.get_friendship_status, name='get_friendship_status'),
+    path('bulk_friend_status/', views.bulk_friend_status, name='bulk_friend_status'),
     # Search
     path('search_users/', views.search_users, name='search_users'),
 ]
