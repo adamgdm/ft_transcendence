@@ -442,6 +442,66 @@
     font-size: 0.7em;
 }
 
+.search-bar {
+    font-family: inherit;
+    width: 90%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 16px;
+}
+
+.search-bar:focus {
+    border-radius: 5px 5px 0 0;
+    box-shadow: none;
+    transform: none;
+    outline: none;
+}
+
+#friendsList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 200px;
+    width: 90%;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #ddd;
+    top: 60px; /* Adjust based on search bar height */
+    left: 20px;
+    right: 20px;
+    z-index: 10;
+}
+
+#friendsList:last-child {
+    border-radius: 0 0 5px 5px;
+}
+
+#friendsList li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+}
+
+#friendsList li:last-child {
+    border-bottom: none;
+}
+
+.invite-btn {
+    background: #4CAF50;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.invite-btn:hover {
+    background: #45a049;
+}
+
 /***********************************************************************/
 /* Join Tournament Chose                                             */
 /***********************************************************************/

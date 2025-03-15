@@ -24,3 +24,17 @@ class Match(models.Model):
     
     class Meta:
         unique_together = ('player_1', 'player_2', 'match_creation_date')
+
+class GameInvites(modes.Model):
+    class GameInviteStatus(models.TextChoices):
+        PENDING = 'pending'
+        ACCEPTED = 'accepted'
+        REFUSED = 'refused'
+    class GameModes(models.TextChoices):
+        ONLINE = 'online'
+        TOURNAMENT = 'tournament'
+    from_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='user_id')
+    to_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='friend_id')
+    status = models.CharField(choices=GameInviteStatus.choices, default=GameInviteStatus.PENDING)
+    game_mode = models.CharField(choices=GameModes.choices)
+    issued_at = models.DateTimeField(auto_now_add=True)

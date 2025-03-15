@@ -607,10 +607,10 @@ function executePageScripts(path) {
             break
         case "play":
             flip()
+            setupFriendsModal()
             break
         case "home":
             home()
-            setupFriendsModal()
             break
         case "game":
             game()
