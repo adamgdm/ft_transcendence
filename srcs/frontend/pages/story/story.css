@@ -255,6 +255,7 @@
     justify-content: space-around;
     align-items: center;
     width: 66.67vw;
+    min-width: 600px;
     height: 33vh;
     margin: auto auto;
     z-index: 1;
@@ -322,16 +323,15 @@
 /* MODAL  */
 /******************************************************************************/
 
+/* General Modal Styles */
 .modal {
     position: absolute;
     display: none;
     height: 90vh;
     width: 40vw;
-    overflow: hidden;
-
+    min-width: 700px;
     border-radius: 20px;
     border: 5px solid transparent;
-    
     background-clip: padding-box, border-box;
     background-origin: padding-box, border-box;
     background-image:
@@ -342,12 +342,11 @@
             rgba(239, 140, 98, 0.32) 60%,
             rgba(225, 201, 154, 0.32) 99%
         );
-
     pointer-events: all;
+    padding: 50px 15px 0 15px;
 }
 
 .modal-title {
-    width: 90%;
     font-size: 50px;
     color: #DA8890;
     letter-spacing: 5px;
@@ -367,14 +366,12 @@
 
 
 /******************************************************************************/
-/* SIGNUP MODAL  */
+/* SIGNUP MODAL */
 /******************************************************************************/
-
 [data-modal="signup"] {
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.08s ease-in-out, visibility 0.08s ease-in-out;
-
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -387,54 +384,50 @@
 }
 
 [data-form="signup"] {
-    margin-top: 100px;
-    /* background-color: #A9AD5A; */
-    width: 30vw;
-    height: 50vh;
-    padding-left: 15px;
-
+    width: 90%;
+    max-width: 700px;
+    border-radius: 10px;
     display: flex;
     flex-direction: column;
-    align-items: left;
-    justify-content: center;
-    gap: 40px;
-
-    color: var(--white);
+    gap: 30px;
+    color: var(--stars-color);
     font-size: large;
+    padding-top: 50px;
+}
+
+[data-form="signup"] .form-group {
+    width: 100%;
 }
 
 [data-form="signup"] .form-input {
-    width: 90%;
-    height: 50px;
+    width: 100%;
+    height: 70px;
     border-radius: 10px;
-    
     border: 5px solid transparent;
     background-clip: padding-box, border-box;
     background-origin: padding-box, border-box;
-    background-color: #1C1B19; /* Fallback solid color */
+    background-color: #1C1B19;
     background-image:
-        linear-gradient(#1C1B19, #1C1B19), /* Inner solid background */
+        linear-gradient(#1C1B19, #1C1B19),
         linear-gradient(to bottom,  
             rgb(90, 82, 65, 0.99) 0%,  
             rgba(97, 54, 40, 0.8) 50%,  
             rgba(90, 82, 65, 0.99) 100%  
         );
-
     color: var(--white);
-    font-size: xx-large;
+    font-size: x-large;
     font-family: inherit;
     padding: 10px;
     outline: none;
 }
 
 [data-form="signup"] .form-text {
-    margin-left:  20px;
+    margin-left: 10px;
 }
 
 [data-form="signup"] .form-submit {
-    width: 94%;
+    width: 100%;
     height: 80px;
-
     padding: 10px;
     background-color: #FF4622;
     border: none;
@@ -444,6 +437,7 @@
     font-family: inherit;
     -webkit-text-stroke: 2px black;
     cursor: pointer;
+    margin-top: 20px;
 }
 
 /******************************************************************************/
@@ -459,6 +453,7 @@
     flex-direction: column;
     align-items: center;
     z-index: 1;
+    
 }
 
 [data-modal="email-verification"].active {
@@ -467,7 +462,7 @@
 }
 
 [data-modal="email-verification"] .verification-logo  {
-    margin-top: 100px;
+    margin-top: 50px;
 }
 
 [data-modal="email-verification"] .verification-des {
@@ -492,7 +487,7 @@
 }
 
 [data-form="email-verification"]   {
-    margin-top: 100px;
+    margin-top: 20px;
     width: 90%;
     display: flex;
     flex-direction: column;
@@ -518,9 +513,9 @@
     border-radius: 7px;
     background-clip: padding-box, border-box;
     background-origin: padding-box, border-box;
-    background-color: #1C1B19; /* Fallback solid color */
+    background-color: #1C1B19;
     background-image:
-        linear-gradient(#1C1B19, #1C1B19), /* Inner solid background */
+        linear-gradient(#1C1B19, #1C1B19),
         linear-gradient(to bottom,  
             rgb(90, 82, 65, 0.99) 0%,  
             rgba(97, 54, 40, 0.8) 50%,  
@@ -556,7 +551,6 @@
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.08s ease-in-out, visibility 0.08s ease-in-out;
-
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -569,21 +563,24 @@
 }
 
 [data-form="login"] {
-    margin-top: 100px;
-    /* background-color: #A9AD5A; */
-    width: 30vw;
-    height: 50vh;
-    padding-left: 15px;
-
+    width: 80%;
     display: flex;
     flex-direction: column;
-    align-items: left;
-    justify-content: center;
+    align-items: center;
     gap: 40px;
-    transform: translateY(-80px);
-
     color: var(--white);
     font-size: large;
+    padding-top: 50px;
+}
+
+[data-form="login"] .form-group {
+    width: 100%;
+}
+
+[data-form="login"] .form-group:last-child,
+[data-form="login"] .form-group:nth-last-child(2) {
+    display: flex;
+    justify-content: center;
 }
 
 [data-modal="login"] .login-des {
@@ -597,39 +594,34 @@
 }
 
 [data-form="login"] .form-input {
-    width: 90%;
-    height: 50px;
+    width: 100%;
+    height: 70px;
     border-radius: 10px;
-    
     border: 5px solid transparent;
     background-clip: padding-box, border-box;
     background-origin: padding-box, border-box;
-    background-color: #1C1B19; /* Fallback solid color */
+    background-color: #1C1B19;
     background-image:
-        linear-gradient(#1C1B19, #1C1B19), /* Inner solid background */
+        linear-gradient(#1C1B19, #1C1B19),
         linear-gradient(to bottom,  
             rgb(90, 82, 65, 0.99) 0%,  
             rgba(97, 54, 40, 0.8) 50%,  
             rgba(90, 82, 65, 0.99) 100%  
         );
-
     color: var(--white);
-    font-size: xx-large;
+    font-size: x-large;
     font-family: inherit;
     padding: 10px;
     outline: none;
 }
 
 [data-form="login"] .form-text {
-    margin-left:  20px;
+    margin-left: 20px;
 }
 
 [data-form="login"] .form-submit {
-    width: 94%;
+    width: 500px;
     height: 80px;
-    margin-top: 150px;
-
-    padding: 10px;
     background-color: #FF4622;
     border: none;
     border-radius: 8px;
@@ -642,8 +634,6 @@
 
 .login-forpass-btn {
     height: 80px;
-    transform: translateY(-60px);
-
     padding: 10px;
     background-color: #6F6F6E;
     border: none;
@@ -675,19 +665,16 @@
 }
 
 [for-step] {
-    position: absolute;
-
-    top: 10rem;
     width: 100%;
-    /* border: 2px solid #DA8890; */
 
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    gap: 20px;
+    gap: 50px;
     color: var(--white);
 }
+
 
 [for-step] .forgot-password-des {
     color: var(--white);
@@ -699,17 +686,16 @@
 }
 
 [for-step] input {
-    margin-top: 2rem;
-    width: 50%;
-    height: 50px;
+    height: 70px;
+    width: 70%;
     border-radius: 10px;
     
     border: 5px solid transparent;
     background-clip: padding-box, border-box;
     background-origin: padding-box, border-box;
-    background-color: #1C1B19; /* Fallback solid color */
+    background-color: #1C1B19;
     background-image:
-        linear-gradient(#1C1B19, #1C1B19), /* Inner solid background */
+        linear-gradient(#1C1B19, #1C1B19),
         linear-gradient(to bottom,  
             rgb(90, 82, 65, 0.99) 0%,  
             rgba(97, 54, 40, 0.8) 50%,  
@@ -730,8 +716,8 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 
 input[type="number"] {
-    -moz-appearance: textfield; /* Hides the spinner in Firefox */
-    appearance: textfield; /* Standard property for other browsers */
+    -moz-appearance: textfield;
+    appearance: textfield;
 }
 
 [for-step] button {
