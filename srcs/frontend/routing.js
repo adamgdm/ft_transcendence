@@ -44,6 +44,140 @@ window.routeToPage = function (path) {
     }
 }
 
+///////////////////////////////////////////// API FUNCTIONS /////////////////////////////////////////////////////////
+    // API Functions
+async function fetchUsers(query) {
+    try {
+        const url = `https://localhost:8000/search_users/?query=${encodeURIComponent(query)}`;
+        const response = await fetch(url, { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
+        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+        return (await response.json()).users || [];
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        return [];
+    }
+}
+
+async function fetchPendingReceivedRequests() {
+    try {
+        const response = await fetch('https://localhost:8000/get_friend_requests/', { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
+        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+        return (await response.json()).requests || [];
+    } catch (error) {
+        console.error('Error fetching received requests:', error);
+        return [];
+    }
+}
+
+async function fetchPendingSentRequests() {
+    try {
+        const response = await fetch('https://localhost:8000/get_sent_friend_requests/', { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
+        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+        return (await response.json()).sent_requests || [];
+    } catch (error) {
+        console.error('Error fetching sent requests:', error);
+        return [];
+    }
+}
+
+async function fetchFriendsList() {
+    try {
+        const response = await fetch('https://localhost:8000/get_friends/', { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
+        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+        return (await response.json()).friends || [];
+    } catch (error) {
+        console.error('Error fetching friends list:', error);
+        return [];
+    }
+}
+
+async function addFriendRequest(username) {
+    try {
+        const response = await fetch('https://localhost:8000/add_friend/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ friend_username: username })
+        });
+        const data = await response.json();
+        console.log(data.message || data.error);
+        return data;
+    } catch (error) {
+        console.error('Error adding friend:', error);
+        return { error: 'Network error' };
+    }
+}
+
+async function cancelFriendRequest(username) {
+    try {
+        const response = await fetch('https://localhost:8000/cancel_invite/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ friend_username: username })
+        });
+        const data = await response.json();
+        console.log(data.message || data.error);
+        return data;
+    } catch (error) {
+        console.error('Error canceling friend request:', error);
+        return { error: 'Network error' };
+    }
+}
+
+async function acceptFriendRequest(username) {
+    try {
+        const response = await fetch('https://localhost:8000/accept_friend/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ friend_username: username })
+        });
+        const data = await response.json();
+        console.log(data.message || data.error);
+        return data;
+    } catch (error) {
+        console.error('Error accepting friend request:', error);
+        return { error: 'Network error' };
+    }
+}
+
+async function rejectFriendRequest(username) {
+    try {
+        const response = await fetch('https://localhost:8000/reject_friend/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ friend_username: username })
+        });
+        const data = await response.json();
+        console.log(data.message || data.error);
+        return data;
+    } catch (error) {
+        console.error('Error rejecting friend request:', error);
+        return { error: 'Network error' };
+    }
+}
+
+async function removeFriend(username) {
+    try {
+        const response = await fetch('https://localhost:8000/remove_friend/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ friend_username: username })
+        });
+        const data = await response.json();
+        console.log(data.message || data.error);
+        return data;
+    } catch (error) {
+        console.error('Error removing friend:', error);
+        return { error: 'Network error' };
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 function isValidRoute(path) {
     const validRoutes = ['story', 'home','play', 'shop', 'settings', '404', 'game']
     return validRoutes.includes(path)
@@ -60,7 +194,7 @@ function loadAuthenticatedLayout(contentPath) {
                 content.innerHTML = layoutRequest.responseText
                 console.log("authenticated layout rendered")
                 loadContentIntoLayout(contentPath)
-
+                
                 setupSidebarNavigation()
                 setupSearchBar();
             }
@@ -132,6 +266,92 @@ function setupSidebarNavigation() {
     })
 }
 
+function setupFriendsModal() {
+    const seeFriendsBtn = document.querySelector(".see-friends-btn");
+    const closeBtn = document.querySelector(".close-btn");
+    const friendsModal = document.getElementById("friends-modal");
+    const friendsListContainer = document.querySelector(".friends-list");
+    const searchBar = document.querySelector("#friends-modal .search-bar");
+
+    if (!seeFriendsBtn || !closeBtn || !friendsModal || !friendsListContainer || !searchBar) {
+        console.error("Friends modal elements not found");
+        return;
+    }
+
+    let allFriends = []; // Store the full friends list for filtering
+
+    // Function to render friends list
+    function renderFriends(friends) {
+        friendsListContainer.innerHTML = '';
+        if (friends.length === 0) {
+            friendsListContainer.innerHTML = '<p>No friends found.</p>';
+            return;
+        }
+
+        friends.forEach(friend => {
+            const friendItem = document.createElement('div');
+            friendItem.classList.add('friend-item');
+
+            const img = document.createElement('img');
+            img.src = "https://cdn-icons-png.flaticon.com/512/147/147144.png"; // Default avatar
+            img.alt = `${friend.username} image`;
+
+            const name = document.createElement('p');
+            name.textContent = friend.username;
+
+            const removeButton = document.createElement('button');
+            removeButton.classList.add('remove-friend');
+            removeButton.textContent = 'Remove Friend';
+            removeButton.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const result = await removeFriend(friend.username);
+                if (!result.error) {
+                    allFriends = allFriends.filter(f => f.username !== friend.username);
+                    renderFriends(allFriends.filter(f => 
+                        f.username.toLowerCase().startsWith(searchBar.value.trim().toLowerCase())
+                    ));
+                }
+            });
+
+            friendItem.appendChild(img);
+            friendItem.appendChild(name);
+            friendItem.appendChild(removeButton);
+            friendsListContainer.appendChild(friendItem);
+        });
+    }
+
+    // Open modal and fetch initial friends list
+    seeFriendsBtn.addEventListener("click", async function() {
+        friendsModal.style.opacity = "1";
+        friendsModal.style.visibility = "visible";
+
+        try {
+            allFriends = await fetchFriendsList();
+            renderFriends(allFriends); // Initial render with full list
+        } catch (error) {
+            console.error('Error loading friends list:', error);
+            friendsListContainer.innerHTML = '<p>Error loading friends.</p>';
+        }
+    });
+
+    // Close modal
+    closeBtn.addEventListener("click", function() {
+        friendsModal.style.opacity = "0";
+        friendsModal.style.visibility = "hidden";
+        searchBar.value = ''; // Reset search input
+        renderFriends(allFriends); // Reset to full list when reopened
+    });
+
+    // Live search with successive match (startsWith)
+    searchBar.addEventListener('input', function() {
+        const query = searchBar.value.trim().toLowerCase();
+        const filteredFriends = allFriends.filter(friend => 
+            friend.username.toLowerCase().startsWith(query)
+        );
+        renderFriends(filteredFriends);
+    });
+}
+
 function setupSearchBar() {
     const searchInput = document.getElementById('search-bar');
     const userSuggestionsBox = document.createElement('div');
@@ -178,137 +398,6 @@ function setupSearchBar() {
             clearTimeout(timeout);
             timeout = setTimeout(() => func.apply(this, args), wait);
         };
-    }
-
-    // API Functions
-    async function fetchUsers(query) {
-        try {
-            const url = `https://localhost:8000/search_users/?query=${encodeURIComponent(query)}`;
-            const response = await fetch(url, { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
-            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-            return (await response.json()).users || [];
-        } catch (error) {
-            console.error('Error fetching users:', error);
-            return [];
-        }
-    }
-
-    async function fetchPendingReceivedRequests() {
-        try {
-            const response = await fetch('https://localhost:8000/get_friend_requests/', { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
-            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-            return (await response.json()).requests || [];
-        } catch (error) {
-            console.error('Error fetching received requests:', error);
-            return [];
-        }
-    }
-
-    async function fetchPendingSentRequests() {
-        try {
-            const response = await fetch('https://localhost:8000/get_sent_friend_requests/', { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
-            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-            return (await response.json()).sent_requests || [];
-        } catch (error) {
-            console.error('Error fetching sent requests:', error);
-            return [];
-        }
-    }
-
-    async function fetchFriendsList() {
-        try {
-            const response = await fetch('https://localhost:8000/get_friends/', { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
-            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-            return (await response.json()).friends || [];
-        } catch (error) {
-            console.error('Error fetching friends list:', error);
-            return [];
-        }
-    }
-
-    async function addFriendRequest(username) {
-        try {
-            const response = await fetch('https://localhost:8000/add_friend/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ friend_username: username })
-            });
-            const data = await response.json();
-            console.log(data.message || data.error);
-            return data;
-        } catch (error) {
-            console.error('Error adding friend:', error);
-            return { error: 'Network error' };
-        }
-    }
-
-    async function cancelFriendRequest(username) {
-        try {
-            const response = await fetch('https://localhost:8000/cancel_invite/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ friend_username: username })
-            });
-            const data = await response.json();
-            console.log(data.message || data.error);
-            return data;
-        } catch (error) {
-            console.error('Error canceling friend request:', error);
-            return { error: 'Network error' };
-        }
-    }
-
-    async function acceptFriendRequest(username) {
-        try {
-            const response = await fetch('https://localhost:8000/accept_friend/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ friend_username: username })
-            });
-            const data = await response.json();
-            console.log(data.message || data.error);
-            return data;
-        } catch (error) {
-            console.error('Error accepting friend request:', error);
-            return { error: 'Network error' };
-        }
-    }
-
-    async function rejectFriendRequest(username) {
-        try {
-            const response = await fetch('https://localhost:8000/reject_friend/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ friend_username: username })
-            });
-            const data = await response.json();
-            console.log(data.message || data.error);
-            return data;
-        } catch (error) {
-            console.error('Error rejecting friend request:', error);
-            return { error: 'Network error' };
-        }
-    }
-
-    async function removeFriend(username) {
-        try {
-            const response = await fetch('https://localhost:8000/remove_friend/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ friend_username: username })
-            });
-            const data = await response.json();
-            console.log(data.message || data.error);
-            return data;
-        } catch (error) {
-            console.error('Error removing friend:', error);
-            return { error: 'Network error' };
-        }
     }
 
     const handleSearchInput = debounce(async function () {
@@ -521,6 +610,7 @@ function executePageScripts(path) {
             break
         case "home":
             home()
+            setupFriendsModal()
             break
         case "game":
             game()
