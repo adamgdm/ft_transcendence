@@ -267,91 +267,129 @@ function setupSidebarNavigation() {
 }
 
 function setupFriendsModal() {
-    const seeFriendsBtn = document.querySelector(".see-friends-btn");
-    const closeBtn = document.querySelector(".close-btn");
-    const friendsModal = document.getElementById("friends-modal");
-    const friendsListContainer = document.querySelector(".friends-list");
-    const searchBar = document.querySelector("#friends-modal .search-bar");
+    const waitForButton = setInterval(() => {
+        const seeFriendsBtn = document.querySelector(".see-friends-btn");
+        if (seeFriendsBtn) {
+            clearInterval(waitForButton);
 
-    if (!seeFriendsBtn || !closeBtn || !friendsModal || !friendsListContainer || !searchBar) {
-        console.error("Friends modal elements not found");
-        return;
-    }
+            let allFriends = [];
 
-    let allFriends = []; // Store the full friends list for filtering
-
-    // Function to render friends list
-    function renderFriends(friends) {
-        friendsListContainer.innerHTML = '';
-        if (friends.length === 0) {
-            friendsListContainer.innerHTML = '<p>No friends found.</p>';
-            return;
-        }
-
-        friends.forEach(friend => {
-            const friendItem = document.createElement('div');
-            friendItem.classList.add('friend-item');
-
-            const img = document.createElement('img');
-            img.src = "https://cdn-icons-png.flaticon.com/512/147/147144.png"; // Default avatar
-            img.alt = `${friend.username} image`;
-
-            const name = document.createElement('p');
-            name.textContent = friend.username;
-
-            const removeButton = document.createElement('button');
-            removeButton.classList.add('remove-friend');
-            removeButton.textContent = 'Remove Friend';
-            removeButton.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                const result = await removeFriend(friend.username);
-                if (!result.error) {
-                    allFriends = allFriends.filter(f => f.username !== friend.username);
-                    renderFriends(allFriends.filter(f => 
-                        f.username.toLowerCase().startsWith(searchBar.value.trim().toLowerCase())
-                    ));
+            function renderFriends(friends, container) {
+                container.innerHTML = '';
+                if (!Array.isArray(friends) || friends.length === 0) {
+                    container.innerHTML = '<p>No friends found.</p>';
+                    return;
                 }
+
+                friends.forEach((friend, index) => {
+                    // Handle different possible data structures
+                    const username = typeof friend === 'string' ? friend : friend.username || friend.name || `Friend ${index + 1}`;
+                    if (!username) {
+                        console.warn(`Friend at index ${index} has no valid username:`, friend);
+                        return; // Skip invalid entries
+                    }
+
+                    const friendItem = document.createElement('div');
+                    friendItem.classList.add('friend-item');
+
+                    const img = document.createElement('img');
+                    img.src = "https://cdn-icons-png.flaticon.com/512/147/147144.png";
+                    img.alt = `${username} image`;
+
+                    const name = document.createElement('p');
+                    name.textContent = username;
+
+                    const removeButton = document.createElement('button');
+                    removeButton.classList.add('remove-friend');
+                    removeButton.textContent = 'Remove Friend';
+                    removeButton.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        const result = await removeFriend(username);
+                        if (!result.error) {
+                            allFriends = allFriends.filter(f => {
+                                const fUsername = typeof f === 'string' ? f : f.username || f.name;
+                                return fUsername !== username;
+                            });
+                            renderFriends(allFriends.filter(f => {
+                                const fUsername = typeof f === 'string' ? f : f.username || f.name;
+                                return fUsername.toLowerCase().startsWith(searchBar.value.trim().toLowerCase());
+                            }), container);
+                        } else {
+                            console.error(`Failed to remove ${username}:`, result.error);
+                        }
+                    });
+
+                    friendItem.appendChild(img);
+                    friendItem.appendChild(name);
+                    friendItem.appendChild(removeButton);
+                    container.appendChild(friendItem);
+                });
+            }
+
+            seeFriendsBtn.addEventListener("click", async function() {
+                let friendsModal = document.getElementById("friends-modal");
+                if (!friendsModal) {
+                    friendsModal = document.createElement("div");
+                    friendsModal.id = "friends-modal";
+                    friendsModal.classList.add("friends-modal");
+                    friendsModal.innerHTML = `
+                        <button class="close-btn">×</button>
+                        <div class="search-bar-container">
+                            <input type="text" class="search-bar" placeholder="Search friends...">
+                        </div>
+                        <div class="friends-list"></div>
+                    `;
+                    document.body.appendChild(friendsModal);
+                }
+
+                const closeBtn = friendsModal.querySelector(".close-btn");
+                const friendsListContainer = friendsModal.querySelector(".friends-list");
+                const searchBar = friendsModal.querySelector(".search-bar");
+
+                if (!closeBtn || !friendsListContainer || !searchBar) {
+                    console.error("Modal sub-elements not found after creation");
+                    return;
+                }
+
+                friendsModal.style.opacity = "1";
+                friendsModal.style.visibility = "visible";
+
+                try {
+                    allFriends = await fetchFriendsList();
+                    console.log("Fetched friends:", allFriends); // Debug the raw data
+                    renderFriends(allFriends, friendsListContainer);
+                } catch (error) {
+                    console.error('Error loading friends list:', error);
+                    friendsListContainer.innerHTML = '<p>Error loading friends.</p>';
+                }
+
+                closeBtn.addEventListener("click", function() {
+                    friendsModal.style.opacity = "0";
+                    friendsModal.style.visibility = "hidden";
+                    searchBar.value = '';
+                    renderFriends(allFriends, friendsListContainer);
+                });
+
+                searchBar.addEventListener('input', function() {
+                    const query = searchBar.value.trim().toLowerCase();
+                    const filteredFriends = allFriends.filter(friend => {
+                        const username = typeof friend === 'string' ? friend : friend.username || friend.name;
+                        return username && username.toLowerCase().startsWith(query);
+                    });
+                    renderFriends(filteredFriends, friendsListContainer);
+                });
             });
-
-            friendItem.appendChild(img);
-            friendItem.appendChild(name);
-            friendItem.appendChild(removeButton);
-            friendsListContainer.appendChild(friendItem);
-        });
-    }
-
-    // Open modal and fetch initial friends list
-    seeFriendsBtn.addEventListener("click", async function() {
-        friendsModal.style.opacity = "1";
-        friendsModal.style.visibility = "visible";
-
-        try {
-            allFriends = await fetchFriendsList();
-            renderFriends(allFriends); // Initial render with full list
-        } catch (error) {
-            console.error('Error loading friends list:', error);
-            friendsListContainer.innerHTML = '<p>Error loading friends.</p>';
         }
-    });
+    }, 100);
 
-    // Close modal
-    closeBtn.addEventListener("click", function() {
-        friendsModal.style.opacity = "0";
-        friendsModal.style.visibility = "hidden";
-        searchBar.value = ''; // Reset search input
-        renderFriends(allFriends); // Reset to full list when reopened
-    });
-
-    // Live search with successive match (startsWith)
-    searchBar.addEventListener('input', function() {
-        const query = searchBar.value.trim().toLowerCase();
-        const filteredFriends = allFriends.filter(friend => 
-            friend.username.toLowerCase().startsWith(query)
-        );
-        renderFriends(filteredFriends);
-    });
+    setTimeout(() => {
+        clearInterval(waitForButton);
+        console.error("Timed out waiting for .see-friends-btn");
+    }, 5000);
 }
+document.addEventListener("DOMContentLoaded", setupFriendsModal);
 
+// Placeholder functions
 function setupSearchBar() {
     const searchInput = document.getElementById('search-bar');
     const userSuggestionsBox = document.createElement('div');
