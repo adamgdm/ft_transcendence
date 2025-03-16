@@ -6,43 +6,56 @@ import { settings } from "./pages/settings/settings.js";
 import { storyActions } from "./pages/story/index.js"
 import { scrollAction } from "./pages/story/scroll.js"
 
+window.isAuthenticated = false;
 
-let isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
-
+if (localStorage.getItem('isAuthenticated') === 'true') {
+    window.isAuthenticated = true;
+}
+            
 const authenticatedPages = ['home', 'settings', 'shop', 'play', 'game']
 
 window.onload = function () {
+    localStorage.removeItem('isAuthenticated');
+    window.isAuthenticated = false;
+    
+
     const fragId = window.location.hash.substring(1) || 'story'
+    console.log(fragId)
     routeToPage(fragId)
     
     window.addEventListener('hashchange', () => {
+        console.log('Hash changed:', window.location.hash);
+        window.isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+        console.log('Current auth status:', window.isAuthenticated);
+
         const path = window.location.hash.substring(1) || 'story'
         routeToPage(path)
     })
 
-    if (isAuthenticated) {
-        initializeWebSocket()
-    }
+    // if (isAuthenticated) {
+    //     initializeWebSocket()
+    // }
 }
 
 window.routeToPage = function (path) {
     if (!isValidRoute(path)) {
-        loadPage('404')
-        return
+        loadPage('404');
+        return;
     }
 
     if (authenticatedPages.includes(path))  {
         if (!isAuthenticated) {
-            window.location.hash = 'story'
-            return
+            window.location.hash = 'story';
+            return;
         }
 
-        loadAuthenticatedLayout(path)
+        loadAuthenticatedLayout(path);
     }
     else {
-        loadPage(path)
+        loadPage(path);
     }
 }
+
 
 function isValidRoute(path) {
     const validRoutes = ['story', 'home','play', 'shop', 'settings', '404', 'game']
@@ -50,86 +63,96 @@ function isValidRoute(path) {
 }
 
 function loadAuthenticatedLayout(contentPath) {
-    const content = document.getElementById('content')
+    const content = document.getElementById('content');
 
     if (!document.querySelector('.layout-container')) {
-        const layoutRequest = new XMLHttpRequest()
-        layoutRequest.open('GET', 'layout/authenticated-layout.html')
+        const layoutRequest = new XMLHttpRequest();
+        layoutRequest.open('GET', 'layout/authenticated-layout.html');
         layoutRequest.onload = function () {
             if (layoutRequest.status === 200) {
-                content.innerHTML = layoutRequest.responseText
-                console.log("authenticated layout rendered")
-                loadContentIntoLayout(contentPath)
+                content.innerHTML = layoutRequest.responseText;
+                loadContentIntoLayout(contentPath);
 
-                setupSidebarNavigation()
+                setupSidebarNavigation();
                 setupSearchBar();
             }
             else {
-                loadPage('404')
+                loadPage('404');
             }
-        }
+        };
         layoutRequest.onerror = function() {
-            loadPage('404')
-        }
-        layoutRequest.send()
+            loadPage('404');
+        };
+        layoutRequest.send();
     }
     else {
-        loadContentIntoLayout(contentPath)
+        loadContentIntoLayout(contentPath);
     }
 }
 
 function loadContentIntoLayout(path) {
-    const contentContainer = document.querySelector('.content-wrapper')
-    const loader = document.querySelector('.loading-div')
+    const contentContainer = document.querySelector('.content-wrapper');
+    const loader = document.querySelector('.loading-div');
 
-    if (!contentContainer || !loader) return
+    if (!contentContainer || !loader) return;
 
     // Show the loader
-    loader.classList.remove('fade-out')
-    contentContainer.style.opacity = "0"
+    loader.classList.remove('fade-out');
+    contentContainer.style.opacity = "0";
 
-    const request = new XMLHttpRequest()
-    request.open('GET', `pages/${path}/${path}.html`)
+    const request = new XMLHttpRequest();
+    request.open('GET', `pages/${path}/${path}.html`);
     request.onload = function () {
         if (request.status === 200) {
-            contentContainer.innerHTML = request.responseText
-            updateStylesheet(`pages/${path}/${path}.css`)
-            executePageScripts(path)
+            contentContainer.innerHTML = request.responseText;
+            updateStylesheet(`pages/${path}/${path}.css`);
+            executePageScripts(path);
 
             setTimeout(() => {
-                loader.classList.add('fade-out')
-                contentContainer.style.opacity = "1"
-            }, 1000)
+                loader.classList.add('fade-out');
+                contentContainer.style.opacity = "1";
+            }, 1000);
         } else {
-            contentContainer.innerHTML = '<p>Error loading content</p>'
-            loader.classList.add('fade-out')
+            contentContainer.innerHTML = '<p>Error loading content</p>';
+            loader.classList.add('fade-out');
         }
-    }
+    };
 
     request.onerror = function () {
-        contentContainer.innerHTML = '<p>Error loading content</p>'
-        loader.classList.add('fade-out')
-    }
+        contentContainer.innerHTML = '<p>Error loading content</p>';
+        loader.classList.add('fade-out');
+    };
 
-    request.send()
+    request.send();
 }
 
 
 function setupSidebarNavigation() {
     document.querySelectorAll('.sidebar-menu div, .sidebar-actions div').forEach(item => {
         item.addEventListener('click', () => {
-            handleNotifBtn(item)
-            const target = item.getAttribute('data-target')
+            handleNotifBtn(item);
+            const target = item.getAttribute('data-target');
 
             if (target) {
+                if (target === '#story') {
+                    // Set isAuthenticated to false
+                    localStorage.setItem('isAuthenticated', 'false');
+                    window.isAuthenticated = false;
+                    console.log('User logged out. isAuthenticated set to false.');
+                }
+
+                // Remove 'clicked' class from all buttons
                 document.querySelectorAll('.sidebar-menu div, .sidebar-actions div')
-                    .forEach(button => button.classList.remove('clicked'))
-                    
-                item.classList.add('clicked')
-                window.location.hash = target
+                    .forEach(button => button.classList.remove('clicked'));
+
+                // Add 'clicked' class to the clicked button
+                item.classList.add('clicked');
+
+                // Change the window location hash to the target
+                window.location.hash = target;
             }
-        })
-    })
+        });
+    });
 }
 
 function setupSearchBar() {
@@ -183,7 +206,7 @@ function setupSearchBar() {
     // API Functions
     async function fetchUsers(query) {
         try {
-            const url = `https://localhost:8000/search_users/?query=${encodeURIComponent(query)}`;
+            const url = `/api/search_users/?query=${encodeURIComponent(query)}`;
             const response = await fetch(url, { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
             if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
             return (await response.json()).users || [];
@@ -195,7 +218,7 @@ function setupSearchBar() {
 
     async function fetchPendingReceivedRequests() {
         try {
-            const response = await fetch('https://localhost:8000/get_friend_requests/', { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
+            const response = await fetch('/api/get_friend_requests/', { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
             if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
             return (await response.json()).requests || [];
         } catch (error) {
@@ -206,7 +229,7 @@ function setupSearchBar() {
 
     async function fetchPendingSentRequests() {
         try {
-            const response = await fetch('https://localhost:8000/get_sent_friend_requests/', { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
+            const response = await fetch('/api/get_sent_friend_requests/', { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
             if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
             return (await response.json()).sent_requests || [];
         } catch (error) {
@@ -217,7 +240,7 @@ function setupSearchBar() {
 
     async function fetchFriendsList() {
         try {
-            const response = await fetch('https://localhost:8000/get_friends/', { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
+            const response = await fetch('/api/get_friends/', { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
             if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
             return (await response.json()).friends || [];
         } catch (error) {
@@ -228,7 +251,7 @@ function setupSearchBar() {
 
     async function addFriendRequest(username) {
         try {
-            const response = await fetch('https://localhost:8000/add_friend/', {
+            const response = await fetch('/api/add_friend/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -245,7 +268,7 @@ function setupSearchBar() {
 
     async function cancelFriendRequest(username) {
         try {
-            const response = await fetch('https://localhost:8000/cancel_invite/', {
+            const response = await fetch('/api/cancel_invite/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -262,7 +285,7 @@ function setupSearchBar() {
 
     async function acceptFriendRequest(username) {
         try {
-            const response = await fetch('https://localhost:8000/accept_friend/', {
+            const response = await fetch('/api/accept_friend/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -279,7 +302,7 @@ function setupSearchBar() {
 
     async function rejectFriendRequest(username) {
         try {
-            const response = await fetch('https://localhost:8000/reject_friend/', {
+            const response = await fetch('/api/reject_friend/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -296,7 +319,7 @@ function setupSearchBar() {
 
     async function removeFriend(username) {
         try {
-            const response = await fetch('https://localhost:8000/remove_friend/', {
+            const response = await fetch('/api/remove_friend/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',

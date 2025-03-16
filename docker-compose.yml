@@ -48,6 +48,24 @@ services:
     networks:
       - blockchain_network
 
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    restart: on-failure
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - ./srcs/frontend/conf/nginx.conf:/etc/nginx/nginx.conf  # Custom NGINX config
+      - ./srcs/frontend/workdir:/usr/share/nginx/html  # Frontend files
+      - ./certs:/etc/nginx/certs:ro  # SSL certificates (read-only)
+    depends_on:
+      - backend
+    env_file:
+      - .env  # Load environment variables
+    networks:
+      - blockchain_network
+    
 volumes:
   db_data:
   backend_data:

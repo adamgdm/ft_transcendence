@@ -471,7 +471,9 @@ export function game() {
             websocket = null;
         }
 
-        websocket = new WebSocket(`wss://localhost:8000/ws/pong/${gameId}/`);
+        console.log("salamyakom")
+        let wsHost = window.location.host;
+        websocket = new WebSocket(`wss://${wsHost}/ws/pong/${gameId}/`);
 
         websocket.onopen = function (event) {
             console.log('WebSocket opened for player:', player);

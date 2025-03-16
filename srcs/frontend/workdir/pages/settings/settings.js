@@ -206,7 +206,7 @@ submitCodeBtn.addEventListener('click', function(event) {
 
 
         // Send form data to backend
-        return fetch('https://localhost:8000/update_profile/', {
+        return fetch('/api/update_profile/', {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
@@ -253,7 +253,7 @@ submitCodeBtn.addEventListener('click', function(event) {
             return;
         }
         
-        return fetch('https://localhost:8000/modify_password/', {
+        return fetch('/api/modify_password/', {
             method: 'POST', 
             credentials: 'include', 
             headers: { 'Content-Type': 'application/json' },
@@ -266,11 +266,11 @@ submitCodeBtn.addEventListener('click', function(event) {
     
     function updateOTPSetting() {
         const enableOTP = document.getElementById('change-otpLogin').checked;
-        return fetch('https://localhost:8000/profile/', { method: 'GET', credentials: 'include' })
+        return fetch('/api/profile/', { method: 'GET', credentials: 'include' })
         .then(response => response.json())
         .then(data => {
             if (data.two_factor_enabled !== enableOTP) {
-                return fetch(enableOTP ? 'https://localhost:8000/enable_2fa/' : 'https://localhost:8000/disable_2fa/', { 
+                return fetch(enableOTP ? '/api/enable_2fa/' : '/api/disable_2fa/', { 
                     method: 'POST', 
                     credentials: 'include' 
                 })

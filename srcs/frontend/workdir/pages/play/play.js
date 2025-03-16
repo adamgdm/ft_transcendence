@@ -6,7 +6,7 @@ function create_game(opponent_username) {
         body = `player=${encodeURIComponent(opponent_username)}`;
     }
 
-    return fetch('https://localhost:8000/create_game/', {
+    return fetch('/api/create_game/', {
         method: 'POST',
         credentials: "include",
         headers: {

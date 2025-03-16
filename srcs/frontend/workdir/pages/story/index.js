@@ -94,7 +94,7 @@ export function storyActions() {
             password: passwd,
         };
 
-        fetch('https://localhost:8000/register/', {
+        fetch('/api/register/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -130,7 +130,7 @@ export function storyActions() {
         console.log(verfiInfos.code);
         console.log(verifCode);
 
-        fetch('https://localhost:8000/verify_email/', {
+        fetch('/api/verify_email/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -187,7 +187,7 @@ export function storyActions() {
             password: pass,
         };
 
-        fetch('https://localhost:8000/login/', {
+        fetch('/api/login/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -196,20 +196,24 @@ export function storyActions() {
             credentials: 'include',
         })
         .then(response => {
-            if (response.status != 200) {
+            console.log('Response status:', response.status);
+            if (response.status !== 200) {
                 throw new Error('Network response was not ok');
             }
             return response.json();
         })
         .then(data => {
             console.log('Login successful:', data);
-
+        
             localStorage.setItem('isAuthenticated', 'true');
+            window.isAuthenticated = true;
 
-            // Redirect user to home page
             window.location.hash = 'home';
         })
-        .catch(error => console.error('Error:', error));
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Login failed: ' + error.message);
+        });
 
         console.log("Login informations:  " + email + "  " + pass);
 

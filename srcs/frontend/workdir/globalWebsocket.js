@@ -1,6 +1,7 @@
 // globalWebsocket.js
 export function initializeWebSocket() {
-    const socket = new WebSocket(`wss://localhost:8000/ws/friendship/`);
+    let wsUrl = window.location.host
+    const socket = new WebSocket(`wss://${wsUrl}/ws/friendship/`);
 
     socket.onopen = () => {
         console.log('WebSocket connected');

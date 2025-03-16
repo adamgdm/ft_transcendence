@@ -30,7 +30,7 @@ SECRET_KEY = config('DJANGO_SECRET_KEY', default='4@')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 
@@ -180,12 +180,7 @@ CORS_ALLOW_CREDENTIALS = True
 
 # Specify the frontend domain
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5500",  # Frontend URL
-]
-
-# This is required if using CSRF protection
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5500",  # Frontend URL
+    "https://localhost:8443",  # Frontend URL
 ]
 
 # HTTPS settings
