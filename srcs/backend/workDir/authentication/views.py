@@ -69,6 +69,24 @@ def register(request):
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 @csrf_exempt
+def delete_account(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'could not fetch data'}, status=400)
+        email = data.get('email')
+        try:
+            user = Users.objects.get(email=email)
+            if user.is_Email_Verified is True:
+                return JsonResponse({'error': 'Account verified'}, status=400)
+            user.delete()
+        except Exception as e: 
+            return JsonResponse({'error': f'An error occured: {e}'}, status=500)
+        return JsonResponse({'message': 'User deleted successfully'}, status=201)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
 def verify_email(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'Invalid request method'}, status=405)

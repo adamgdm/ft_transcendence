@@ -34,6 +34,9 @@ export function storyActions() {
 
     const users = [];
 
+    let emmail; // Store the email for verification
+    let isVerificationSuccessful = false; // Flag to track verification success
+
     function displayModal(modal) {
         modal.classList.add("active");
         document.body.classList.add("open-modal");
@@ -48,8 +51,23 @@ export function storyActions() {
     }
 
     function hideModal(modal) {
-        modal.classList.remove("active")
-        document.body.classList.remove("open-modal")
+        modal.classList.remove("active");
+        document.body.classList.remove("open-modal");
+
+        if (modal === vefiricationModal && !isVerificationSuccessful) {
+            fetch('/api/delete_account/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ email: emmail }),
+            })
+            .then(response => response.json())
+            .then(data => console.log('Email deleted:', data))
+            .catch(error => console.error('Error:', error));
+        }
+
+        isVerificationSuccessful = false;
     }
 
     // Event listener for closing the SIGNUP modal
@@ -69,17 +87,15 @@ export function storyActions() {
         displayModal(loginModal)
     })
 
-    let emmail
-
     // Event listener for submitting the signup form
     signupForm.addEventListener('submit', (e) => {
-        e.preventDefault(); // Prevent the page from reloading after submitting
+        e.preventDefault();
 
         const firstname = signupForm.querySelector('[name="fname"]').value;
         const lastname = signupForm.querySelector('[name="lname"]').value;
         const username = signupForm.querySelector('[name="uname"]').value;
         const email = signupForm.querySelector('[name="email"]').value;
-        emmail = email; // Store the email for verification
+        emmail = email;
         const passwd = signupForm.querySelector('[name="passwd"]').value;
 
         const newUser = new User(firstname, lastname, username, email, passwd);
@@ -138,14 +154,14 @@ export function storyActions() {
             body: JSON.stringify(verfiInfos),
         })
         .then(response => response.json())
-        .then(data => console.log('Success:', data))
+        .then(data => {
+            console.log('Success:', data);
+            isVerificationSuccessful = true;
+            hideModal(vefiricationModal);
+        })
         .catch(error => console.error('Error:', error));
 
         vefiricationForm.reset();
-        hideModal(vefiricationModal);
-
-        const firstVerifInput = vefiricationForm.querySelector('[name="num-1"]');
-        firstVerifInput.focus();
     });
 
     // Auto-focus functionality for verification inputs

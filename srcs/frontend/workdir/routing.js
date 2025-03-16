@@ -545,6 +545,9 @@ function executePageScripts(path) {
         case "home":
             home()
             break
+        case "settings":
+            settings()
+            break
         case "game":
             game()
             break
