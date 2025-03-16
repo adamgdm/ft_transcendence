@@ -78,34 +78,31 @@ def send_2fa_email(mail, otp):
         return False
     return True
 
-def probability(rating1, rating2):
-    # Calculate and return the expected score
-    return 1.0 / (1 + math.pow(10, (rating1 - rating2) / 400.0))
+def calculate_ppp(player_rating, opps_rating, result, k_factor=32): #result is a bool
+    expected_score = 1 / (1 + 10 ** ((opponent_rating - player_rating) / 400))
+    new_rating = player_rating + k_factor * (result - expected_score)
+    return round(new_rating)
 
-# Function to calculate Elo rating
-# K is a constant.
-# outcome determines the outcome: 1 for Player A win, 0 for Player B win, 0.5 for draw.
-def elo_rating(Ra, Rb, K, outcome):
-    Pb = probability(Ra, Rb)
-    Pa = probability(Rb, Ra)
-    K = 30
+def update_ppp_ratings(player1, player2, result):
+    player1_rating = player1.ppp_rating
+    player2_rating = player2.ppp_rating
 
-    # Update the Elo Ratings
-    Ra = Ra + K * (outcome - Pa)
-    Rb = Rb + K * ((1 - outcome) - Pb)
+    # Update player1's rating
+    player1.ppp_rating = calculate_ppp(player1_rating, player2_rating, result)
+    player1.save()
 
-    # Print updated ratings
-    print("Updated Ratings:-")
-    print(f"Ra = {Ra} Rb = {Rb}")
+    # Update player2's rating
+    player2.ppp_rating = calculate_ppp(player2_rating, player1_rating, 1 - result)
+    player2.save()
 
-# Current ELO ratings
-Ra = 1200
-Rb = 1000
 
-# K is a constant
+# example of using these functions
 
-# Outcome: 1 for Player A win, 0 for Player B win, 0.5 for draw
-outcome = 1
+# # Assume player1 and player2 are instances of the Player model
+# player1 = Player.objects.get(id=1)
+# player2 = Player.objects.get(id=2)    
+# # Player 1 wins
+# update_ppp_ratings(player1, player2, result=1)
 
-# Function call
-elo_rating(Ra, Rb, K, outcome)
+# # Player 2 wins
+# update_ppp_ratings(player1, player2, result=0)

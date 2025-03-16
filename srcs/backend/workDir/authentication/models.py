@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.hashers import check_password
+import random
 
 def user_directory_path(instance, filename):
     # file will be uploaded to MEDIA_ROOT/user_<id>/<filename>
@@ -34,8 +35,32 @@ class Users(models.Model):
     online_status = models.DateTimeField(auto_now_add=True)
     last_login = models.DateTimeField(null=True, blank=True)
     last_password_change = models.DateTimeField(null=True, blank=True)
-    ppp_rating = models.IntegerField(default=1200)
-    # title = models.CharField(default="CHALLENGER") first is called a leader
+    ppp_rating = models.IntegerField(unique=True, default=1200, db_index=True)
+    title = models.CharField(default="NEWBIE") #first is called a leader
+    def save(self, *args, **kwargs):
+        # Ensure the ppp rating is unique
+        while True:
+            try:
+                self.update_ppp_ratings()
+                super().save(*args, **kwargs)
+                break
+            except IntegrityError:
+                luck_factor = random.randint(1, 10)
+                if(luck_factor % 2 == 0):
+                    self.ppp_rating += luck_factor
+                else:
+                    self.ppp_rating -= luck_factor
+                self.ppp_rating = max(self.ppp_rating, 0)
+                
+    def update_ppp_ratings(self):
+        user_with_highest_ppp = Users.objects.order_by('-ppp_rating').first()
+        if(self == user_with_highest_ppp and self.title == "CHALLENGER"):
+            self.title = "LEADER"
+        elif(self.ppp_rating >= 2000):
+            self.title = "CHALLENGER"
+        else:
+            self.title = "NEWBIE"
+
 
 
 class BlacklistedTokens(models.Model):
