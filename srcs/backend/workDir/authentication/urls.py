@@ -3,6 +3,7 @@ from . import views
 
 urlpatterns = [
     path('register/', views.register, name='register'),
+    path('verify_email/', views.verify_email, name='verify_email'),
     path('login/', views.login, name='login'),
     path('login_otp/', views.login_otp, name='login_otp'),
     path('oauth42/', views.oauth2, name='oauth2'),
@@ -19,11 +20,18 @@ urlpatterns = [
     path('modify_email/', views.modify_email, name='modify_email'),
     path('modify_password/', views.modify_password, name='modify_password'),
     path('logout/', views.logout, name='logout'),
+    path('update_profile/', views.update_profile, name='update_profile'),
     # Friendships
     path('add_friend/', views.add_friend, name='add_friend'),
+    path('cancel_invite/', views.cancel_invite, name='cancel_invite'),
     path('remove_friend/', views.remove_friend, name='remove_friend'),
     path('get_friends/', views.get_friends, name='get_friends'),
     path('accept_friend/', views.accept_friend, name='accept_friend'),
     path('reject_friend/', views.reject_friend, name='reject_friend'),
     path('get_friend_requests/', views.get_friend_requests, name='get_friend_requests'),
+    path('get_sent_friend_requests/', views.get_sent_friend_requests, name='get_sent_friend_requests'),
+    path('get_friendship_status/', views.get_friendship_status, name='get_friendship_status'),
+    path('bulk_friend_status/', views.bulk_friend_status, name='bulk_friend_status'),
+    # Search
+    path('search_users/', views.search_users, name='search_users'),
 ]

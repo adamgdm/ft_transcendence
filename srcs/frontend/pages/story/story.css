@@ -1,0 +1,741 @@
+/******************************************************************************/
+/* mainSection */
+/******************************************************************************/
+
+.mainSection {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+    background-image: url(../../assets/stars.svg);
+    /* overflow: hidden; */
+}
+
+.left-meteoroid {
+    width: 500px;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.right-meteoroid {
+    width: 500px;
+    position: absolute;
+    top: 0;
+    right: 0;
+}
+
+.centered-content {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    
+    height: 100%;
+    width: 66.67vw;
+    margin: auto;
+    
+    /* overflow: hidden; */
+}
+
+#main-title {
+    position: absolute;
+    transform: scale(1.7);
+    top: 10vh;
+}
+
+#planet-alpha {
+    position: absolute;
+    top: 15vh;
+}
+
+#table {
+    position: absolute;
+    top: 50vh;
+}
+
+#planet-opponent {
+    position: absolute;
+    bottom: -45vh;
+}
+
+
+#planet-watcher {
+    position: absolute;
+    top: 70vh;
+    left: 10vw;
+}
+
+/******************************************************************************/
+/* introductionSection */
+/******************************************************************************/
+
+.introductionSection {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    background-image: url(../../assets/stars.svg);
+    
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    
+}
+
+.leftDescription {
+    display: flex;
+    justify-content: start;
+    align-items: start;
+    gap : 2%;
+    margin-left: 20%;
+    
+    transform: translateY(50%) scale(1.3);
+}
+
+.right-racket {
+    position: absolute;
+    top: 50vh;
+    right: 4vw;
+}
+
+.leader-image {
+    border-radius: 7px;
+    box-shadow: -1px -1px 15px  -2px #FF4622;
+}
+
+.text-describing {
+    max-width: 60%;
+    text-align: center;
+    font-size: 1em;
+    background-color: rgba(217, 217, 217, 0.1);
+    border-radius: 20px;
+    line-height: 3;
+    
+    font-family: "bungee", serif;
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    gap: 2%;
+    padding: 1%;
+}
+
+.des-title {
+    font-size: 2em;
+    margin: 0;
+    color: var(--text-color);
+}
+
+.des-parag {
+    margin: 0;
+    font-size: 1.3em;
+    color: white;
+}
+
+
+/******************************************************************************/
+/* 1v1DesSection */
+/******************************************************************************/
+
+
+.Des1v1Section  {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    background-image: url(../../assets/stars.svg);
+    
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.centredDescription {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    gap: 2%;
+    
+    
+    transform: translateY(10%) scale(1.3);
+}
+
+/******************************************************************************/
+/* DesAiSection */
+/******************************************************************************/
+
+
+.DesAiSection   {
+    
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    background-image: url(../../assets/stars.svg);
+    
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/******************************************************************************/
+/* DesTournSection */
+/******************************************************************************/
+
+.DesTournSection {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    background-image: url(../../assets/stars.svg);
+
+    display: flex;
+    align-items: center;
+}
+
+.right-description {
+    display: flex;
+    justify-content: end;
+    align-items: start;
+    gap: 2%;
+    margin-right: 20%;
+
+
+    transform: translateY(50%) scale(1.3);
+}
+
+.right-description .leader-image {
+    order: 2;
+}
+
+
+.left-racket {
+    position: absolute;
+    top: 70vh;
+    left: 4vw;
+}
+
+/* body {
+    margin: 0;
+    height: 200vh;
+    background-color: var(--space-color); 
+} */
+
+.planet-omega {
+    position: absolute;
+    left: 35%;
+    bottom: -40%;
+    /* transform: translateX(-50%); */
+    z-index: 1;
+}
+
+/******************************************************************************/
+/* AuthenticationSection */
+/******************************************************************************/
+
+.AuthenticationSection {
+    position: relative;
+    height: 100vh;
+    width: 100vw;
+    background-image: url(../../assets/stars.svg);
+    overflow: hidden;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.AuthenticationSection .right-racket {
+    top: 70vh;
+    transform: rotate(70deg);
+}
+
+.buttons {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    width: 66.67vw;
+    min-width: 600px;
+    height: 33vh;
+    margin: auto auto;
+    z-index: 1;
+    
+    transform: translateY(40%) scale(1.2);
+}
+
+.buttons button {
+    height: 30%;
+    width: 30%;
+    font-family: "bungee", serif;
+    font-size: xx-large;
+    border: none;
+    border-radius: 15px;
+    cursor: pointer;
+    color: black;
+    
+    box-shadow: 0 0 15px 5px var(--stars-color);
+    text-decoration: none;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+
+.buttons button:nth-child(1) {
+    background: linear-gradient(120deg, #FF4622 0%, #725F33 70%);
+}
+
+.buttons button:nth-child(1):hover {
+    transform: translateY(-5%);
+    box-shadow: 0 0 50px 5px var(--stars-color);
+}
+
+.buttons button:nth-child(2) {
+    background: linear-gradient(120deg, #725F33 30%, #FF4622 100%);
+}
+
+.buttons button:nth-child(2):hover {
+    transform: translateY(-5%);
+    box-shadow: 0 0 50px 5px var(--stars-color);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/******************************************************************************/
+/* MODAL  */
+/******************************************************************************/
+
+/* General Modal Styles */
+.modal {
+    position: absolute;
+    display: none;
+    height: 90vh;
+    width: 40vw;
+    min-width: 700px;
+    border-radius: 20px;
+    border: 5px solid transparent;
+    background-clip: padding-box, border-box;
+    background-origin: padding-box, border-box;
+    background-image:
+        linear-gradient(#1C1B19, #1C1B19),
+        linear-gradient(to bottom, 
+            rgba(225, 201, 154, 0.32) 0%, 
+            rgba(247, 105, 66, 0.32) 28%, 
+            rgba(239, 140, 98, 0.32) 60%,
+            rgba(225, 201, 154, 0.32) 99%
+        );
+    pointer-events: all;
+    padding: 50px 15px 0 15px;
+}
+
+.modal-title {
+    font-size: 50px;
+    color: #DA8890;
+    letter-spacing: 5px;
+    word-wrap: break-word;
+    white-space: normal;
+    text-align: center;
+}
+
+.modal-close-btn {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+
+/******************************************************************************/
+/* SIGNUP MODAL */
+/******************************************************************************/
+[data-modal="signup"] {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.08s ease-in-out, visibility 0.08s ease-in-out;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 1;
+}
+
+[data-modal="signup"].active {
+    opacity: 100%;
+    visibility: visible;
+}
+
+[data-form="signup"] {
+    width: 90%;
+    max-width: 700px;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    color: var(--stars-color);
+    font-size: large;
+    padding-top: 50px;
+}
+
+[data-form="signup"] .form-group {
+    width: 100%;
+}
+
+[data-form="signup"] .form-input {
+    width: 100%;
+    height: 70px;
+    border-radius: 10px;
+    border: 5px solid transparent;
+    background-clip: padding-box, border-box;
+    background-origin: padding-box, border-box;
+    background-color: #1C1B19;
+    background-image:
+        linear-gradient(#1C1B19, #1C1B19),
+        linear-gradient(to bottom,  
+            rgb(90, 82, 65, 0.99) 0%,  
+            rgba(97, 54, 40, 0.8) 50%,  
+            rgba(90, 82, 65, 0.99) 100%  
+        );
+    color: var(--white);
+    font-size: x-large;
+    font-family: inherit;
+    padding: 10px;
+    outline: none;
+}
+
+[data-form="signup"] .form-text {
+    margin-left: 10px;
+}
+
+[data-form="signup"] .form-submit {
+    width: 100%;
+    height: 80px;
+    padding: 10px;
+    background-color: #FF4622;
+    border: none;
+    border-radius: 4px;
+    color: var(--white);
+    font-size: 50px;
+    font-family: inherit;
+    -webkit-text-stroke: 2px black;
+    cursor: pointer;
+    margin-top: 20px;
+}
+
+/******************************************************************************/
+/* VERIFICATION MODAL  */
+/******************************************************************************/
+
+[data-modal="email-verification"]  {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.08s ease-in-out, visibility 0.08s ease-in-out;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 1;
+    
+}
+
+[data-modal="email-verification"].active {
+    opacity: 100%;
+    visibility: visible;
+}
+
+[data-modal="email-verification"] .verification-logo  {
+    margin-top: 50px;
+}
+
+[data-modal="email-verification"] .verification-des {
+    margin-top: 50px;
+    color: var(--white);
+    font-size: x-large;
+    letter-spacing: 3px;
+    word-wrap: break-word;
+    white-space: normal;
+    text-align: center;
+}
+
+[data-modal="email-verification"] .verification-mail-text  {
+    width: 90%;
+    margin-top: 30px;
+    color: var(--text-color);
+    font-size: xx-large;
+    letter-spacing: 3px;
+    text-align: center;
+    word-wrap: break-word;
+    white-space: normal;
+}
+
+[data-form="email-verification"]   {
+    margin-top: 20px;
+    width: 90%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 80px;
+}
+
+[data-form="email-verification"] .input-holder   {
+    width: 100%;
+    height: 100px;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+}
+
+[data-form="email-verification"] .form-input  {
+    padding: 2px;
+    width: 80px;
+    height: 100%;
+    
+    border: 2px solid transparent;
+    border-radius: 7px;
+    background-clip: padding-box, border-box;
+    background-origin: padding-box, border-box;
+    background-color: #1C1B19;
+    background-image:
+        linear-gradient(#1C1B19, #1C1B19),
+        linear-gradient(to bottom,  
+            rgb(90, 82, 65, 0.99) 0%,  
+            rgba(97, 54, 40, 0.8) 50%,  
+            rgba(90, 82, 65, 0.99) 100%  
+        );
+
+    color: var(--white);
+    text-align: center;
+    font-size: x-large;
+    outline: none;
+}
+
+[data-form="email-verification"] .form-submit {
+    width: 94%;
+    height: 80px;
+
+    padding: 10px;
+    background-color: #FF4622;
+    border: none;
+    border-radius: 4px;
+    color: var(--white);
+    font-size: 50px;
+    font-family: inherit;
+    -webkit-text-stroke: 2px black;
+    cursor: pointer;
+}
+
+/******************************************************************************/
+/* LOGIN MODAL  */
+/******************************************************************************/
+
+[data-modal="login"] {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.08s ease-in-out, visibility 0.08s ease-in-out;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 1;
+}
+
+[data-modal="login"].active {
+    opacity: 100%;
+    visibility: visible;
+}
+
+[data-form="login"] {
+    width: 80%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 40px;
+    color: var(--white);
+    font-size: large;
+    padding-top: 50px;
+}
+
+[data-form="login"] .form-group {
+    width: 100%;
+}
+
+[data-form="login"] .form-group:last-child,
+[data-form="login"] .form-group:nth-last-child(2) {
+    display: flex;
+    justify-content: center;
+}
+
+[data-modal="login"] .login-des {
+    margin-top: 50px;
+    color: var(--white);
+    font-size: x-large;
+    letter-spacing: 3px;
+    word-wrap: break-word;
+    white-space: normal;
+    text-align: center;
+}
+
+[data-form="login"] .form-input {
+    width: 100%;
+    height: 70px;
+    border-radius: 10px;
+    border: 5px solid transparent;
+    background-clip: padding-box, border-box;
+    background-origin: padding-box, border-box;
+    background-color: #1C1B19;
+    background-image:
+        linear-gradient(#1C1B19, #1C1B19),
+        linear-gradient(to bottom,  
+            rgb(90, 82, 65, 0.99) 0%,  
+            rgba(97, 54, 40, 0.8) 50%,  
+            rgba(90, 82, 65, 0.99) 100%  
+        );
+    color: var(--white);
+    font-size: x-large;
+    font-family: inherit;
+    padding: 10px;
+    outline: none;
+}
+
+[data-form="login"] .form-text {
+    margin-left: 20px;
+}
+
+[data-form="login"] .form-submit {
+    width: 500px;
+    height: 80px;
+    background-color: #FF4622;
+    border: none;
+    border-radius: 8px;
+    color: var(--white);
+    font-size: 50px;
+    font-family: inherit;
+    -webkit-text-stroke: 2px black;
+    cursor: pointer;
+}
+
+.login-forpass-btn {
+    height: 80px;
+    padding: 10px;
+    background-color: #6F6F6E;
+    border: none;
+    border-radius: 8px;
+    color: var(--white);
+    font-size: 50px;
+    font-family: inherit;
+    -webkit-text-stroke: 2px black;
+    cursor: pointer;
+}
+
+/******************************************************************************/
+/* FORGOT PASSWORD MODAL  */
+/******************************************************************************/
+
+[data-modal="forgot-password"] {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.08s ease-in-out, visibility 0.08s ease-in-out;
+
+    display: flex;
+    flex-direction: column;
+    z-index: 1;
+}
+
+[data-modal="forgot-password"].active {
+    opacity: 100%;
+    visibility: visible;
+}
+
+[for-step] {
+    width: 100%;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 50px;
+    color: var(--white);
+}
+
+
+[for-step] .forgot-password-des {
+    color: var(--white);
+    font-size: x-large;
+    letter-spacing: 3px;
+    word-wrap: break-word;
+    white-space: normal;
+    text-align: center;
+}
+
+[for-step] input {
+    height: 70px;
+    width: 70%;
+    border-radius: 10px;
+    
+    border: 5px solid transparent;
+    background-clip: padding-box, border-box;
+    background-origin: padding-box, border-box;
+    background-color: #1C1B19;
+    background-image:
+        linear-gradient(#1C1B19, #1C1B19),
+        linear-gradient(to bottom,  
+            rgb(90, 82, 65, 0.99) 0%,  
+            rgba(97, 54, 40, 0.8) 50%,  
+            rgba(90, 82, 65, 0.99) 100%  
+        );
+
+    color: var(--white);
+    font-size: x-large;
+    font-family: inherit;
+    padding: 10px;
+    outline: none;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+[for-step] button {
+    width: 50%;
+    height: 60px;
+    margin-top: 50px;
+
+    padding: 10px;
+    background-color: #FF4622;
+    border: none;
+    border-radius: 8px;
+    color: var(--white);
+    font-size: 30px;
+    font-family: inherit;
+    -webkit-text-stroke: 2px black;
+    cursor: pointer;
+}
+
+.hidden {
+    display: none;
+}

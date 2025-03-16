@@ -1,0 +1,95 @@
+
+<div layout="settings-content">
+    <h2 class="settings">Settings</h2>
+    <div class="line"></div>
+    <form id="myForm" autocomplete="off">
+        <div class="settings-container">
+            <div setting-part="profile-picture" class="profile-picture">
+                <h2>Profile Picture</h2>
+                <div class="line1"></div>
+                <div class="profile-picture-container">
+                    <div profileElement="pic">
+                        <img src="https://cdn.intra.42.fr/users/82d39646cd2423210c305aacf10105a6/okassimi.JPG" alt="Profile Picture">
+                    </div>
+                    <!-- <div profileElement="form">
+                        <input id="change-avatar-1" type="file" value="Change Avatar">
+                        <input id="change-avatar-2" type="button" value="Delete Avatar">
+                    </div> -->
+                    <div profileElement="form">
+                        <label for="change-avatar-1" class="custom-file-upload">Change Avatar</label>
+                        <input id="change-avatar-1" type="file" accept="image/*">
+                        <input id="change-avatar-2" type="button" value="Delete Avatar">
+                    </div>
+                </div>
+            </div>
+
+            <div setting-part="personal-information" class="personal-information">
+                <h2>Personal Information</h2>
+                <div class="line2"></div>
+                <div class="personal-information-container">
+                    <div change="lastName">
+                        <label for="change-lastName">Last Name</label>
+                        <input id="change-lastName" type="text">
+                    </div>
+                    <div change="firstName">
+                        <label for="change-firstName">First Name</label>
+                        <input id="change-firstName" type="text">
+                    </div>
+                    <div change="userName">
+                        <label for="change-userName">Username</label>
+                        <input id="change-userName" type="text">
+                    </div>
+                    <div change="email" class="email-field-container">
+                        <label for="change-email">Email</label>
+                        <div class="email-input-group">
+                            <input id="change-email" type="text">
+                            <button id="verify-email-btn" class="verify-btn">Verify</button>
+                        </div>
+                        
+                        <!-- Absolute positioned verification box -->
+                        <div id="verification-box" class="verification-box">
+                            <div class="verification-content">
+                                <p>Enter the verification code sent to your email</p>
+                                <div class="verification-input-group">
+                                    <input id="verification-code" type="text" placeholder="Enter code">
+                                    <button id="submit-code-btn" class="verify-btn">Submit Code</button>
+                                </div>
+                                <span id="verification-message"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            
+
+            <div setting-part="password-and-auth" class="password-and-auth">
+                <h2>Password & Authentication</h2>
+                <div class="line3"></div>
+                <div class="password-and-auth-container">
+                    <div change="currentPassword">
+                        <label for="currentPassword">Current Password</label>
+                        <input id="currentPassword" type="password">
+                    </div>
+                    <div change="newPassword">
+                        <label for="change-newPassword">New Password</label>
+                        <input id="change-newPassword" type="password">
+                    </div>
+                    <div change="confirmPassword">
+                        <label for="change-confirmPassword">Confirm New Password</label>
+                        <input id="change-confirmPassword" type="password">
+                    </div>
+                    <div change="otpLogin">
+                        <label for="change-otpLogin">Enable OTP Login</label>
+                        <input id="change-otpLogin" type="checkbox">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submit button that submits the entire form -->
+            <div setting-part="submit-button" class="submit-button">
+                <button type="submit">Submit</button>
+            </div>
+        </div>
+    </form>
+</div>

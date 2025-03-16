@@ -1,0 +1,366 @@
+
+/******************************************************************************/
+/* LAYOUT SETTINGS-CONTENT */
+/******************************************************************************/
+
+[layout="settings-content"] {
+    width: 100%;
+    height: 100%;
+    min-width: 1000px;
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: padding-box, border-box;
+    background-origin: padding-box, border-box;
+    background-image:
+        linear-gradient(#1C1B19, #1C1B19),
+        linear-gradient(to bottom, 
+            rgba(225, 201, 154, 0.32) 0%, 
+            rgba(247, 105, 66, 0.32) 28%, 
+            rgba(239, 140, 98, 0.32) 60%, 
+            rgba(225, 201, 154, 0.32) 99%
+        );
+    padding: 20px 100px 0 50px;
+}
+
+.line, .line1, .line2, .line3 {
+    height: 2px;
+    background-image: linear-gradient(to bottom, 
+        rgba(225, 201, 154, 0.32) 0%, 
+        rgba(247, 105, 66, 0.32) 28%, 
+        rgba(239, 140, 98, 0.32) 60%, 
+        rgba(225, 201, 154, 0.32) 99%
+    );
+}
+
+[layout="settings-content"] .settings {
+    margin-bottom: 0;
+    font-size: 40px;
+    color: var(--text-color);
+}
+
+/* **************************************************
+   SETTINGS CONTENT  
+************************************************** */
+
+.settings-container {
+    display: flex;
+    flex-direction: column;
+    padding: 20px 0 2px 40px;
+}
+
+.settings-container h2 {
+    margin-bottom: 0;
+}
+
+[setting-part="password-and-auth"],
+[setting-part="personal-information"] {
+    height: 35%;
+}
+
+[setting-part="profile-picture"] {
+    height: 20%;
+}
+
+[setting-part="profile-picture"] h2,
+[setting-part="personal-information"] h2,
+[setting-part="password-and-auth"] h2 {
+    color: var(--white);
+}
+
+/* ****************************** */
+/*  PROFILE PICTURE  */
+/* ****************************** */
+
+.profile-picture-container {
+    display: flex;
+    align-items: center;
+    gap: 150px;
+    width: 100%;
+    min-width: 200px;
+    padding: 30px 30% 10px 30px;
+}
+
+.profile-picture-container [profileElement="pic"] {
+    width: 80px;
+    height: 80px;
+    min-height: 50px;
+    min-height: 50px;
+    border-radius: 100%;
+    background-color: #FF4622;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.profile-picture-container [profileElement="pic"] img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.profile-picture-container [profileElement="form"] {
+    display: flex;
+    justify-content: space-around;
+    gap: 100px;
+    width: 60%;
+    height: 60px;
+}
+
+.profile-picture-container [profileElement="form"] input {
+    width: 50%;
+    padding: 8px 15px;
+    font-size: 17px;
+    text-align: center;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease-in-out;
+}
+
+/* Hide the default file input */
+#change-avatar-1 {
+    display: none;
+}
+
+/* Style the label to look like a button */
+.custom-file-upload {
+    width: 50%;
+    padding: 8px 15px;
+    font-size: 17px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease-in-out;
+    background-color: #FF4322;
+    color: #000;
+    font-family: inherit;
+}
+
+.custom-file-upload:hover {
+    transform: scale(1.05);
+    background-color: #FF2F15;
+}
+
+
+.profile-picture-container [profileElement="form"] input:hover {
+    transform: scale(1.05);
+}
+
+.profile-picture-container [profileElement="form"] input:nth-child(1) {
+    background-color: #FF4322;
+    color: #000;
+    font-family: inherit;
+}
+
+.profile-picture-container [profileElement="form"] input:nth-child(3) {
+    background-color: #6F6F6E;
+    -webkit-text-stroke: 0.6px black;
+    color: #AE2727;
+    font-family: inherit;
+}
+
+.profile-picture-container [profileElement="form"] input:nth-child(1):hover {
+    background-color: #FF2F15;
+}
+
+.profile-picture-container [profileElement="form"] input:nth-child(2):hover {
+    background-color: #5E5E5B;
+}
+
+/* ****************************** */      /* ****************************** */
+/*  PERSONAL INFORMATION  */              /*  PASSWORD & AUTHENTICATION  */
+/* ****************************** */      /* ****************************** */
+
+.personal-information-container,
+.password-and-auth-container {
+    width: 100%;
+    padding: 30px 15% 10px 30px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 30px;
+}
+
+.personal-information-container div[change],
+.password-and-auth-container div[change] {
+    width: 40%;
+    height: 70px;
+}
+
+.personal-information-container div[change] label,
+.password-and-auth-container div[change] label {
+    display: block;
+    padding-bottom: 5px;
+    color: var(--white);
+    font-size: 16px;
+}
+
+.personal-information-container div[change] input,
+.password-and-auth-container div[change] input {
+    width: 100%;
+    height: 50px;
+    background-color: rgba(208, 174, 174, 0.72);
+    outline: none;
+    border: none;
+    border-radius: 5px;
+    padding-left: 10px;
+    font-size: 20px;
+    font-family: inherit;
+}
+
+/*****************************************************************/
+/* Email verification styles */
+.email-field-container {
+    position: relative;
+}
+
+.email-input-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.email-input-group input {
+    flex: 1;
+}
+
+.verify-btn {
+    height: 50px;
+    min-width: 80px;
+    padding: 0 15px;
+    background-color: #FF4622;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 16px;
+    transition: background-color 0.3s;
+    flex-shrink: 0;
+}
+
+.verify-btn:hover {
+    background-color: #D53C1F;
+}
+
+/* Verification box (absolutely positioned) */
+.verification-box {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    max-width: 400px;
+    background-color: #2A2925;
+    border: 2px solid rgba(247, 105, 66, 0.32);
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 10px;
+    z-index: 100;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    display: none;
+}
+
+.verification-box::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: 20px;
+    width: 15px;
+    height: 15px;
+    background-color: #2A2925;
+    border-top: 2px solid rgba(247, 105, 66, 0.32);
+    border-left: 2px solid rgba(247, 105, 66, 0.32);
+    transform: rotate(45deg);
+}
+
+.verification-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.verification-content p {
+    margin: 0;
+    color: var(--white);
+    font-size: 14px;
+}
+
+.verification-input-group {
+    display: flex;
+    gap: 10px;
+}
+
+.verification-input-group input {
+    flex: 1;
+    height: 40px;
+    background-color: rgba(208, 174, 174, 0.72);
+    outline: none;
+    border: none;
+    border-radius: 5px;
+    padding-left: 10px;
+    font-size: 16px;
+    font-family: inherit;
+}
+
+#verification-message {
+    font-size: 14px;
+}
+
+.success-message {
+    color: #4CAF50;
+}
+
+.error-message {
+    color: #F44336;
+}
+
+/* Style for verified email */
+.verified-email {
+    background-color: rgba(76, 175, 80, 0.1) !important;
+    border-left: 4px solid #4CAF50 !important;
+}
+
+/*****************************************************************/
+
+.password-and-auth-container div[change] input[type="checkbox"] {
+    width: 30px;
+    height: 30px;
+}
+
+.password-and-auth-container [change="otpLogin"] {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* ****************************** */
+/*  SUBMIT BUTTON  */
+/* ****************************** */
+
+[setting-part="submit-button"] {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.settings-container button[type="submit"] {
+    width: 150px;
+    height: 50px;
+    font-size: 18px;
+    font-weight: bold;
+    background-color: #FF4622;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.settings-container button[type="submit"]:hover {
+    background-color: #D53C1F;
+}
+

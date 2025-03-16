@@ -10,23 +10,18 @@ let score_1 = 0;
 let score_2 = 0;
 let initialStateReceived = false;
 
-const token = 'jwt_token_for_testing_purposes';
-
-function create_game(my_username, opponent_username, game_opponent) {
+function create_game(opponent_username) {
     let body;
     if (opponent_username === '') {
-        opponent_username = null;
-        body = `player_1=${encodeURIComponent(my_username)}&game_opponent=${encodeURIComponent(game_opponent)}`;
-    } else if (game_opponent === '') {
-        game_opponent = null;
-        body = `player_1=${encodeURIComponent(my_username)}&player_2=${encodeURIComponent(opponent_username)}`;
+        body = ``;
+     } else if (game_opponent === '') {
+        body = `player=${encodeURIComponent(opponent_username)}`;
     }
 
     return fetch('http://localhost:8000/create_game/', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
-            'Authorization': `Bearer ${token}`
         },
         body: body
     });
@@ -48,11 +43,7 @@ function update_game_state(data) {
     });
 }
 
-let player1 = 'player1';
-let player2 = 'player2';
-let game_opponent = '';
-
-create_game(player1, player2, game_opponent)
+create_game(player2)
     .then(response => response.json())
     .then(data => {
         game_id = data.game_id;

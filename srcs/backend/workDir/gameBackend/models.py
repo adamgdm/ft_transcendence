@@ -8,13 +8,12 @@ class Match(models.Model):
         CANCELLED = 'cancelled'
     
     class GameOpponentChoices(models.TextChoices):
-        SAME_COMPUTER = 'same_computer'
-        AI = 'AI'
+        LOCAL = 'local'
         ONLINE = 'online'
     id = models.AutoField(primary_key=True)
     match_name = models.CharField(max_length=255)
     match_status = models.CharField(max_length=15, choices=MatchStatusChoices.choices, default=MatchStatusChoices.PENDING)
-    game_opponent = models.CharField(max_length=15, choices=GameOpponentChoices.choices, default=GameOpponentChoices.SAME_COMPUTER)
+    game_opponent = models.CharField(max_length=15, choices=GameOpponentChoices.choices, default=GameOpponentChoices.LOCAL)
     player_1 = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='player_1')
     player_2 = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='player_2')
     score_player_1 = models.IntegerField(null=True, blank=True)
@@ -25,3 +24,17 @@ class Match(models.Model):
     
     class Meta:
         unique_together = ('player_1', 'player_2', 'match_creation_date')
+
+class GameInvites(models.Model):
+    class GameInviteStatus(models.TextChoices):
+        PENDING = 'pending'
+        ACCEPTED = 'accepted'
+        REFUSED = 'refused'
+    class GameModes(models.TextChoices):
+        ONLINE = 'online'
+        TOURNAMENT = 'tournament'
+    from_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='game_invites_sent')
+    to_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='game_invites_received')
+    status = models.CharField(choices=GameInviteStatus.choices, default=GameInviteStatus.PENDING)
+    game_mode = models.CharField(choices=GameModes.choices)
+    issued_at = models.DateTimeField(auto_now_add=True)

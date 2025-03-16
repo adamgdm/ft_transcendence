@@ -5,341 +5,464 @@
     --text-color: #DA8890;
     --light-green: #A9AD5A;
     --dark-green: #313833;
+    --other-text-color: #F5DAA7;
+    --white: #fff;
+    --navbar-color: #4C4241
 }
 
+* {
+    box-sizing: border-box;
+}
 
-
-  
-body, html {
+html, body {
     background-color: var(--space-color);
-    font-family: "bungee", serif;
+    font-family: "Bungee", serif;
+    margin: 0;
+    padding: 0;
     overflow: hidden;
     width: 100%;
     height: 100%;
-    margin: 0; /* Remove default margin */
-    padding: 0; /* Remove default padding */
 }
 
-/******************************************************************************/
-/* mainSection */
-/******************************************************************************/
+body.open-modal {
+    pointer-events: none;
+}
 
-.mainSection {
-    width: 100vw;
-    height: 100vh;
-    position: relative;
+#content {
+    width: 100%;
+    height: 100%;
     background-image: url(assets/stars.svg);
-    /* overflow: hidden; */
 }
 
-.left-meteoroid {
-    width: 500px;
+.layout-container {
+    display: flex;
+    gap: 20px;
+    width: 100%;
+    height: 100%;
+    padding: 20px;
+}
+
+.layout-meteoroid {
     position: absolute;
+    height: 150px;
+    top: 10px;
+    right: 2%;
+}
+
+/******************************************************************************/
+/* SIDE-BAR */
+/******************************************************************************/
+
+.layout-container aside {
+    width: 100px;
+    min-width: 100px;
+    background: rgba(236, 236, 236, 0.39);
+    border: 3px solid #FF4622;
+    border-radius: 20px;
+    padding: 20px 0;
+    
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-around;
+    text-align: center;
+}
+
+.layout-container aside .sidebar-logo {
+    width: 50%;
+    display: flex;
+    justify-content: center;
+}
+
+.layout-container aside .sidebar-menu,
+.layout-container aside .sidebar-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    gap: 40px;
+}
+
+.layout-container aside .sidebar-menu {
+    padding-top: 40px;
+    flex-grow: 0.4;
+}
+
+.layout-container aside .sidebar-actions {
+    justify-content: flex-end;
+    flex-grow: 0.3;
+}
+
+.layout-container aside .icon-container {
+    width: 100%;
+    height: 70px;
+    color: #000;
+    opacity: 0.78;
+    cursor: pointer;
+    
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.layout-container aside .icon-container.clicked {
+    border-radius: 15px 0 0 15px;
+    background-color: rgba(255, 70, 34, 0.95);
+}
+
+/******************************************************************************/
+/* PAGE-CONTENT */
+/******************************************************************************/
+
+.layout-container .page-content {
+    width: 100%;
+    min-width: 1400px;
+    padding: 0 20px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+}
+
+.layout-container nav {
+    padding-right: 200px;
+    padding-left: 40px;
+    
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.layout-container nav .navbar-welcome {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.layout-container nav .navbar-welcome img {
+    width: 80px;
+    height: 90px;
+    border-radius: 7px;
+    box-shadow: -1px -1px 5px -1px #FF4622;
+}
+
+.layout-container nav .navbar-welcome div {
+    margin-top: 20px;
+}
+
+.layout-container nav .navbar-welcome h2 {
+    color: var(--text-color);
+    font-size: 30px;
+    margin: 0;
+}
+
+.layout-container nav .navbar-welcome p {
+    color: var(--white);
+    font-size: 20px;
+}
+
+.layout-container nav .navbar-search {
+    width: 30%;
+    margin-right: 15px;
+    display: flex;
+    justify-content: flex-end;
+    position: relative;
+}
+
+.layout-container nav .navbar-search input {
+    height: 40px;
+    width: 100%;
+    padding-left: 15px;
+    border: none;
+    border-radius: 5px;
+    background-color: var(--navbar-color);
+    font-family: "Bungee", serif;
+    color: var(--white);
+    font-size: large;
+    outline: none;
+}
+
+.user-suggestions {
+    width: 100%;
+    max-width: 400px;
+    margin-top: 5px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+    position: absolute;
+    z-index: 10;
+    display: none;
+    padding: 10px 0;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    top: 100%;
+}
+
+.user-suggestions div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 15px;
+    color: var(--white);
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.user-suggestions div:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Style the add button */
+.user-suggestions .add-btn {
+    background-color: #FF4622;
+    color: var(--white);
+    border: none;
+    border-radius: 5px;
+    padding: 5px 10px;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.user-suggestions .add-btn:hover {
+    background-color: #FF6A4C;
+}
+
+/* Style the pending button */
+.user-suggestions .pending-btn {
+    background-color: orange;
+    color: var(--white);
+    border: none;
+    border-radius: 5px;
+    padding: 5px 10px;
+    font-size: 14px;
+    cursor: not-allowed;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.user-suggestions .pending-btn:hover {
+    background-color: darkorange;
+}
+
+.user-suggestions .cancel-btn {
+    background-color: #555;
+    color: var(--white);
+    border: none;
+    border-radius: 5px;
+    padding: 5px 10px;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: 5px;
+}
+
+.user-suggestions .cancel-btn:hover {
+    background-color: #777;
+}
+
+
+/******************************************************************************/
+/* MAIN-CONTENT */
+/******************************************************************************/
+
+.loading-div {
+    position: absolute;
+    top: 40px;
+    left: 40px;
+    right: 40px;
+    bottom: 2px;
+    background-color: var(--space-color);
+    border: 2px solid var(--stars-color);
+    z-index: 100;
+    border-radius: 15px;
+    border-end-end-radius: 15px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 50px;
+    overflow: hidden;
+    color: orange;
+    -webkit-text-stroke: 2px var(--space-color);
+    font-size: 2em;
+}
+
+.loading-stars {
+    position: absolute;
+    width: 100%;
+    height: 100%;
     top: 0;
     left: 0;
-}
+    object-fit: cover;
+    z-index: -1;
+  }
 
-.right-meteoroid {
-    width: 500px;
-    position: absolute;
-    top: 0;
-    right: 0;
-}
 
-.centered-content {
-    position: relative;
+.loading-div div {
+    width: 250px;
     display: flex;
-    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    
+    gap: 50px;
+}
+
+.loading-meteoroid {
+    transform: rotate(40deg);
+    width: 250px;
+    animation: waveMotion 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes waveMotion {
+    0% { transform: rotate(-40deg); }
+    100% { transform: rotate(120deg); }
+}
+
+.loading-div.fade-out {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.5s linear, visibility 0.5s;
+}
+
+.main-content {
+    flex-grow: 1;
+    padding: 40px;
+    padding-bottom: 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.content-wrapper {
     height: 100%;
-    width: 66.67vw;
-    margin: auto;
-    
-    /* overflow: hidden; */
+    width: 100%;
+    opacity: 0;
+    transition: opacity 0.5s ease-in;
 }
 
-#main-title {
+
+[layout="notifbar"] {
     position: absolute;
-    transform: scale(1.7);
-    top: 10vh;
+    top: 185px;
+    left: 200px;
+    height: 913px;
+    width: 450px;
+    min-width: 400px;
+    background-color: var(--space-color);
+    border-radius: 10px;
+    border: 2px solid #FF4622;
+    z-index: 1;
+    opacity: 0;
+    visibility: hidden;
+    overflow: hidden;
 }
 
-#planet-alpha {
+[layout="notifbar"]::after {
+    content: "";
+    display: block;
+    width: 90%;
+    height: 2px;
     position: absolute;
-    top: 15vh;
+    top: 8%;
+    left: 5%;
+    background-image: linear-gradient(to bottom, 
+        rgba(225, 201, 154, 0.32) 0%, 
+        rgba(247, 105, 66, 0.32) 28%, 
+        rgba(239, 140, 98, 0.32) 60%,
+        rgba(225, 201, 154, 0.32) 99%
+    );
 }
 
-#table {
-    position: absolute;
-    top: 50vh;
+[layout="notifbar"].active {
+    opacity: 100%;
+    visibility: visible;
 }
 
-#planet-opponent {
-    position: absolute;
-    bottom: -45vh;
-}
-
-
-#planet-watcher {
-    position: absolute;
-    top: 70vh;
-    left: 10vw;
-}
-
-/******************************************************************************/
-/* introductionSection */
-/******************************************************************************/
-
-.introductionSection {
-    position: relative;
-    width: 100vw;
-    height: 100vh;
-    background-image: url(assets/stars.svg);
-    
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    
-}
-
-.leftDescription {
-    display: flex;
-    justify-content: start;
-    align-items: start;
-    gap : 2%;
-    margin-left: 20%;
-    
-    transform: translateY(50%) scale(1.3);
-}
-
-
-.right-racket {
-    position: absolute;
-    top: 50vh;
-    right: 4vw;
-}
-
-.leader-image {
-    border-radius: 7px;
-    box-shadow: -1px -1px 15px  -2px #FF4622;
-}
-
-.text-describing {
-    max-width: 60%;
-    text-align: center;
-    font-size: 1em;
-    background-color: rgba(217, 217, 217, 0.1);
-    border-radius: 20px;
-    line-height: 3;
-    
-    font-family: "bungee", serif;
-    display: flex;
-    align-items: center;
-    flex-direction: column;
-    gap: 2%;
-    padding: 1%;
-}
-
-.des-title {
-    font-size: 2em;
-    margin: 0;
+[layout="notifbar"] .title {
+    margin-left: 20px;
     color: var(--text-color);
 }
 
-.des-parag {
-    margin: 0;
-    font-size: 1.3em;
+[layout="notifbar"] .notif-container {
+    height: calc(100% - 80px);
+    overflow-y: auto;
+    padding: 10px 20px;
+    margin-top: 10px;
+}
+
+[layout="notifbar"] .notif-container::-webkit-scrollbar {
+    width: 0;
+    background: transparent;
+}
+
+[layout="notifbar"] .notif-container {
+    scrollbar-width: none;
+}
+
+[layout="notifbar"] .notif-container {
+    -ms-overflow-style: none;
+}
+
+[layout="notifbar"] .notif-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    margin-bottom: 10px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: var(--text-color);
+    transition: background-color 0.3s ease;
+}
+
+[layout="notifbar"] .notif-item:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+[layout="notifbar"] .notif-text {
+    flex-grow: 1;
+    margin-right: 10px;
+    font-size: 14px;
+}
+
+[layout="notifbar"] .accept-btn,
+[layout="notifbar"] .decline-btn {
+    padding: 5px 10px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-left: 5px;
+    transition: background-color 0.3s ease;
+}
+
+[layout="notifbar"] .accept-btn {
+    background-color: #4CAF50;
     color: white;
 }
 
-
-/******************************************************************************/
-/* 1v1DesSection */
-/******************************************************************************/
-
-
-.Des1v1Section  {
-    position: relative;
-    width: 100vw;
-    height: 100vh;
-    background-image: url(assets/stars.svg);
-    
-    display: flex;
-    justify-content: center;
-    align-items: center;
+[layout="notifbar"] .accept-btn:hover {
+    background-color: #45a049;
 }
 
-.centredDescription {
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    gap: 2%;
-    
-    
-    transform: translateY(10%) scale(1.3);
+[layout="notifbar"] .decline-btn {
+    background-color: #f44336;
+    color: white;
 }
 
-/******************************************************************************/
-/* DesAiSection */
-/******************************************************************************/
-
-
-.DesAiSection   {
-    
-    position: relative;
-    width: 100vw;
-    height: 100vh;
-    background-image: url(assets/stars.svg);
-    
-    display: flex;
-    justify-content: center;
-    align-items: center;
+[layout="notifbar"] .decline-btn:hover {
+    background-color: #e53935;
 }
 
-/******************************************************************************/
-/* DesTournSection */
-/******************************************************************************/
-
-.DesTournSection {
-    position: relative;
-    width: 100vw;
-    height: 100vh;
-    background-image: url(assets/stars.svg);
-
-    display: flex;
-    align-items: center;
-}
-
-.right-description {
-    display: flex;
-    justify-content: end;
-    align-items: start;
-    gap: 2%;
-    margin-right: 20%;
-
-
-    transform: translateY(50%) scale(1.3);
-}
-
-.right-description .leader-image {
-    order: 2;
-}
-
-
-.left-racket {
-    position: absolute;
-    top: 70vh;
-    left: 4vw;
-}
-
-body {
-    margin: 0;
-    height: 200vh; /* This ensures there's enough content to scroll */
-    background-color: #000; /* Dark background to emphasize the planet */
-}
-
-.planet-omega {
-    position: absolute;
-    left: 50%;
-    bottom: -40%;
-    transform: translateX(-50%);
-    z-index: 1;
-}
-
-/******************************************************************************/
-/* AuthenticationSection */
-/******************************************************************************/
-
-.AuthenticationSection {
-    position: relative;
-    height: 100vh;
-    width: 100vw;
-    background-image: url(assets/stars.svg);
-    overflow: hidden;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.AuthenticationSection .right-racket {
-    top: 70vh;
-    transform: rotate(70deg);
-}
-
-/* trying a best way to center the divs; u can use css to rout the files instead of use the anchor
-
-/* .bottons {
-    width: 100vw;
-    display: flex;
-    justify-content: space-around;
-}
-
-.bottons > button {
-    width: 400px;
-    height: 200px;
-    font-size: 3rem;
-    font-family: "bungee", serif;
-} */
-
-.buttons {
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    width: 66.67vw;
-    height: 33vh;
-    margin: auto auto;
-    z-index: 1;
-    
-
-    /* background-color: #F3DC50;
-    border: 2px solid blueviolet; */
-    
-    transform: translateY(40%) scale(1.2);
-}
-
-.buttons a {
-    height: 30%;
-    width: 30%;
-    font-family: "bungee", serif;
-    font-size: xx-large;
+.accept-btn {
+    background: #2196F3; 
+    color: white;
     border: none;
-    border-radius: 15px;
+    padding: 4px 8px;
+    border-radius: 4px;
     cursor: pointer;
-    color: black;
-    
-    box-shadow: 0 0 15px 5px var(--stars-color);
-    text-decoration: none;
-
-    display: flex;
-    justify-content: center;
-    align-items: center;
 }
-
-
-.buttons a:nth-child(1) {
-    background: linear-gradient(120deg, #FF4622 0%, #725F33 70%);
-}
-
-.buttons a:nth-child(1):hover {
-    transform: translateY(-5%);
-    box-shadow: 0 0 50px 5px var(--stars-color);
-}
-
-.buttons a:nth-child(2) {
-    background: linear-gradient(120deg, #725F33 30%, #FF4622 100%);
-}
-
-.buttons a:nth-child(2):hover {
-    transform: translateY(-5%);
-    box-shadow: 0 0 50px 5px var(--stars-color);
-}
-
-
-

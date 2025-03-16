@@ -1,0 +1,90 @@
+
+<div class="layout-container">
+    <img class="layout-meteoroid" src="assets/R-meteoroid.svg" alt="right-meteoroid">
+
+    <aside>
+        <div class="sidebar-logo">
+            <img src="assets/icons/logo.svg" alt="The logo">
+        </div>
+        <div class="sidebar-menu">
+            <div class="icon-container" data-target="#home">
+                <i class="icon fa-solid fa-house fa-3x"></i>
+            </div>
+            <div class="icon-container notif" data-target="">
+                <i class="icon fa-solid fa-bell fa-3x"></i>
+            </div>
+            <div class="icon-container"  data-target="#play">
+                <i class="icon fa-solid fa-table-tennis-paddle-ball fa-3x"></i>
+            </div>
+            <div class="icon-container" data-target="#shop">
+                <i class="icon fa-solid fa-shop fa-3x"></i>
+            </div>
+        </div>
+        <div class="sidebar-actions">
+            <div class="icon-container" data-target="#settings">
+                <i class="icon fa-solid fa-gear fa-3x"></i>
+            </div>
+            <div class="icon-container" data-target="#story">
+                <i class="icon fa-solid fa-right-from-bracket fa-3x"></i>
+            </div>
+        </div>
+    </aside>
+
+    
+    <div class="page-content">
+        <nav>
+            <div class="navbar-welcome">
+                <img src="assets/Leader.svg" alt="Leader">
+                <div>
+                    <h2>Welcome back, <span></span></h2>
+                    <p>are you ready for your journey</p>
+                </div>
+            </div>
+            <div class="navbar-search">
+                <form autocomplete="off">
+                    <input id="search-bar" type="text" placeholder="🍆 Search here">
+                </form>
+                <!-- User suggestions will be displayed here -->
+            </div>
+            <div id="user-suggestions" class="user-suggestions"></div>
+        </nav>
+        
+        <div class="main-content">
+            <div class="loading-div">
+                <img class="loading-stars" src="assets/stars.svg" alt="stars">
+                <img class="loading-meteoroid" src="assets/L-meteoroid.svg" alt="Meteoroid">
+                <div>
+                    <i class="fa-solid fa-spinner"></i>
+                    <span>loading</span>
+                </div>
+            </div>
+            <div class="content-wrapper"></div>
+            
+        </div>
+        
+    </div>
+
+
+    <div layout="notifbar">
+        <h1 class="title">Notification</h1>
+        <div class="notif-container">
+            <div class="notif-item">
+                <span class="notif-text">Alice invited you to be his friend</span>
+                <button class="accept-btn">Accept</button>
+                <button class="decline-btn">Decline</button>
+            </div>
+            <div class="notif-item">
+                <span class="notif-text">Bob invited you to be his friend</span>
+                <button class="accept-btn">Accept</button>
+                <button class="decline-btn">Decline</button>
+            </div>
+            <div class="notif-item">
+                <span class="notif-text">Charlie invited you to be his friend</span>
+                <button class="accept-btn">Accept</button>
+                <button class="decline-btn">Decline</button>
+            </div>
+            
+            <!-- Add more items as needed -->
+        </div>
+    </div>
+</div>

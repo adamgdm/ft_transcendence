@@ -1,0 +1,558 @@
+
+/******************************************************************************/
+/* LAYOUT CHOOSE-MODE  */
+/******************************************************************************/
+
+[layout="choose-mode"] {
+    height: 100%;
+    width: 100%;
+
+    display: flex;
+    justify-content: space-around;
+    gap: 8px;
+
+    border-radius: 10px;
+    
+    border: 2px solid transparent;
+    background-clip: padding-box, border-box;
+    background-origin: padding-box, border-box;
+    background-image:
+        linear-gradient(#1C1B19, #1C1B19),
+        linear-gradient(to bottom, 
+            rgba(225, 201, 154, 0.32) 0%, 
+            rgba(247, 105, 66, 0.32) 28%, 
+            rgba(239, 140, 98, 0.32) 60%,
+            rgba(225, 201, 154, 0.32) 99%
+        );
+}
+
+[layout="choose-mode"] [mode="1v1"] {
+    margin-top: 3rem;
+    height: 80%;
+    width: 25%;
+    perspective: 1000px;
+}
+
+[layout="choose-mode"] [mode="1v1"] h1 {
+    margin: 0;
+    font-size: 50px;
+    color: var(--text-color);
+    -webkit-text-stroke: 1.5px black;
+}
+
+[layout="choose-mode"] [mode="1v1"] h2 {
+    font-size: 30px;
+    color: var(--white);
+    -webkit-text-stroke: 0.7px black;
+}
+
+
+.play1v1-card .play1v1-inner {
+    width: 100%;
+    height: 100%;
+    transition: transform 1s;
+    transform-style: preserve-3d;
+    position: relative;
+}
+
+.play1v1-card .play1v1-inner.is-flipped {
+    transform: rotateY(180deg);
+}
+
+.play1v1-card .play1v1-front {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    background: linear-gradient(120deg, 
+    rgba(14, 219, 255) 0%, 
+    rgba(101, 81, 288) 29%, 
+    rgba(157, 34, 228) 68%, 
+    rgba(142, 97, 7) 100%);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: #FFF;
+    padding: 20px;
+    box-sizing: border-box;
+    border-radius: 16px;
+    border: 2px solid var(--stars-color);
+}
+
+.play1v1-card .play1v1-back {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    transform: rotateY(180deg);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    overflow: hidden;
+    border-radius: 16px;
+    box-shadow: 0px 0.3px 6px 0.3px var(--stars-color);
+    background-color: #6F6F6E;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    border: 2px solid var(--stars-color);
+}
+
+
+.play1v1-card .play1v1-front h1, 
+.play1v1-card .play1v1-front h2 {
+    text-align: center;
+    margin: 10px 0;
+}
+
+.play1v1-card .play1v1-front h1 {
+    font-size: 40px;
+    font-weight: bold;
+}
+
+.play1v1-card .play1v1-front h2 {
+    font-size: 24px;
+    font-weight: 600;
+}
+
+[layout="choose-mode"] [mode="1v1"] img {
+    height: 500px;
+    width: 100%;
+}
+
+/***************************/
+/*         LOCAL           */
+/***************************/
+
+[layout="choose-mode"] [mode="1vAI"] {
+    margin-top: 3rem;
+    height: 80%;
+    width: 25%;
+    perspective: 1000px;
+}
+
+[layout="choose-mode"] [mode="1vAI"] h1 {
+    margin: 0;
+    font-size: 50px;
+    color: var(--text-color);
+    -webkit-text-stroke: 1.5px black;
+}
+
+[layout="choose-mode"] [mode="1vAI"] h2 {
+    font-size: 30px;
+    color: var(--white);
+    -webkit-text-stroke: 0.7px black;
+}
+
+.playLocally-card .playLocally-inner {
+    width: 100%;
+    height: 100%;
+    transition: transform 1s;
+    transform-style: preserve-3d;
+    position: relative;
+}
+
+.playLocally-card .playLocally-inner.is-flipped {
+    transform: rotateY(180deg);
+}
+
+.playLocally-card .playLocally-front {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    background: linear-gradient(30deg, 
+    rgba(12, 23, 54) 0%, 
+    rgba(102, 149, 201) 34%, 
+            rgba(7, 7, 12) 66%, 
+            rgba(43, 45, 94) 100%);
+            display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: #FFF;
+    padding: 20px;
+    box-sizing: border-box;
+    border-radius: 16px;
+    border: 2px solid var(--stars-color);
+}
+
+.playLocally-card .playLocally-back {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    transform: rotateY(180deg);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    overflow: hidden;
+    border-radius: 16px;
+    box-shadow: 0px 0.3px 6px 0.3px var(--stars-color);
+    background-color: #6F6F6E;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    border: 2px solid var(--stars-color);
+}
+
+.playLocally-card .playLocally-front h1, 
+.playLocally-card .playLocally-front h2 {
+    text-align: center;
+    margin: 10px 0;
+}
+
+.playLocally-card .playLocally-front h1 {
+    font-size: 40px;
+    font-weight: bold;
+}
+
+.playLocally-card .playLocally-front h2 {
+    font-size: 24px;
+    font-weight: 600;
+}
+
+[layout="choose-mode"] [mode="1vAI"] img {
+    height: 500px;
+    width: 120%;
+}
+
+/***************************/
+/*         tourn           */
+/***************************/
+
+[layout="choose-mode"] [mode="tourn"] {
+    margin-top: 3rem;
+    height: 80%;
+    width: 25%;
+    perspective: 1000px;
+}
+
+[layout="choose-mode"] [mode="tourn"] h1 {
+    margin: 0;
+    font-size: 50px;
+    color: var(--text-color);
+    -webkit-text-stroke: 1.5px black;
+}
+
+[layout="choose-mode"] [mode="tourn"] h2 {
+    font-size: 30px;
+    color: var(--white);
+    -webkit-text-stroke: 0.7px black;
+}
+
+.playTourn-card .playTourn-inner {
+    width: 100%;
+    height: 100%;
+    transition: transform 1s;
+    transform-style: preserve-3d;
+    position: relative;
+}
+
+.playTourn-card .playTourn-inner.is-flipped {
+    transform: rotateY(180deg);
+}
+
+.playTourn-card .playTourn-front {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    background: linear-gradient(160deg,
+    rgba(246, 204, 106) 0%,
+    rgba(243, 150, 29) 26%,
+    rgba(126, 111, 82) 81%,
+    rgba(19, 22, 36) 100%
+    );
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: #FFF;
+    padding: 20px;
+    box-sizing: border-box;
+    border-radius: 16px;
+    border: 2px solid var(--stars-color);
+}
+
+.playTourn-card .playTourn-back {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    transform: rotateY(180deg);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    overflow: hidden;
+    border-radius: 16px;
+    box-shadow: 0px 0.3px 6px 0.3px var(--stars-color);
+    background-color: #6F6F6E;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 100px;
+    align-items: center;
+    text-align: center;
+    border: 2px solid var(--stars-color);
+}
+
+.playLocally-button {
+    height: 10%;
+    width: 90%;
+    background-color: var(--space-color);
+    border: 1px solid var(--stars-color);
+    border-radius: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-top: 20px;
+
+    padding: 10px;
+    color: var(--white);
+    cursor: pointer;
+}
+
+.playTourn-card .playTourn-front h1, 
+.playTourn-card .playTourn-front h2 {
+    text-align: center;
+    margin: 10px 0;
+}
+
+.playTourn-card .playTourn-front h1 {
+    font-size: 40px;
+    font-weight: bold;
+}
+
+.playTourn-card .playTourn-front h2 {
+    font-size: 24px;
+
+}
+
+[layout="choose-mode"] [mode="tourn"] img {
+    height: 500px;
+    width: 100%;
+    margin-left: 42px;
+}
+
+/***********************************************************************/
+/* Choose either to  Create or Join Tournament                         */
+/***********************************************************************/
+
+.playTourn-card .playTourn-back h1 {
+    margin-top: 5rem;
+}
+
+.playTourn-card .playTourn-back .buttons {
+    height: 200px;
+    width: 80%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.playTourn-card .playTourn-back .create-tourn,
+.playTourn-card .playTourn-back .join-tourn {
+    height: 30%;
+    background-color: var(--space-color);
+    border: 1px solid var(--stars-color);
+    border-radius: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+
+    padding: 10px;
+    color: var(--white);
+    cursor: pointer;
+}
+
+.playTourn-card .playTourn-back .create-tourn:hover  {
+    font-size: 1.05em;
+
+}
+
+.playTourn-card .playTourn-back .join-tourn:hover  {
+    font-size: 1.05em;
+}
+
+.create-tourn span,
+.join-tourn span {
+    margin-right: auto;
+}
+
+/***********************************************************************/
+/* Create Tournament Chose                                             */
+/***********************************************************************/
+
+.playTourn-card .playTourn-back .tourn-created {
+    height: 350px;
+    width: 80%;
+    border-radius: 15px;
+    display: none;
+}
+
+.playTourn-card .playTourn-back .code-generated {
+    height: 70px;
+    width: 80%;
+    background-color: bisque;
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 0 20px;
+    font-size: 2.5em;
+    color: var(--white);
+    -webkit-text-stroke: 1px #1C1B19;
+    letter-spacing: 5px;
+}
+
+.playTourn-card .playTourn-back .code-generated i {
+    color: #1C1B19;
+    font-size: 0.8em;
+    cursor: pointer;
+}
+
+.playTourn-card .playTourn-back .tourn-created span {
+    margin-top: -20px;
+    margin-bottom: 50px;
+}
+
+.playTourn-card .playTourn-back .tourn-created .cancel-btn {
+    display: none;
+    margin-top: 100px;
+    cursor: pointer;
+}
+
+.playTourn-card .playTourn-back .tourn-created p {
+    border: 1px solid;
+    position: absolute;
+    right: 5px;
+    top: 60%;
+}
+
+.playTourn-card .playTourn-back .tourn-created p {
+    margin-left: -120px;
+    margin-top: 20px;
+    font-size: 0.7em;
+}
+
+.search-bar {
+    font-family: inherit;
+    width: 90%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 16px;
+}
+
+.search-bar:focus {
+    border-radius: 5px 5px 0 0;
+    box-shadow: none;
+    transform: none;
+    outline: none;
+}
+
+#friendsList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 200px;
+    width: 90%;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #ddd;
+    top: 60px; /* Adjust based on search bar height */
+    left: 20px;
+    right: 20px;
+    z-index: 10;
+}
+
+#friendsList:last-child {
+    border-radius: 0 0 5px 5px;
+}
+
+#friendsList li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+}
+
+#friendsList li:last-child {
+    border-bottom: none;
+}
+
+.invite-btn {
+    background: #4CAF50;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.invite-btn:hover {
+    background: #45a049;
+}
+
+/***********************************************************************/
+/* Join Tournament Chose                                             */
+/***********************************************************************/
+
+.playTourn-card .playTourn-back .tourn-joined {
+    height: 350px;
+    width: 80%;
+    border-radius: 15px;
+    display: none;
+}
+
+.playTourn-card .playTourn-back form {
+    width: 90%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: none;
+}
+
+.playTourn-card .playTourn-back .tourn-code {
+    height: 70px;
+    width: 100%;
+    background-color: bisque;
+    border-radius: 15px;
+    border: none;
+
+    padding: 0 20px;
+    font-size: 2.5em;
+    color: var(--white);
+    -webkit-text-stroke: 1px #1C1B19;
+    letter-spacing: 5px;
+    font-family: inherit;
+    outline: none;
+}
+
+.playTourn-card .playTourn-back button {
+    margin-top: 30px;
+    height: 50px;
+    width: 60%;
+    border-radius: 15px;
+    border: 1px solid;
+    background-color: var(--navbar-color);
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.playTourn-card .playTourn-back .tourn-joined span {
+    margin-top: -20px;
+    margin-bottom: 50px;
+}
+
+.playTourn-card .playTourn-back .tourn-joined  .cancel-btn {
+    cursor: pointer;
+}
