@@ -1,6 +1,13 @@
 // globalWebsocket.js
+
+let socket = null;
+let retryCount = 0;
+const MAX_RETRIES = 3;
+
 export function initializeWebSocket() {
-    const socket = new WebSocket(`wss://localhost:8000/ws/friendship/`);
+    if (socket) return socket; // Return existing socket if already initialized
+
+    socket = new WebSocket(`wss://localhost:8000/ws/friendship/`);
 
     socket.onopen = () => {
         console.log('WebSocket connected');
@@ -11,6 +18,17 @@ export function initializeWebSocket() {
                 clearInterval(keepAlive);
             }
         }, 30000);
+    };
+
+    socket.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        if (retryCount < MAX_RETRIES) {
+            retryCount++;
+            console.log(`Retrying WebSocket connection (${retryCount}/${MAX_RETRIES})...`);
+            setTimeout(initializeWebSocket, 3000); // Retry after 3 seconds
+        } else {
+            console.error('Max retries reached. WebSocket connection failed.');
+        }
     };
 
     socket.onmessage = (event) => {
@@ -31,16 +49,16 @@ export function initializeWebSocket() {
                     notifContainer.appendChild(notifItem);
 
                     notifItem.querySelector('.accept-btn').addEventListener('click', () => {
-                        acceptFriendRequest(request.from_user_id);
+                        acceptFriendRequest(request.from_username);
                         notifItem.remove();
                     });
                     notifItem.querySelector('.decline-btn').addEventListener('click', () => {
-                        rejectFriendRequest(request.from_user_id);
+                        rejectFriendRequest(request.from_username);
                         notifItem.remove();
                     });
                 });
                 break;
-            case 'friend_request':
+            case 'new_friend_request_notification':
                 const notifItem = document.createElement('div');
                 notifItem.className = 'notif-item';
                 notifItem.innerHTML = `
@@ -51,18 +69,18 @@ export function initializeWebSocket() {
                 notifContainer.appendChild(notifItem);
 
                 notifItem.querySelector('.accept-btn').addEventListener('click', () => {
-                    acceptFriendRequest(data.from_user_id);
+                    acceptFriendRequest(data.from_username);
                     notifItem.remove();
                 });
                 notifItem.querySelector('.decline-btn').addEventListener('click', () => {
-                    rejectFriendRequest(data.from_user_id);
+                    rejectFriendRequest(data.from_username);
                     notifItem.remove();
                 });
                 break;
-            case 'friend_update':
+            case 'friend_request_accepted_notification':
                 const updateItem = document.createElement('div');
                 updateItem.className = 'notif-item';
-                updateItem.innerHTML = `<span class="notif-text">${data.message}</span>`;
+                updateItem.innerHTML = `<span class="notif-text">${data.from_username} accepted your friend request!</span>`;
                 notifContainer.appendChild(updateItem);
                 break;
             case 'pong':
@@ -81,39 +99,54 @@ export function initializeWebSocket() {
         setTimeout(() => initializeWebSocket(), 2000); // Reconnect after 2 seconds
     };
 
-    socket.onerror = (error) => {
-        console.error('WebSocket error:', error);
-    };
 
     return socket;
 }
 
-async function acceptFriendRequest(friendId) {
-    try {
-        const response = await fetch('/api/accept_friend/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ friend_id: friendId })
-        });
-        const data = await response.json();
-        console.log(data.message || data.error);
-    } catch (error) {
-        console.error('Error accepting friend request:', error);
-    }
+async function acceptFriendRequest(username) {
+    // Send a WebSocket message to the backend
+    socket.send(JSON.stringify({
+        type: 'accept_friend_request',
+        friend_username: username
+    }));
+
+    // Return a promise that resolves when the backend acknowledges the request
+    return new Promise((resolve) => {
+        const handleMessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === 'friend_request_accepted' && data.friend_username === username) {
+                socket.removeEventListener('message', handleMessage); // Clean up the listener
+                resolve({ message: data.message });
+            } else if (data.type === 'friend_request_error' && data.friend_username === username) {
+                socket.removeEventListener('message', handleMessage); // Clean up the listener
+                resolve({ error: data.error });
+            }
+        };
+
+        socket.addEventListener('message', handleMessage);
+    });
 }
 
-async function rejectFriendRequest(friendId) {
-    try {
-        const response = await fetch('/api/reject_friend/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ friend_id: friendId })
-        });
-        const data = await response.json();
-        console.log(data.message || data.error);
-    } catch (error) {
-        console.error('Error rejecting friend request:', error);
-    }
+async function rejectFriendRequest(username) {
+    // Send a WebSocket message to the backend
+    socket.send(JSON.stringify({
+        type: 'reject_friend_request',
+        friend_username: username
+    }));
+
+    // Return a promise that resolves when the backend acknowledges the request
+    return new Promise((resolve) => {
+        const handleMessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === 'friend_request_rejected' && data.friend_username === username) {
+                socket.removeEventListener('message', handleMessage); // Clean up the listener
+                resolve({ message: data.message });
+            } else if (data.type === 'friend_request_error' && data.friend_username === username) {
+                socket.removeEventListener('message', handleMessage); // Clean up the listener
+                resolve({ error: data.error });
+            }
+        };
+
+        socket.addEventListener('message', handleMessage);
+    });
 }

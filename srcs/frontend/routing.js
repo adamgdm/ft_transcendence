@@ -8,6 +8,7 @@ import { scrollAction } from "./pages/story/scroll.js"
 
 
 let isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+let socket = null;
 
 const authenticatedPages = ['home', 'settings', 'shop', 'play', 'game']
 
@@ -21,7 +22,7 @@ window.onload = function () {
     })
 
     if (isAuthenticated) {
-        initializeWebSocket()
+        socket = initializeWebSocket()
     }
 }
 
@@ -92,20 +93,27 @@ async function fetchFriendsList() {
 }
 
 async function addFriendRequest(username) {
-    try {
-        const response = await fetch('https://localhost:8000/add_friend/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ friend_username: username })
-        });
-        const data = await response.json();
-        console.log(data.message || data.error);
-        return data;
-    } catch (error) {
-        console.error('Error adding friend:', error);
-        return { error: 'Network error' };
-    }
+            // Send a WebSocket message to the backend
+    socket.send(JSON.stringify({
+        type: 'send_friend_request',
+        friend_username: username
+    }));
+
+    // Return a promise that resolves when the backend acknowledges the request
+    return new Promise((resolve) => {
+        const handleMessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === 'friend_request_sent' && data.friend_username === username) {
+                socket.removeEventListener('message', handleMessage); // Clean up the listener
+                resolve({ message: data.message });
+            } else if (data.type === 'friend_request_error' && data.friend_username === username) {
+                socket.removeEventListener('message', handleMessage); // Clean up the listener
+                resolve({ error: data.error });
+            }
+        };
+
+        socket.addEventListener('message', handleMessage)
+    });
 }
 
 async function cancelFriendRequest(username) {
@@ -126,37 +134,51 @@ async function cancelFriendRequest(username) {
 }
 
 async function acceptFriendRequest(username) {
-    try {
-        const response = await fetch('https://localhost:8000/accept_friend/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ friend_username: username })
-        });
-        const data = await response.json();
-        console.log(data.message || data.error);
-        return data;
-    } catch (error) {
-        console.error('Error accepting friend request:', error);
-        return { error: 'Network error' };
-    }
+    // Send a WebSocket message to the backend
+    socket.send(JSON.stringify({
+        type: 'accept_friend_request',
+        friend_username: username
+    }));
+
+    // Return a promise that resolves when the backend acknowledges the request
+    return new Promise((resolve) => {
+        const handleMessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === 'friend_request_accepted' && data.friend_username === username) {
+                socket.removeEventListener('message', handleMessage); // Clean up the listener
+                resolve({ message: data.message });
+            } else if (data.type === 'friend_request_error' && data.friend_username === username) {
+                socket.removeEventListener('message', handleMessage); // Clean up the listener
+                resolve({ error: data.error });
+            }
+        };
+
+        socket.addEventListener('message', handleMessage);
+    });
 }
 
 async function rejectFriendRequest(username) {
-    try {
-        const response = await fetch('https://localhost:8000/reject_friend/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ friend_username: username })
-        });
-        const data = await response.json();
-        console.log(data.message || data.error);
-        return data;
-    } catch (error) {
-        console.error('Error rejecting friend request:', error);
-        return { error: 'Network error' };
-    }
+    // Send a WebSocket message to the backend
+    socket.send(JSON.stringify({
+        type: 'reject_friend_request',
+        friend_username: username
+    }));
+
+    // Return a promise that resolves when the backend acknowledges the request
+    return new Promise((resolve) => {
+        const handleMessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === 'friend_request_rejected' && data.friend_username === username) {
+                socket.removeEventListener('message', handleMessage); // Clean up the listener
+                resolve({ message: data.message });
+            } else if (data.type === 'friend_request_error' && data.friend_username === username) {
+                socket.removeEventListener('message', handleMessage); // Clean up the listener
+                resolve({ error: data.error });
+            }
+        };
+
+        socket.addEventListener('message', handleMessage);
+    });
 }
 
 async function removeFriend(username) {

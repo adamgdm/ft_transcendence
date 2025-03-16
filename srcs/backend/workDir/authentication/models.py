@@ -6,7 +6,6 @@ def user_directory_path(instance, filename):
     return f'user_{instance.id}/{filename}'
 
 class Users(models.Model):
-    class AccountStatusChoices(models.TextChoices):
         ACTIVE = 'active'
         BANNED = 'banned'
         DEACTIVATED = 'deactivated'
@@ -21,16 +20,12 @@ class Users(models.Model):
     password_hash = models.CharField(max_length=128)
     otp_password = models.CharField(max_length=6, blank=True)
     otp_expiry = models.DateTimeField(null=True, blank=True)
-    account_status = models.CharField(max_length=15, choices=AccountStatusChoices.choices, default=AccountStatusChoices.ACTIVE)
-    two_factor_enabled = models.BooleanField(default=False)
-    two_factor_info = models.OneToOneField('TwoFactorData', on_delete=models.CASCADE, null=True, blank=True)
 
     is_Email_Verified = models.BooleanField(default=False)
     registration_date = models.DateTimeField(auto_now_add=True)
     online_status = models.DateTimeField(auto_now_add=True)
     last_login = models.DateTimeField(null=True, blank=True)
     last_password_change = models.DateTimeField(null=True, blank=True)
-
 class BlacklistedTokens(models.Model):
     token = models.CharField(max_length=255)
     blacklisted_at = models.DateTimeField(auto_now_add=True)
@@ -45,12 +40,13 @@ class TwoFactorData(models.Model):
     expires_at = models.DateTimeField()
 
 class Friendship(models.Model):
-    class FriendshipStatusChoices(models.TextChoices):
+    class Status(models.TextChoices):
         PENDING = 'pending'
         ACCEPTED = 'accepted'
+        REJECTED = 'rejected'
     from_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='user_id')
     to_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='friend_id')
-    friendship_status = models.CharField(max_length=15, choices=FriendshipStatusChoices.choices, default=FriendshipStatusChoices.PENDING)
+    friendship_status = models.CharField(max_length=15, choices=Status.choices, default=Status.PENDING)
     friendship_date = models.DateTimeField(auto_now_add=True)
     
     class Meta:
