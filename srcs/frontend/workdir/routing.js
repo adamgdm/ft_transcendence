@@ -6,17 +6,15 @@ import { settings } from "./pages/settings/settings.js";
 import { storyActions } from "./pages/story/index.js"
 import { scrollAction } from "./pages/story/scroll.js"
 
-window.isAuthenticated = false;
 
-if (localStorage.getItem('isAuthenticated') === 'true') {
-    window.isAuthenticated = true;
-}
-            
 const authenticatedPages = ['home', 'settings', 'shop', 'play', 'game']
 
+window.isAuthenticated = localStorage.getItem('isAuthenticated') === 'true' || false;
+console.log('Initial auth status:', window.isAuthenticated);
+
 window.onload = function () {
-    localStorage.removeItem('isAuthenticated');
-    window.isAuthenticated = false;
+    // localStorage.removeItem('isAuthenticated');
+    // window.isAuthenticated = false;
     
 
     const fragId = window.location.hash.substring(1) || 'story'
@@ -43,18 +41,17 @@ window.routeToPage = function (path) {
         return;
     }
 
-    if (authenticatedPages.includes(path))  {
-        if (!isAuthenticated) {
-            window.location.hash = 'story';
-            return;
-        }
-
-        loadAuthenticatedLayout(path);
+    if (authenticatedPages.includes(path) && !window.isAuthenticated) {
+        window.location.hash = 'story'; // Redirect to story only if not authenticated
+        return;
     }
-    else {
+
+    if (authenticatedPages.includes(path)) {
+        loadAuthenticatedLayout(path);
+    } else {
         loadPage(path);
     }
-}
+};
 
 
 function isValidRoute(path) {
