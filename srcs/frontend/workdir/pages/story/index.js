@@ -15,6 +15,7 @@ export function storyActions() {
 
     const signupBtn = document.getElementById('signup-btn')
     const loginBtn = document.getElementById('login-btn')
+    const oauth2Btn = document.getElementById('login-42-btn')
 
     const close = document.querySelectorAll('[data-close]')
 
@@ -86,6 +87,39 @@ export function storyActions() {
     loginBtn.addEventListener('click', () => {
         displayModal(loginModal)
     })
+
+    ////////////////////////////////////   ////////////////////////////////////   
+    // this is ossama's part to be handled
+    ////////////////////////////////////   ////////////////////////////////////   
+
+    // oauth2Btn.addEventListener('click', () => {
+    //     fetch('/api/oauth2/login/', {
+    //         method: 'POST',
+    //         headers: {
+    //             'Content-Type': 'application/json',
+    //         },
+    //         credentials: 'include',
+    //     })
+    //     .then(response => {
+    //         console.log('Response status:', response.status);
+    //         if (response.status !== 200) {
+    //             throw new Error('Network response was not ok');
+    //         }
+    //         return response.json();
+    //     })
+    //     .then(data => {
+    //         console.log('Login successful:', data);
+        
+    //         localStorage.setItem('isAuthenticated', 'true');
+    //         window.isAuthenticated = true;
+
+    //         window.location.hash = 'home';
+    //     })
+    //     .catch(error => {
+    //         console.error('Error:', error);
+    //         alert('Login failed: ' + error.message);
+    //     });
+    // })
 
     // Event listener for submitting the signup form
     signupForm.addEventListener('submit', (e) => {

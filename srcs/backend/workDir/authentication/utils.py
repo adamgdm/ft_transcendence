@@ -4,6 +4,7 @@ import jwt
 from datetime import datetime, timedelta
 from backend import settings
 from django.core.mail import EmailMessage
+import math
 
 def UsernameValidator(user_name):
     if not user_name.isalnum():
@@ -77,6 +78,34 @@ def send_2fa_email(mail, otp):
         return False
     return True
 
+def calculate_ppp(player_rating, opps_rating, result, k_factor=32): #result is a bool
+    expected_score = 1 / (1 + 10 ** ((opponent_rating - player_rating) / 400))
+    new_rating = player_rating + k_factor * (result - expected_score)
+    return round(new_rating)
+
+def update_ppp_ratings(player1, player2, result):
+    player1_rating = player1.ppp_rating
+    player2_rating = player2.ppp_rating
+
+    # Update player1's rating
+    player1.ppp_rating = calculate_ppp(player1_rating, player2_rating, result)
+    player1.save()
+
+    # Update player2's rating
+    player2.ppp_rating = calculate_ppp(player2_rating, player1_rating, 1 - result)
+    player2.save()
+
+
+# example of using these functions
+
+# # Assume player1 and player2 are instances of the Player model
+# player1 = Player.objects.get(id=1)
+# player2 = Player.objects.get(id=2)    
+# # Player 1 wins
+# update_ppp_ratings(player1, player2, result=1)
+
+# # Player 2 wins
+# update_ppp_ratings(player1, player2, result=0)
 def send_2fa_email_verification(mail, otp):
     subject = 'Verify It\'s your email!'
     body = (

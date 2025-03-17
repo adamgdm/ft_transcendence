@@ -25,13 +25,5 @@ export function home() {
     .catch(error => {
         console.error('Error:', error);
     });
-    
-    document.querySelector(".see-friends-btn").addEventListener("click", function() {
-        document.getElementById("friends-modal").style.opacity = "1";
-        document.getElementById("friends-modal").style.visibility = "visible";
-    });
-    document.querySelector(".close-btn").addEventListener("click", function() {
-        document.getElementById("friends-modal").style.opacity = "0";
-        document.getElementById("friends-modal").style.visibility = "hidden";
-    });
+
 }
