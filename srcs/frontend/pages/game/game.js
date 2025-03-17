@@ -1,5 +1,21 @@
-export function game() {
-    // Game state variables
+// frontend/game.js
+
+async function fetchLogin() {
+    try {
+        const response = await fetch('https://localhost:8000/profile/', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+        });
+        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+        return (await response.json()).user_name;
+    } catch (error) {
+        console.error('Error fetching username:', error);
+        return null;
+    }
+}
+
+export async function game() {
     let paddle1_x;
     let paddle2_x;
     let ball_bounds;
@@ -12,35 +28,38 @@ export function game() {
     let keyState = {};
     let websocket = null;
     let gameId = history.state?.game_id;
-    const player = history.state?.user;
-    let gameMode = null; // Will be set to 'local' or 'online'
+    let player = history.state?.user;
+    let gameMode = null; // 'local' or 'online'
+
+    if (!player) {
+        player = await fetchLogin();
+        if (!player) {
+            console.error("Failed to fetch username or not logged in, redirecting to login");
+            history.pushState({}, "", "#login");
+            window.routeToPage('story');
+            return;
+        }
+    }
 
     console.log("Connecting to game ID:", gameId, "Player:", player);
 
     function create_game(opponent_username) {
-        let body;
-        if (!opponent_username || opponent_username.trim() === '') {
-            body = ``; // No opponent, create a random game
-        } else {
-            body = `player=${encodeURIComponent(opponent_username)}`; // Create game with specified opponent
-        }
-    
+        let body = opponent_username ? `player=${encodeURIComponent(opponent_username)}` : ``;
         return fetch('https://localhost:8000/create_game/', {
             method: 'POST',
-            credentials: "include",
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: body
         });
     }
 
-    if (!gameId || !player) {
-        console.error("No game ID or player found in history.state", { gameId, player });
+    if (!gameId) {
+        console.error("No game ID found in history.state", { gameId, player });
+        history.pushState({}, "", "#play");
+        window.routeToPage('play');
         return;
     }
 
-    // DOM elements
     const preGame = document.querySelector(".Pre-Game");
     const canvas = document.getElementById("pong");
     const postGame = document.querySelector(".Post-Game");
@@ -50,25 +69,28 @@ export function game() {
     const opponentUsername = document.querySelector(".OpponentScore .OpponentUsername");
     const playAgain = document.querySelector(".PlayAgain");
 
-    // Set initial visibility
+    if (!preGame || !canvas || !postGame) {
+        console.error("Game page DOM elements not found, aborting:", { preGame, canvas, postGame });
+        history.pushState({}, "", "#play");
+        window.routeToPage('play');
+        return;
+    }
+
     preGame.style.display = "flex";
     canvas.style.display = "none";
     postGame.style.display = "none";
 
-    // Canvas initialization
     function initializeCanvas() {
         if (!canvas) {
             console.error("Canvas element 'pong' not found");
             return null;
         }
         const ctx = canvas.getContext("2d");
-
         const offScreenCanvas = document.createElement("canvas");
         offScreenCanvas.width = canvas.width;
         offScreenCanvas.height = canvas.height;
         const offScreenCtx = offScreenCanvas.getContext("2d");
 
-        // Set transparent background on the off-screen canvas
         colorBackground(offScreenCtx, offScreenCanvas);
         drawScore(offScreenCtx, offScreenCanvas, 0, 0);
 
@@ -144,22 +166,9 @@ export function game() {
     }
 
     function drawBall(ctx, width, height, ball_x, ball_y, radius, pastPositions) {
-        // Clear past positions to avoid multiple balls
-        pastPositions.length = 0; // Ensure only the current position is used
+        pastPositions.length = 0;
         pastPositions.push({ x: ball_x, y: ball_y });
 
-        // Draw the ball trail (optional, comment out if not needed)
-        for (let i = pastPositions.length - 1; i >= 0; i--) {
-            ctx.beginPath();
-            const trailRadius = radius * width * (0.5 + 0.5 * i / pastPositions.length);
-            const alpha = i / pastPositions.length;
-            const color = `rgba(${255 - 200 * alpha}, ${100 - 100 * alpha}, 0, ${alpha})`;
-            ctx.arc(pastPositions[i].x * width, pastPositions[i].y * height, trailRadius, 0, 2 * Math.PI);
-            ctx.fillStyle = color;
-            ctx.fill();
-        }
-
-        // Draw the main ball
         ctx.beginPath();
         for (let i = 0; i < 8; i++) {
             const angle = (i / 8) * 2 * Math.PI;
@@ -188,87 +197,45 @@ export function game() {
         const width = canvas.width;
         const height = canvas.height;
 
-        // Clear the on-screen canvas to ensure transparency
         ctx.clearRect(0, 0, width, height);
-
-        // Draw the off-screen canvas (which contains the score and transparent background)
         ctx.drawImage(offScreenCanvas, 0, 0);
 
-        // Draw game elements on top
         drawPaddles(ctx, width, height, paddle1_x, game.paddle1_y, paddle2_x, game.paddle2_y, paddle_bounds_x, paddle_bounds_y);
         drawBall(ctx, width, height, game.ball_x, game.ball_y, ball_bounds, pastPositions);
         drawScore(ctx, width, score_1, score_2);
     }
 
     const canvasSetup = initializeCanvas();
-    if (!canvasSetup) return; // Exit if canvas initialization fails
+    if (!canvasSetup) return;
     const { ctx, offScreenCanvas, offScreenCtx } = canvasSetup;
 
     function updateAndDrawGame(game) {
-        // Update pastPositions (already managed in drawBall to prevent multiple balls)
         drawGame(game, ctx, canvas, offScreenCanvas);
     }
 
-    // Define key event handlers
     function handleKeyDown(event) {
         console.log("Key down event:", event.key);
         if (gameMode === 'local') {
-            // Local mode: W/S for left paddle (player1), ArrowUp/ArrowDown for right paddle (player2)
             if (event.key === 'w' && !keyState['w']) {
                 keyState['w'] = true;
-                const message = {
-                    'action': 'wStart',
-                    'player_id': player,
-                    'paddle': 'player1' // Explicitly specify which paddle
-                };
-                console.log("Sending message:", JSON.stringify(message));
-                websocket.send(JSON.stringify(message));
+                websocket.send(JSON.stringify({ 'action': 'wStart', 'player_id': player, 'paddle': 'player1' }));
             } else if (event.key === 's' && !keyState['s']) {
                 keyState['s'] = true;
-                const message = {
-                    'action': 'sStart',
-                    'player_id': player,
-                    'paddle': 'player1'
-                };
-                console.log("Sending message:", JSON.stringify(message));
-                websocket.send(JSON.stringify(message));
+                websocket.send(JSON.stringify({ 'action': 'sStart', 'player_id': player, 'paddle': 'player1' }));
             } else if (event.key === 'ArrowUp' && !keyState['ArrowUp']) {
                 keyState['ArrowUp'] = true;
-                const message = {
-                    'action': 'upStart',
-                    'player_id': player,
-                    'paddle': 'player2'
-                };
-                console.log("Sending message:", JSON.stringify(message));
-                websocket.send(JSON.stringify(message));
+                websocket.send(JSON.stringify({ 'action': 'upStart', 'player_id': player, 'paddle': 'player2' }));
             } else if (event.key === 'ArrowDown' && !keyState['ArrowDown']) {
                 keyState['ArrowDown'] = true;
-                const message = {
-                    'action': 'downStart',
-                    'player_id': player,
-                    'paddle': 'player2'
-                };
-                console.log("Sending message:", JSON.stringify(message));
-                websocket.send(JSON.stringify(message));
+                websocket.send(JSON.stringify({ 'action': 'downStart', 'player_id': player, 'paddle': 'player2' }));
             }
         } else {
-            // Online mode: ArrowUp/ArrowDown for the player's paddle
             if (event.key === 'ArrowUp' && !keyState['ArrowUp']) {
                 keyState['ArrowUp'] = true;
-                const message = {
-                    'action': 'upStart',
-                    'player_id': player
-                };
-                console.log("Sending message:", JSON.stringify(message));
-                websocket.send(JSON.stringify(message));
+                websocket.send(JSON.stringify({ 'action': 'upStart', 'player_id': player }));
             } else if (event.key === 'ArrowDown' && !keyState['ArrowDown']) {
                 keyState['ArrowDown'] = true;
-                const message = {
-                    'action': 'downStart',
-                    'player_id': player
-                };
-                console.log("Sending message:", JSON.stringify(message));
-                websocket.send(JSON.stringify(message));
+                websocket.send(JSON.stringify({ 'action': 'downStart', 'player_id': player }));
             }
         }
     }
@@ -276,67 +243,30 @@ export function game() {
     function handleKeyUp(event) {
         console.log("Key up event:", event.key);
         if (gameMode === 'local') {
-            // Local mode: W/S for left paddle (player1), ArrowUp/ArrowDown for right paddle (player2)
             if (event.key === 'w' && keyState['w']) {
                 keyState['w'] = false;
-                const message = {
-                    'action': 'wStop',
-                    'player_id': player,
-                    'paddle': 'player1'
-                };
-                console.log("Sending message:", JSON.stringify(message));
-                websocket.send(JSON.stringify(message));
+                websocket.send(JSON.stringify({ 'action': 'wStop', 'player_id': player, 'paddle': 'player1' }));
             } else if (event.key === 's' && keyState['s']) {
                 keyState['s'] = false;
-                const message = {
-                    'action': 'sStop',
-                    'player_id': player,
-                    'paddle': 'player1'
-                };
-                console.log("Sending message:", JSON.stringify(message));
-                websocket.send(JSON.stringify(message));
+                websocket.send(JSON.stringify({ 'action': 'sStop', 'player_id': player, 'paddle': 'player1' }));
             } else if (event.key === 'ArrowUp' && keyState['ArrowUp']) {
                 keyState['ArrowUp'] = false;
-                const message = {
-                    'action': 'upStop',
-                    'player_id': player,
-                    'paddle': 'player2'
-                };
-                console.log("Sending message:", JSON.stringify(message));
-                websocket.send(JSON.stringify(message));
+                websocket.send(JSON.stringify({ 'action': 'upStop', 'player_id': player, 'paddle': 'player2' }));
             } else if (event.key === 'ArrowDown' && keyState['ArrowDown']) {
                 keyState['ArrowDown'] = false;
-                const message = {
-                    'action': 'downStop',
-                    'player_id': player,
-                    'paddle': 'player2'
-                };
-                console.log("Sending message:", JSON.stringify(message));
-                websocket.send(JSON.stringify(message));
+                websocket.send(JSON.stringify({ 'action': 'downStop', 'player_id': player, 'paddle': 'player2' }));
             }
         } else {
-            // Online mode: ArrowUp/ArrowDown for the player's paddle
             if (event.key === 'ArrowUp' && keyState['ArrowUp']) {
                 keyState['ArrowUp'] = false;
-                const message = {
-                    'action': 'upStop',
-                    'player_id': player
-                };
-                console.log("Sending message:", JSON.stringify(message));
-                websocket.send(JSON.stringify(message));
+                websocket.send(JSON.stringify({ 'action': 'upStop', 'player_id': player }));
             } else if (event.key === 'ArrowDown' && keyState['ArrowDown']) {
                 keyState['ArrowDown'] = false;
-                const message = {
-                    'action': 'downStop',
-                    'player_id': player
-                };
-                console.log("Sending message:", JSON.stringify(message));
-                websocket.send(JSON.stringify(message));
+                websocket.send(JSON.stringify({ 'action': 'downStop', 'player_id': player }));
             }
         }
     }
 
-    // Function to attach event listeners
     function attachKeyListeners() {
         console.log("Attaching key event listeners");
         document.removeEventListener('keydown', handleKeyDown);
@@ -345,9 +275,7 @@ export function game() {
         document.addEventListener('keyup', handleKeyUp);
     }
 
-    // Function to reset the game state and ensure WebSocket is fully closed
     function resetGame() {
-        // Reset game state variables
         paddle1_x = undefined;
         paddle2_x = undefined;
         ball_bounds = undefined;
@@ -358,111 +286,75 @@ export function game() {
         initialStateReceived = false;
         pastPositions = [];
         keyState = {};
-        gameMode = null; // Reset game mode
+        gameMode = null;
 
-        // Remove existing event listeners
         document.removeEventListener('keydown', handleKeyDown);
         document.removeEventListener('keyup', handleKeyUp);
 
-        // Forcefully close the WebSocket connection and nullify it
         if (websocket) {
             if (websocket.readyState === WebSocket.OPEN || websocket.readyState === WebSocket.CONNECTING) {
-                websocket.close(1000, "Game reset and connection terminated");
-                console.log("WebSocket closed with code 1000");
-            } else if (websocket.readyState === WebSocket.CLOSING) {
-                // Wait for closing to complete, then nullify
-                const checkCloseInterval = setInterval(() => {
-                    if (websocket.readyState === WebSocket.CLOSED) {
-                        clearInterval(checkCloseInterval);
-                        websocket = null;
-                        console.log("WebSocket fully closed and nullified");
-                    }
-                }, 100); // Check every 100ms
-            } else {
-                websocket = null;
-                console.log("WebSocket already closed or in invalid state, set to null");
+                websocket.close(1000, "Game reset");
             }
+            websocket = null;
         }
 
-        // Clear the canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         offScreenCtx.clearRect(0, 0, offScreenCanvas.width, offScreenCanvas.height);
 
-        // Reset DOM visibility
-        preGame.style.display = "flex";
-        canvas.style.display = "none";
-        postGame.style.display = "none";
+        if (preGame) preGame.style.display = "flex";
+        if (canvas) canvas.style.display = "none";
+        if (postGame) postGame.style.display = "none";
     }
 
     function cleanup(winner = null) {
-        // Remove event listeners to prevent further input
         document.removeEventListener('keydown', handleKeyDown);
         document.removeEventListener('keyup', handleKeyUp);
         keyState = {};
 
-        // Close the WebSocket connection
         if (websocket) {
             if (websocket.readyState === WebSocket.OPEN || websocket.readyState === WebSocket.CONNECTING) {
                 websocket.close(1000, "Game ended");
-                console.log("WebSocket closed with code 1000 during cleanup");
             }
-            // Nullify immediately after attempting to close
             websocket = null;
         }
 
-        // Update post-game section
-        myUsername.textContent = player;
-        myScore.textContent = score_1;
-        const isPlayer1 = player === "1";
-        opponentUsername.textContent = isPlayer1 ? "Opponent" : "Player 1";
-        opponentScore.textContent = isPlayer1 ? score_2 : score_1;
+        if (myUsername) myUsername.textContent = player;
+        if (myScore) myScore.textContent = score_1;
+        if (opponentUsername) opponentUsername.textContent = gameMode === 'local' ? "Local Opponent" : "Online Opponent";
+        if (opponentScore) opponentScore.textContent = score_2;
 
-        // Update win/lose message
         const postGameMessage = document.querySelector(".Post-Game h2");
-        if (winner === player) {
-            postGameMessage.textContent = "You have Won!";
-        } else {
-            postGameMessage.textContent = "You have Lost!";
+        if (postGameMessage) {
+            postGameMessage.textContent = winner === player ? "You have Won!" : "You have Lost!";
         }
 
-        // Show post-game section, hide others
-        preGame.style.display = "none";
-        canvas.style.display = "none";
-        postGame.style.display = "flex";
+        if (preGame) preGame.style.display = "none";
+        if (canvas) canvas.style.display = "none";
+        if (postGame) postGame.style.display = "flex";
 
-        // Add play again functionality
-        playAgain.addEventListener("click", () => {
-            create_game('')
-                .then(response => {
-                    console.log("Response received:", response);
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    return response.json().then(data => {
-                        console.log("Parsed JSON:", data);
-                        return { ok: response.ok, data };
-                    });
-                })
-                .then(({ ok, data }) => {
-                    if (ok && data.game_id) {
-                        gameId = data.game_id;
-                        // Reset the game state and start a new session
-                        resetGame();
-                        connectWebSocket();
-                    } else {
-                        console.error("Game creation failed:", data);
+        if (playAgain) {
+            playAgain.addEventListener("click", () => {
+                create_game('')
+                    .then(response => response.json().then(data => ({ ok: response.ok, data })))
+                    .then(({ ok, data }) => {
+                        if (ok && data.game_id) {
+                            gameId = data.game_id;
+                            resetGame();
+                            connectWebSocket();
+                        } else {
+                            console.error("Game creation failed:", data);
+                            window.location.hash = '#play';
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Error creating new game:", error);
                         window.location.hash = '#play';
-                    }
-                })
-                .catch(error => {
-                    console.error("Error creating new game:", error);
-                    window.location.hash = '#play';
-                });
-        }, { once: true }); // Ensure the listener is only added once
+                    });
+            }, { once: true });
+        }
     }
 
     function connectWebSocket() {
-        // Ensure no existing WebSocket instance before creating a new one
         if (websocket) {
             console.warn("Existing WebSocket detected, forcing closure");
             if (websocket.readyState === WebSocket.OPEN || websocket.readyState === WebSocket.CONNECTING) {
@@ -471,22 +363,14 @@ export function game() {
             websocket = null;
         }
 
-        websocket = new WebSocket(`wss://localhost:8000/ws/pong/${gameId}/`);
+        const wsUrl = `wss://localhost:8000/ws/pong/${gameId}/`; // Changed to wss://
+        console.log("Attempting to connect to WebSocket at:", wsUrl);
+        websocket = new WebSocket(wsUrl);
 
-        websocket.onopen = function (event) {
+        websocket.onopen = function () {
             console.log('WebSocket opened for player:', player);
-            if (player) {
-                const connectMessage = JSON.stringify({
-                    'action': 'connect',
-                    'player_id': player
-                });
-                console.log("Sending connect message:", connectMessage);
-                websocket.send(connectMessage);
-                // Attach key listeners only after WebSocket is open
-                attachKeyListeners();
-            } else {
-                console.error("Player ID is undefined, cannot send connect message");
-            }
+            websocket.send(JSON.stringify({ 'action': 'connect', 'player_id': player }));
+            attachKeyListeners();
         };
 
         websocket.onmessage = function (event) {
@@ -496,9 +380,8 @@ export function game() {
                 return;
             }
 
-            // Check for game mode message
             if (game_state.game_opponent) {
-                gameMode = game_state.game_opponent;
+                gameMode = game_state.game_opponent; // 'local' or 'online'
                 console.log("Game mode set to:", gameMode);
             }
 
@@ -509,22 +392,22 @@ export function game() {
                 paddle_bounds_x = game_state.paddle_bounds_x;
                 paddle_bounds_y = game_state.paddle_bounds_y;
                 initialStateReceived = true;
-                preGame.style.display = "none";
-                canvas.style.display = "flex";
+                if (preGame) preGame.style.display = "none";
+                if (canvas) canvas.style.display = "flex";
             }
 
             if (game_state.score1 > score_1) {
                 score_1 = game_state.score1;
                 if (score_1 === 7) {
                     const winner = "1";
-                    cleanup(winner === player ? player : opponentUsername.textContent);
+                    cleanup(winner === player ? player : "Opponent");
                 }
             }
             if (game_state.score2 > score_2) {
                 score_2 = game_state.score2;
                 if (score_2 === 7) {
                     const winner = "2";
-                    cleanup(winner === player ? player : opponentUsername.textContent);
+                    cleanup(winner === player ? player : "Opponent");
                 }
             }
 
@@ -544,30 +427,40 @@ export function game() {
         };
 
         websocket.onerror = function (event) {
-            console.error('WebSocket error:', event);
+            console.error('WebSocket error details:', event);
             cleanup();
             window.location.hash = '#play';
         };
 
         websocket.onclose = function (event) {
-            console.log('WebSocket closed:', event);
+            console.log('WebSocket closed with code:', event.code, 'reason:', event.reason);
             if (event.code === 4000 || event.code === 4001) {
                 console.error("Connection closed due to server error:", event.reason);
             }
-            // WebSocket is already nullified in cleanup or resetGame
         };
     }
 
-    // Add 3-second delay before connecting to WebSocket
     setTimeout(() => {
         connectWebSocket();
-        // Set a timeout to redirect to #play if connection takes too long
         setTimeout(() => {
             if (!initialStateReceived && websocket && websocket.readyState !== WebSocket.OPEN) {
                 console.warn("WebSocket connection timed out, redirecting to #play");
                 window.location.hash = '#play';
                 cleanup();
             }
-        }, 15000); // 15-second timeout
-    }, 3000);
+        }, 15000);
+    }, 5000);
+}
+
+export function cleanup() {
+    if (typeof resetGame === 'function') {
+        resetGame();
+    } else {
+        console.warn("resetGame not defined, performing basic cleanup");
+        document.removeEventListener('keydown', handleKeyDown);
+        document.removeEventListener('keyup', handleKeyUp);
+        if (websocket && (websocket.readyState === WebSocket.OPEN || websocket.readyState === WebSocket.CONNECTING)) {
+            websocket.close(1000, "Manual cleanup");
+        }
+    }
 }

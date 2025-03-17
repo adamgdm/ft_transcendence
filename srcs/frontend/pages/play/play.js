@@ -1,4 +1,6 @@
-// play.js
+// frontend/play.js
+
+import { friendshipSocket } from "../../globalWebsocket.js";
 
 function create_game(opponent_username) {
     let body = opponent_username ? `player=${encodeURIComponent(opponent_username)}` : ``;
@@ -8,6 +10,21 @@ function create_game(opponent_username) {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: body
     });
+}
+
+async function fetchLogin() {
+    try {
+        const response = await fetch('https://localhost:8000/profile/', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+        });
+        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+        return (await response.json()).user_name;
+    } catch (error) {
+        console.error('Error fetching username:', error);
+        return null;
+    }
 }
 
 async function fetchFriendsList() {
@@ -25,118 +42,71 @@ async function fetchFriendsList() {
     }
 }
 
-async function fetchSentGameInvites() {
-    try {
-        const response = await fetch('https://localhost:8000/get_game_invites_sent/', {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include'
-        });
-        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-        return (await response.json()).sent_invites || [];
-    } catch (error) {
-        console.error('Error fetching sent game invites:', error);
-        return [];
-    }
-}
-
-async function fetchReceivedGameInvites() {
-    try {
-        const response = await fetch('https://localhost:8000/get_game_invites_received/', {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include'
-        });
-        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-        return (await response.json()).invites || [];
-    } catch (error) {
-        console.error('Error fetching received game invites:', error);
-        return [];
-    }
-}
-
-async function sendGameInvite(friend) {
-    try {
-        const response = await fetch('https://localhost:8000/send_game_invite/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ to_username: friend.username, game_mode: "online" })
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorData.error || 'Unknown error'}`);
-        }
-
-        const data = await response.json();
-        console.log("Send invite response:", data);
-        return data;
-    } catch (error) {
-        console.error('Error sending game invite:', error);
-        throw error;
-    }
-}
-
-async function acceptGameInvite(inviteId) {
-    try {
-        const response = await fetch('https://localhost:8000/accept_game_invite/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ invite_id: inviteId })
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorData.error || 'Unknown error'}`);
-        }
-
-        const data = await response.json();
-        console.log("Accept game response:", data);
-        if (data.game_id) {
-            const state = { game_id: data.game_id, user: data.user };
-            console.log("Pushing state for accept:", state);
-            history.replaceState({}, "", "#play");
-            history.pushState(state, "", "#game");
-            window.routeToPage('game');
-        } else {
-            console.error("No game_id in response:", data);
-        }
-        return data;
-    } catch (error) {
-        console.error('Error accepting game invite:', error);
-        throw error;
-    }
-}
-
-async function rejectGameInvite(inviteId) {
-    try {
-        const response = await fetch('https://localhost:8000/reject_game_invite/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ invite_id: inviteId })
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorData.error || 'Unknown error'}`);
-        }
-
-        const data = await response.json();
-        console.log(data.message || data.error);
-        return data;
-    } catch (error) {
-        console.error('Error rejecting game invite:', error);
-        throw error;
-    }
-}
-
-export function flip() {
+export async function flip() {
     let allFriends = [];
     let sentInvites = [];
     let receivedInvites = [];
+    const currentUsername = await fetchLogin();
+
+    // Redirect to login if username fetch fails or returns null
+    if (!currentUsername) {
+        console.error("Failed to fetch username or not logged in, redirecting to login");
+        history.pushState({}, "", "#login");
+        window.routeToPage('story');
+        return;
+    }
+
+    window.addEventListener('websocketMessage', (event) => {
+        const data = event.detail;
+        switch (data.type) {
+            case 'pending_game_invites':
+                receivedInvites = data.invites;
+                renderFriends(allFriends, friendSearch.value.trim().toLowerCase(), sentInvites, receivedInvites);
+                break;
+            case 'new_game_invite_notification':
+                receivedInvites.push({
+                    invite_id: data.invite_id,
+                    from_username: data.from_username,
+                    game_mode: data.game_mode,
+                    status: 'pending'
+                });
+                renderFriends(allFriends, friendSearch.value.trim().toLowerCase(), sentInvites, receivedInvites);
+                break;
+            case 'game_invite_sent':
+                sentInvites.push({
+                    invite_id: data.invite_id,
+                    to_username: data.to_username,
+                    status: 'pending'
+                });
+                renderFriends(allFriends, friendSearch.value.trim().toLowerCase(), sentInvites, receivedInvites);
+                break;
+            case 'game_invite_accepted':
+            case 'game_invite_accepted_notification':
+                const gameId = data.game_id;
+                sentInvites = sentInvites.map(invite =>
+                    invite.invite_id === data.invite_id ? { ...invite, status: 'accepted', game_id: gameId } : invite
+                );
+                receivedInvites = receivedInvites.map(invite =>
+                    invite.invite_id === data.invite_id ? { ...invite, status: 'accepted', game_id: gameId } : invite
+                );
+                const state = { game_id: gameId, user: currentUsername };
+                console.log("Pushing state for online game start:", state);
+                history.pushState(state, "", "#game");
+                window.routeToPage('game');
+                break;
+            case 'game_invite_rejected':
+                receivedInvites = receivedInvites.filter(invite => invite.invite_id !== data.invite_id);
+                renderFriends(allFriends, friendSearch.value.trim().toLowerCase(), sentInvites, receivedInvites);
+                break;
+            case 'game_invite_rejected_notification':
+                sentInvites = sentInvites.filter(invite => invite.invite_id !== data.invite_id);
+                renderFriends(allFriends, friendSearch.value.trim().toLowerCase(), sentInvites, receivedInvites);
+                break;
+            case 'game_invite_error':
+                console.error('Game invite error:', data.error);
+                break;
+        }
+    });
 
     const play1v1Inner = document.querySelector('.play1v1-inner');
     if (play1v1Inner && !play1v1Inner.dataset.listenerAdded) {
@@ -154,70 +124,6 @@ export function flip() {
     const friendSearch = document.querySelector('#friendSearch');
     const friendsList = document.querySelector('#friendsList');
     const playOnlineButton = document.querySelector('.play-online-button');
-
-    if (friendSearch && friendsList && !friendSearch.dataset.listenerAdded) {
-        friendSearch.addEventListener('focus', async function (e) {
-            e.stopPropagation();
-            if (allFriends.length === 0) {
-                try {
-                    [allFriends, sentInvites, receivedInvites] = await Promise.all([
-                        fetchFriendsList(),
-                        fetchSentGameInvites(),
-                        fetchReceivedGameInvites()
-                    ]);
-                } catch (error) {
-                    console.error('Error fetching data:', error);
-                    friendsList.innerHTML = '<li>Error loading friends</li>';
-                    return;
-                }
-            }
-            renderFriends(allFriends, this.value.trim().toLowerCase(), sentInvites, receivedInvites);
-            friendsList.style.display = 'block';
-        });
-
-        friendSearch.addEventListener('blur', function (e) {
-            e.stopPropagation();
-            setTimeout(() => {
-                if (!friendsList.contains(document.activeElement)) {
-                    friendsList.style.display = 'none';
-                }
-            }, 100);
-        });
-
-        friendSearch.addEventListener('input', function (e) {
-            e.stopPropagation();
-            const query = this.value.trim().toLowerCase();
-            renderFriends(allFriends, query, sentInvites, receivedInvites);
-        });
-
-        friendSearch.addEventListener('click', function (e) {
-            e.stopPropagation();
-        });
-
-        friendSearch.dataset.listenerAdded = 'true';
-
-        if (playOnlineButton && !playOnlineButton.dataset.listenerAdded) {
-            playOnlineButton.addEventListener('click', async function (e) {
-                e.stopPropagation();
-                const acceptedSentInvite = sentInvites.find(invite => invite.status === 'accepted' && invite.game_id);
-                const acceptedReceivedInvite = receivedInvites.find(invite => invite.status === 'accepted' && invite.game_id);
-                const gameInvite = acceptedSentInvite || acceptedReceivedInvite;
-                if (gameInvite) {
-                    const state = { game_id: gameInvite.game_id, user: gameInvite.to_username || gameInvite.from_username };
-                    console.log("Pushing state for play online:", state);
-                    history.replaceState({}, "", "#play");
-                    history.pushState(state, "", "#game");
-                    window.routeToPage('game');
-                } else {
-                    console.log("No accepted game invite found.");
-                    alert("No active game found. Send or accept an invite to play!");
-                }
-            });
-            playOnlineButton.dataset.listenerAdded = 'true';
-        }
-
-        friendsList.style.display = 'none';
-    }
 
     function renderFriends(friends, query, sentInvites, receivedInvites) {
         friendsList.innerHTML = '';
@@ -253,9 +159,8 @@ export function flip() {
                 joinBtn.classList.add('join-btn');
                 joinBtn.addEventListener('click', function (e) {
                     e.stopPropagation();
-                    const state = { game_id: acceptedSentInvite.game_id, user: friend.username };
+                    const state = { game_id: acceptedSentInvite.game_id, user: currentUsername };
                     console.log("Pushing state for host join:", state);
-                    history.replaceState({}, "", "#play");
                     history.pushState(state, "", "#game");
                     window.routeToPage('game');
                 });
@@ -267,9 +172,8 @@ export function flip() {
                     joinBtn.classList.add('join-btn');
                     joinBtn.addEventListener('click', function (e) {
                         e.stopPropagation();
-                        const state = { game_id: receivedInvite.game_id, user: friend.username };
+                        const state = { game_id: receivedInvite.game_id, user: currentUsername };
                         console.log("Pushing state for guest join:", state);
-                        history.replaceState({}, "", "#play");
                         history.pushState(state, "", "#game");
                         window.routeToPage('game');
                     });
@@ -278,30 +182,23 @@ export function flip() {
                     const acceptBtn = document.createElement('button');
                     acceptBtn.textContent = 'Accept';
                     acceptBtn.classList.add('accept-btn');
-                    acceptBtn.addEventListener('click', async function (e) {
+                    acceptBtn.addEventListener('click', function (e) {
                         e.stopPropagation();
-                        const result = await acceptGameInvite(receivedInvite.invite_id);
-                        if (result && result.game_id) {
-                            receivedInvites = receivedInvites.map(invite =>
-                                invite.invite_id === receivedInvite.invite_id
-                                    ? { ...invite, game_id: result.game_id, status: 'accepted' }
-                                    : invite
-                            );
-                            sentInvites = await fetchSentGameInvites();
-                            renderFriends(allFriends, query, sentInvites, receivedInvites);
-                        }
+                        friendshipSocket.send(JSON.stringify({
+                            type: 'accept_game_invite',
+                            invite_id: receivedInvite.invite_id
+                        }));
                     });
 
                     const refuseBtn = document.createElement('button');
                     refuseBtn.textContent = 'Refuse';
                     refuseBtn.classList.add('refuse-btn');
-                    refuseBtn.addEventListener('click', async function (e) {
+                    refuseBtn.addEventListener('click', function (e) {
                         e.stopPropagation();
-                        const result = await rejectGameInvite(receivedInvite.invite_id);
-                        if (result && result.message) {
-                            receivedInvites = receivedInvites.filter(invite => invite.invite_id !== receivedInvite.invite_id);
-                            renderFriends(allFriends, query, sentInvites, receivedInvites);
-                        }
+                        friendshipSocket.send(JSON.stringify({
+                            type: 'reject_game_invite',
+                            invite_id: receivedInvite.invite_id
+                        }));
                     });
 
                     li.appendChild(acceptBtn);
@@ -312,13 +209,13 @@ export function flip() {
                 inviteBtn.textContent = hasSentInvite ? 'Already Sent' : 'Invite';
                 inviteBtn.classList.add('invite-btn');
                 if (!hasSentInvite) {
-                    inviteBtn.addEventListener('click', async function (e) {
+                    inviteBtn.addEventListener('click', function (e) {
                         e.stopPropagation();
-                        const result = await sendGameInvite(friend);
-                        if (result && result.invite_id) {
-                            sentInvites.push({ to_username: friend.username, status: 'pending', invite_id: result.invite_id });
-                            renderFriends(allFriends, query, sentInvites, receivedInvites);
-                        }
+                        friendshipSocket.send(JSON.stringify({
+                            type: 'send_game_invite',
+                            to_username: friend.username,
+                            game_mode: 'online'
+                        }));
                     });
                 } else {
                     inviteBtn.disabled = true;
@@ -328,6 +225,65 @@ export function flip() {
 
             friendsList.appendChild(li);
         });
+    }
+
+    if (friendSearch && friendsList && !friendSearch.dataset.listenerAdded) {
+        friendSearch.addEventListener('focus', async function (e) {
+            e.stopPropagation();
+            if (allFriends.length === 0) {
+                try {
+                    allFriends = await fetchFriendsList();
+                } catch (error) {
+                    console.error('Error fetching friends:', error);
+                    friendsList.innerHTML = '<li>Error loading friends</li>';
+                    return;
+                }
+            }
+            renderFriends(allFriends, this.value.trim().toLowerCase(), sentInvites, receivedInvites);
+            friendsList.style.display = 'block';
+        });
+
+        friendSearch.addEventListener('blur', function (e) {
+            e.stopPropagation();
+            setTimeout(() => {
+                if (!friendsList.contains(document.activeElement)) {
+                    friendsList.style.display = 'none';
+                }
+            }, 100);
+        });
+
+        friendSearch.addEventListener('input', function (e) {
+            e.stopPropagation();
+            const query = this.value.trim().toLowerCase();
+            renderFriends(allFriends, query, sentInvites, receivedInvites);
+        });
+
+        friendSearch.addEventListener('click', function (e) {
+            e.stopPropagation();
+        });
+
+        friendSearch.dataset.listenerAdded = 'true';
+
+        if (playOnlineButton && !playOnlineButton.dataset.listenerAdded) {
+            playOnlineButton.addEventListener('click', function (e) {
+                e.stopPropagation();
+                const acceptedSentInvite = sentInvites.find(invite => invite.status === 'accepted' && invite.game_id);
+                const acceptedReceivedInvite = receivedInvites.find(invite => invite.status === 'accepted' && invite.game_id);
+                const gameInvite = acceptedSentInvite || acceptedReceivedInvite;
+                if (gameInvite) {
+                    const state = { game_id: gameInvite.game_id, user: currentUsername };
+                    console.log("Pushing state for play online:", state);
+                    history.pushState(state, "", "#game");
+                    window.routeToPage('game');
+                } else {
+                    console.log("No accepted game invite found.");
+                    alert("No active game found. Send or accept an invite to play!");
+                }
+            });
+            playOnlineButton.dataset.listenerAdded = 'true';
+        }
+
+        friendsList.style.display = 'none';
     }
 
     const playLocallyInner = document.querySelector('.playLocally-inner');
@@ -429,7 +385,9 @@ export function flip() {
                 .then(response => response.json().then(data => ({ ok: response.ok, data })))
                 .then(({ ok, data }) => {
                     if (ok && data.game_id) {
-                        history.pushState({ game_id: data.game_id, user: data.user }, "", "#game");
+                        const state = { game_id: data.game_id, user: currentUsername };
+                        console.log("Pushing state for local game:", state);
+                        history.pushState(state, "", "#game");
                         window.routeToPage('game');
                     } else {
                         console.error("Game creation failed:", data);
@@ -439,15 +397,4 @@ export function flip() {
         });
         playLocallyButton.dataset.listenerAdded = 'true';
     }
-
-    // Poll for invite status updates
-    setInterval(async () => {
-        try {
-            sentInvites = await fetchSentGameInvites();
-            receivedInvites = await fetchReceivedGameInvites();
-            renderFriends(allFriends, friendSearch.value.trim().toLowerCase(), sentInvites, receivedInvites);
-        } catch (error) {
-            console.error("Error polling sent invites:", error);
-        }
-    }, 5000);
 }

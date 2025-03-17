@@ -40,7 +40,7 @@ class PongConsumer(AsyncWebsocketConsumer):
 
     async def connect(self):
         try:
-            from .views import games  # Lazy import to avoid AppRegistryNotReady error
+            from .views import games
         except ImportError as e:
             print(f"Error importing views: {str(e)}")
             await self.close()
@@ -49,7 +49,6 @@ class PongConsumer(AsyncWebsocketConsumer):
         self.game_id = self.scope['url_route']['kwargs']['game_id']
         self.room_group_name = f'pong_{self.game_id}'
         
-        # Check authentication and set client_id as an instance attribute
         self.client_id, result = await self.check_wsAuth(self.scope)
         if self.client_id is None:
             print(f"Authentication failed: {result}")
@@ -57,21 +56,23 @@ class PongConsumer(AsyncWebsocketConsumer):
             return
 
         async with games_lock:
-            timeout = 60  # seconds
+            timeout = 10
             elapsed = 0
             while self.game_id not in games and elapsed < timeout:
-                print(f"Game ID {self.game_id} not found in games")
+                print(f"Game ID {self.game_id} not found in games, waiting... (elapsed: {elapsed}s)")
                 await asyncio.sleep(1)
                 elapsed += 1
             if self.game_id not in games:
-                print(f"Timeout waiting for game {self.game_id}")
-                await self.close()
+                print(f"Timeout: Game {self.game_id} not initialized in games: {games}")
+                await self.send(text_data=json.dumps({'error': 'Game not found'}))
+                await self.close(code=4000)
                 return
 
             game = games[self.game_id]
+            print(f"Game {self.game_id} found: {game}")
 
             if self.client_id not in [game['player_1'], game['player_2']]:
-                print(f"Client ID {self.client_id} not recognized as player in game {self.game_id}")
+                print(f"Client ID {self.client_id} not recognized in game {self.game_id}")
                 await self.close()
                 return
 
