@@ -1,4 +1,5 @@
 from django.db import models
+from django.db import IntegrityError
 from django.contrib.auth.hashers import check_password
 
 def user_directory_path(instance, filename):
@@ -45,13 +46,16 @@ class TwoFactorData(models.Model):
     expires_at = models.DateTimeField()
 
 class Friendship(models.Model):
-    class FriendshipStatusChoices(models.TextChoices):
+    class Status(models.TextChoices):
         PENDING = 'pending'
         ACCEPTED = 'accepted'
+        REJECTED = 'rejected'
+
     from_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='user_id')
     to_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='friend_id')
-    friendship_status = models.CharField(max_length=15, choices=FriendshipStatusChoices.choices, default=FriendshipStatusChoices.PENDING)
+    friendship_status = models.CharField(max_length=15, choices=Status.choices, default=Status.PENDING)
     friendship_date = models.DateTimeField(auto_now_add=True)
     
     class Meta:
         unique_together = ('from_user', 'to_user')
+
