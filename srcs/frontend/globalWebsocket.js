@@ -1,152 +1,222 @@
-// globalWebsocket.js
+// friendship-websocket.js
 
-let socket = null;
-let retryCount = 0;
-const MAX_RETRIES = 3;
+let friendshipSocket = null;
+const RECONNECT_DELAY = 5000;
 
-export function initializeWebSocket() {
-    if (socket) return socket; // Return existing socket if already initialized
+// Current username from localStorage (set during login)
+const currentUsername = localStorage.getItem('username');
 
-    socket = new WebSocket(`wss://localhost:8000/ws/friendship/`);
+function initializeWebSocket() {
+    if (friendshipSocket) {
+        friendshipSocket.close();
+    }
 
-    socket.onopen = () => {
-        console.log('WebSocket connected');
-        const keepAlive = setInterval(() => {
-            if (socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({ type: 'ping' }));
-            } else {
-                clearInterval(keepAlive);
-            }
-        }, 30000);
+    const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+    const wsUrl = `wss://localhost:8000/ws/friendship/`;
+    friendshipSocket = new WebSocket(wsUrl);
+
+    let pendingNotifications = []; // Batch notifications
+
+    friendshipSocket.onopen = () => {
+        console.log('Friendship WebSocket connection established');
     };
 
-    socket.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        if (retryCount < MAX_RETRIES) {
-            retryCount++;
-            console.log(`Retrying WebSocket connection (${retryCount}/${MAX_RETRIES})...`);
-            setTimeout(initializeWebSocket, 3000); // Retry after 3 seconds
-        } else {
-            console.error('Max retries reached. WebSocket connection failed.');
+    friendshipSocket.onclose = (e) => {
+        console.log('Friendship WebSocket connection closed', e);
+        setTimeout(() => {
+            if (localStorage.getItem('isAuthenticated') === 'true' && !isConnected()) {
+                initializeWebSocket();
+            }
+        }, RECONNECT_DELAY);
+    };
+
+    friendshipSocket.onerror = (error) => {
+        console.error('Friendship WebSocket error:', error);
+    };
+
+    friendshipSocket.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            pendingNotifications.push(data);
+            processNotifications();
+        } catch (error) {
+            console.error('Error parsing WebSocket message:', error);
         }
     };
 
-    socket.onmessage = (event) => {
-        const data = JSON.parse(event.data);
+    function processNotifications() {
         const notifContainer = document.querySelector('[layout="notifbar"] .notif-container');
         if (!notifContainer) return;
 
-        switch (data.type) {
-            case 'pending_friend_requests':
-                data.requests.forEach(request => {
-                    const notifItem = document.createElement('div');
-                    notifItem.className = 'notif-item';
-                    notifItem.innerHTML = `
-                        <span class="notif-text">${request.from_username} sent you a friend request.</span>
-                        <button class="accept-btn">Accept</button>
-                        <button class="decline-btn">Decline</button>
-                    `;
-                    notifContainer.appendChild(notifItem);
-
-                    notifItem.querySelector('.accept-btn').addEventListener('click', () => {
-                        acceptFriendRequest(request.from_username);
-                        notifItem.remove();
+        while (pendingNotifications.length > 0) {
+            const data = pendingNotifications.shift();
+            switch (data.type) {
+                case 'pending_friend_requests':
+                    data.requests.forEach(request => {
+                        if (request.from_username !== currentUsername) {
+                            appendFriendRequestNotification(notifContainer, request.from_username);
+                        }
                     });
-                    notifItem.querySelector('.decline-btn').addEventListener('click', () => {
-                        rejectFriendRequest(request.from_username);
-                        notifItem.remove();
-                    });
-                });
-                break;
-            case 'new_friend_request_notification':
-                const notifItem = document.createElement('div');
-                notifItem.className = 'notif-item';
-                notifItem.innerHTML = `
-                    <span class="notif-text">${data.from_username} sent you a friend request.</span>
-                    <button class="accept-btn">Accept</button>
-                    <button class="decline-btn">Decline</button>
-                `;
-                notifContainer.appendChild(notifItem);
-
-                notifItem.querySelector('.accept-btn').addEventListener('click', () => {
-                    acceptFriendRequest(data.from_username);
-                    notifItem.remove();
-                });
-                notifItem.querySelector('.decline-btn').addEventListener('click', () => {
-                    rejectFriendRequest(data.from_username);
-                    notifItem.remove();
-                });
-                break;
-            case 'friend_request_accepted_notification':
-                const updateItem = document.createElement('div');
-                updateItem.className = 'notif-item';
-                updateItem.innerHTML = `<span class="notif-text">${data.from_username} accepted your friend request!</span>`;
-                notifContainer.appendChild(updateItem);
-                break;
-            case 'pong':
-                // Heartbeat response
-                break;
-            case 'error':
-                console.error('WebSocket error:', data.message);
-                break;
-            default:
-                console.log('Unknown message type:', data);
+                    break;
+                case 'new_friend_request_notification':
+                    if (data.from_username !== currentUsername) {
+                        appendFriendRequestNotification(notifContainer, data.from_username);
+                    }
+                    break;
+                case 'friend_request_accepted_notification':
+                    if (data.from_username !== currentUsername) {
+                        const updateItem = document.createElement('div');
+                        updateItem.className = 'notif-item';
+                        updateItem.innerHTML = `<span class="notif-text">${data.from_username} accepted your friend request!</span>`;
+                        notifContainer.appendChild(updateItem);
+                    }
+                    break;
+                case 'pong':
+                    break;
+                case 'error':
+                    console.error('WebSocket error from server:', data.message);
+                    break;
+                default:
+                    console.log('Unknown message type:', data);
+            }
         }
-    };
-
-    socket.onclose = () => {
-        console.log('WebSocket disconnected');
-        setTimeout(() => initializeWebSocket(), 2000); // Reconnect after 2 seconds
-    };
-
-
-    return socket;
+    }
 }
 
-async function acceptFriendRequest(username) {
-    // Send a WebSocket message to the backend
-    socket.send(JSON.stringify({
+function appendFriendRequestNotification(container, fromUsername) {
+    const notifItem = document.createElement('div');
+    notifItem.className = 'notif-item';
+    notifItem.innerHTML = `
+        <span class="notif-text">${fromUsername} sent you a friend request.</span>
+        <button class="accept-btn">Accept</button>
+        <button class="decline-btn">Decline</button>
+    `;
+    container.appendChild(notifItem);
+
+    notifItem.querySelector('.accept-btn').addEventListener('click', async () => {
+        const result = await acceptFriendRequest(fromUsername);
+        if (!result.error) notifItem.remove();
+    });
+    notifItem.querySelector('.decline-btn').addEventListener('click', async () => {
+        const result = await rejectFriendRequest(fromUsername);
+        if (!result.error) notifItem.remove();
+    });
+}
+
+function sendFriendRequest(friendUsername) {
+    if (!friendshipSocket || friendshipSocket.readyState !== WebSocket.OPEN) {
+        console.error('WebSocket connection not open');
+        return Promise.resolve({ error: 'WebSocket connection not open' });
+    }
+    friendshipSocket.send(JSON.stringify({
+        type: 'send_friend_request',
+        friend_username: friendUsername
+    }));
+    return new Promise((resolve) => {
+        const handleMessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === 'friend_request_sent' && data.friend_username === friendUsername) {
+                friendshipSocket.removeEventListener('message', handleMessage);
+                resolve({ message: data.message || 'Friend request sent successfully' });
+            } else if (data.type === 'friend_request_error' && data.friend_username === friendUsername) {
+                friendshipSocket.removeEventListener('message', handleMessage);
+                resolve({ error: data.error || 'Failed to send friend request' });
+            }
+        };
+        friendshipSocket.addEventListener('message', handleMessage);
+    });
+}
+
+function acceptFriendRequest(friendUsername) {
+    if (!friendshipSocket || friendshipSocket.readyState !== WebSocket.OPEN) {
+        console.error('WebSocket connection not open');
+        return Promise.resolve({ error: 'WebSocket connection not open' });
+    }
+    friendshipSocket.send(JSON.stringify({
         type: 'accept_friend_request',
-        friend_username: username
+        friend_username: friendUsername
     }));
-
-    // Return a promise that resolves when the backend acknowledges the request
     return new Promise((resolve) => {
         const handleMessage = (event) => {
             const data = JSON.parse(event.data);
-            if (data.type === 'friend_request_accepted' && data.friend_username === username) {
-                socket.removeEventListener('message', handleMessage); // Clean up the listener
-                resolve({ message: data.message });
-            } else if (data.type === 'friend_request_error' && data.friend_username === username) {
-                socket.removeEventListener('message', handleMessage); // Clean up the listener
-                resolve({ error: data.error });
+            if (data.type === 'friend_request_accepted' && data.friend_username === friendUsername) {
+                friendshipSocket.removeEventListener('message', handleMessage);
+                resolve({ message: data.message || 'Friend request accepted successfully' });
+            } else if (data.type === 'friend_request_error' && data.friend_username === friendUsername) {
+                friendshipSocket.removeEventListener('message', handleMessage);
+                resolve({ error: data.error || 'Failed to accept friend request' });
             }
         };
-
-        socket.addEventListener('message', handleMessage);
+        friendshipSocket.addEventListener('message', handleMessage);
     });
 }
 
-async function rejectFriendRequest(username) {
-    // Send a WebSocket message to the backend
-    socket.send(JSON.stringify({
+function rejectFriendRequest(friendUsername) {
+    if (!friendshipSocket || friendshipSocket.readyState !== WebSocket.OPEN) {
+        console.error('WebSocket connection not open');
+        return Promise.resolve({ error: 'WebSocket connection not open' });
+    }
+    friendshipSocket.send(JSON.stringify({
         type: 'reject_friend_request',
-        friend_username: username
+        friend_username: friendUsername
     }));
-
-    // Return a promise that resolves when the backend acknowledges the request
     return new Promise((resolve) => {
         const handleMessage = (event) => {
             const data = JSON.parse(event.data);
-            if (data.type === 'friend_request_rejected' && data.friend_username === username) {
-                socket.removeEventListener('message', handleMessage); // Clean up the listener
-                resolve({ message: data.message });
-            } else if (data.type === 'friend_request_error' && data.friend_username === username) {
-                socket.removeEventListener('message', handleMessage); // Clean up the listener
-                resolve({ error: data.error });
+            if (data.type === 'friend_request_rejected' && data.friend_username === friendUsername) {
+                friendshipSocket.removeEventListener('message', handleMessage);
+                resolve({ message: data.message || 'Friend request rejected successfully' });
+            } else if (data.type === 'friend_request_error' && data.friend_username === friendUsername) {
+                friendshipSocket.removeEventListener('message', handleMessage);
+                resolve({ error: data.error || 'Failed to reject friend request' });
             }
         };
-
-        socket.addEventListener('message', handleMessage);
+        friendshipSocket.addEventListener('message', handleMessage);
     });
 }
+
+function cancelFriendRequest(friendUsername) {
+    if (!friendshipSocket || friendshipSocket.readyState !== WebSocket.OPEN) {
+        console.error('WebSocket connection not open');
+        return Promise.resolve({ error: 'WebSocket connection not open' });
+    }
+    friendshipSocket.send(JSON.stringify({
+        type: 'cancel_friend_request',
+        friend_username: friendUsername
+    }));
+    return new Promise((resolve) => {
+        const handleMessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === 'friend_request_cancelled' && data.friend_username === friendUsername) {
+                friendshipSocket.removeEventListener('message', handleMessage);
+                resolve({ message: data.message || 'Friend request cancelled successfully' });
+            } else if (data.type === 'friend_request_error' && data.friend_username === friendUsername) {
+                friendshipSocket.removeEventListener('message', handleMessage);
+                resolve({ error: data.error || 'Failed to cancel friend request' });
+            }
+        };
+        friendshipSocket.addEventListener('message', handleMessage);
+    });
+}
+
+function isConnected() {
+    return friendshipSocket && friendshipSocket.readyState === WebSocket.OPEN;
+}
+
+function closeConnection() {
+    if (friendshipSocket) {
+        friendshipSocket.close();
+        friendshipSocket = null;
+        console.log('Friendship WebSocket connection closed manually');
+    }
+}
+
+export {
+    initializeWebSocket,
+    sendFriendRequest,
+    acceptFriendRequest,
+    rejectFriendRequest,
+    cancelFriendRequest,
+    isConnected,
+    closeConnection
+};

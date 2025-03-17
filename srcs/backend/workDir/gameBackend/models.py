@@ -38,3 +38,7 @@ class GameInvites(models.Model):
     status = models.CharField(choices=GameInviteStatus.choices, default=GameInviteStatus.PENDING)
     game_mode = models.CharField(choices=GameModes.choices)
     issued_at = models.DateTimeField(auto_now_add=True)
+    game_id = models.CharField(max_length=255, null=True, blank=True)
+
+    def __str__(self):
+        return f"Invite from {self.from_user} to {self.to_user} - {self.status}"

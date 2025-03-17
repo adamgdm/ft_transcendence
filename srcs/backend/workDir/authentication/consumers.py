@@ -42,11 +42,10 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
             return None, "User not found"
         except Exception as e:
             logger.error(f"Error during authentication: {e}")
-            return None, "Authentication failed" 
+            return None, "Authentication failed"
 
     @database_sync_to_async
     def get_pending_friend_requests(self, user):
-        # Get all pending friend requests where this user is the recipient
         pending_requests = Friendship.objects.filter(
             to_user=user,
             friendship_status='pending'
@@ -60,20 +59,17 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
         } for friendship in pending_requests]
 
     async def connect(self):
-        # Authenticate user
         self.user, result = await self.check_wsAuth()
         if self.user is None:
-            print(f"Authentication failed: {result}")
+            logger.info(f"Authentication failed: {result}")
             await self.close()
             return
         
-        # Set up group name using user ID
         self.group_name = f"friendship_group_{self.user.id}"
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         
         await self.accept()
 
-        # Send existing pending friend requests immediately after connection
         pending_requests = await self.get_pending_friend_requests(self.user)
         if pending_requests:
             await self.send(text_data=json.dumps({
@@ -104,6 +100,8 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
                 await self.handle_accept_friend_request(data)
             elif message_type == "reject_friend_request":
                 await self.handle_reject_friend_request(data)
+            elif message_type == "cancel_friend_request":
+                await self.handle_cancel_friend_request(data)
             else:
                 logger.warning(f"Unknown message type: {message_type}")
         except json.JSONDecodeError:
@@ -119,10 +117,8 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
             }))
             return
 
-        # Create the friend request
         friendship = await self.create_friend_request(self.user.id, friend_username)
         if friendship:
-            # Notify the recipient (to_user) about the new friend request
             await self.channel_layer.group_send(
                 f"friendship_group_{friendship.to_user.id}",
                 {
@@ -132,6 +128,17 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
                     'from_username': self.user.user_name
                 }
             )
+            await self.send(text_data=json.dumps({
+                'type': 'friend_request_sent',
+                'friend_username': friend_username,
+                'message': 'Friend request sent successfully'
+            }))
+        else:
+            await self.send(text_data=json.dumps({
+                'type': 'friend_request_error',
+                'friend_username': friend_username,
+                'error': 'Friend request already exists or user not found'
+            }))
 
     @database_sync_to_async
     def create_friend_request(self, from_user_id, to_user_username):
@@ -139,7 +146,13 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
             from_user = Users.objects.get(id=from_user_id)
             to_user = Users.objects.get(user_name=to_user_username)
 
-            # Create the friendship object
+            existing_friendship = Friendship.objects.filter(
+                Q(from_user=from_user, to_user=to_user) | Q(from_user=to_user, to_user=from_user)
+            ).first()
+            if existing_friendship:
+                logger.info(f"Friendship already exists between {from_user.user_name} and {to_user.user_name}")
+                return None
+
             friendship = Friendship.objects.create(
                 from_user=from_user,
                 to_user=to_user,
@@ -147,7 +160,10 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
             )
             return friendship
         except Users.DoesNotExist:
-            logger.error(f"User not found: from_user_id={from_user_id}, to_user_id={to_user_id}")
+            logger.error(f"User not found: from_user_id={from_user_id}, to_user_username={to_user_username}")
+            return None
+        except Exception as e:
+            logger.error(f"Error creating friend request: {e}")
             return None
 
     async def handle_accept_friend_request(self, data):
@@ -160,21 +176,17 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
             }))
             return
 
-        # Accept the friend request
-        success = await self.process_friend_request(friend_username, Friendship.Status.ACCEPTED)
-        if success:
-            # Notify the sender (from_user) that their request was accepted
+        friendship = await self.process_friend_request(friend_username, Friendship.Status.ACCEPTED)
+        if friendship:
             await self.channel_layer.group_send(
-                f"friendship_group_{success.from_user.id}",
+                f"friendship_group_{friendship.from_user.id}",
                 {
                     'type': 'friend_request_accepted_notification',
-                    'request_id': success.id,
+                    'request_id': friendship.id,
                     'from_user_id': self.user.id,
                     'from_username': self.user.user_name
                 }
             )
-
-            # Acknowledge the acceptance to the current user
             await self.send(text_data=json.dumps({
                 'type': 'friend_request_accepted',
                 'friend_username': friend_username,
@@ -184,55 +196,108 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
             await self.send(text_data=json.dumps({
                 'type': 'friend_request_error',
                 'friend_username': friend_username,
-                'error': 'Failed to accept friend request'
+                'error': 'No pending friend request found from this user'
             }))
 
     async def handle_reject_friend_request(self, data):
         friend_username = data.get('friend_username')
         if not friend_username:
-            logger.error("Missing friend_username in accept_friend_request")
+            logger.error("Missing friend_username in reject_friend_request")
             await self.send(text_data=json.dumps({
                 'type': 'friend_request_error',
                 'error': 'Missing friend_username'
             }))
             return
 
-        # Process the friend request rejection
-        friendship = await self.process_friend_request(friend_username, Friendship.Status.REJECTED)
-        if friendship:
+        success = await self.process_friend_request(friend_username, Friendship.Status.REJECTED)
+        if success is not False:  # Success is True if deleted
             await self.send(text_data=json.dumps({
                 'type': 'friend_request_rejected',
-                'request_id': request_id
+                'friend_username': friend_username,
+                'message': 'Friend request rejected and deleted successfully'
             }))
-        
+            # Optionally notify the sender that their request was rejected
+            try:
+                from_user = await database_sync_to_async(Users.objects.get)(user_name=friend_username)
+                await self.channel_layer.group_send(
+                    f"friendship_group_{from_user.id}",
+                    {
+                        'type': 'friend_request_rejected_notification',
+                        'from_user_id': self.user.id,
+                        'from_username': self.user.user_name
+                    }
+                )
+            except Users.DoesNotExist:
+                logger.error(f"Could not notify {friend_username} of rejection: user not found")
         else:
             await self.send(text_data=json.dumps({
                 'type': 'friend_request_error',
                 'friend_username': friend_username,
-                'error': 'Failed to reject friend request'
+                'error': 'No pending friend request found from this user'
+            }))
+
+    async def handle_cancel_friend_request(self, data):
+        friend_username = data.get('friend_username')
+        if not friend_username:
+            logger.error("Missing friend_username in cancel_friend_request")
+            await self.send(text_data=json.dumps({
+                'type': 'friend_request_error',
+                'error': 'Missing friend_username'
+            }))
+            return
+
+        success = await self.cancel_friend_request(self.user.id, friend_username)
+        if success:
+            await self.send(text_data=json.dumps({
+                'type': 'friend_request_cancelled',
+                'friend_username': friend_username,
+                'message': 'Friend request cancelled successfully'
+            }))
+        else:
+            await self.send(text_data=json.dumps({
+                'type': 'friend_request_error',
+                'friend_username': friend_username,
+                'error': 'Failed to cancel friend request'
             }))
 
     @database_sync_to_async
     def process_friend_request(self, friend_username, status):
         try:
-            friendship = Friendship.objects.get(
+            friendship = Friendship.objects.select_related('from_user').get(
                 from_user__user_name=friend_username,
                 to_user=self.user,
                 friendship_status=Friendship.Status.PENDING
             )
+            if status == Friendship.Status.REJECTED:
+                friendship.delete()
+                return True  # Indicate successful deletion
             friendship.friendship_status = status
             friendship.save()
             return friendship
         except Friendship.DoesNotExist:
-            logger.error(f"Friend request not found: {request_id}")
-            return None
+            logger.error(f"Friend request not found for user: {friend_username} to accept/reject by {self.user.user_name}")
+            return False
 
+    @database_sync_to_async
+    def cancel_friend_request(self, from_user_id, to_user_username):
+        try:
+            from_user = Users.objects.get(id=from_user_id)
+            to_user = Users.objects.get(user_name=to_user_username)
+            friendship = Friendship.objects.get(
+                from_user=from_user,
+                to_user=to_user,
+                friendship_status=Friendship.Status.PENDING
+            )
+            friendship.delete()
+            return True
+        except (Users.DoesNotExist, Friendship.DoesNotExist):
+            logger.error(f"Friend request not found to cancel: from_user_id={from_user_id}, to_user_username={to_user_username}")
+            return False
+        except Exception as e:
+            logger.error(f"Error cancelling friend request: {e}")
+            return False
 
     async def friend_request_accepted_notification(self, event):
-        """
-        Handles the 'friend_request_accepted_notification' message sent to the group.
-        Forwards the message to the WebSocket connection.
-        """
         await self.send(text_data=json.dumps({
             'type': 'friend_request_accepted_notification',
             'request_id': event['request_id'],
@@ -241,10 +306,6 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
         }))
 
     async def new_friend_request_notification(self, event):
-        """
-        Handles the 'new_friend_request_notification' message sent to the group.
-        Forwards the message to the WebSocket connection.
-        """
         await self.send(text_data=json.dumps({
             'type': 'new_friend_request_notification',
             'request_id': event['request_id'],
@@ -252,24 +313,9 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
             'from_username': event['from_username']
         }))
 
-
-    # Update your send_notification function to work with channels
-    async def send_notification(user, message, from_user=None):
-        group_name = f"friendship_group_{user.id}"
-        event = {
-            'type': 'friend_update_notification',
-            'message': message,
-            'friend_id': from_user.id if from_user else None
-        }
-        
-        if from_user:
-            event = {
-                'type': 'friend_request_notification',
-                'message': message,
-                'from_user_id': from_user.id,
-                'from_username': from_user.user_name
-            }
-
-        from channels.layers import get_channel_layer
-        channel_layer = get_channel_layer()
-        await channel_layer.group_send(group_name, event)
+    async def friend_request_rejected_notification(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'friend_request_rejected_notification',
+            'from_user_id': event['from_user_id'],
+            'from_username': event['from_username']
+        }))

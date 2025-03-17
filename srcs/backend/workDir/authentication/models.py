@@ -1,4 +1,5 @@
 from django.db import models
+from django.db import IntegrityError
 from django.contrib.auth.hashers import check_password
 
 def user_directory_path(instance, filename):
@@ -55,3 +56,4 @@ class Friendship(models.Model):
     
     class Meta:
         unique_together = ('from_user', 'to_user')
+

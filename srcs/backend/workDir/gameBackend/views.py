@@ -1,6 +1,6 @@
 from django.shortcuts import render
-from django.http import JsonResponse
-from .models import Match
+from django.http import JsonResponse, HttpRequest
+from .models import Match, GameInvites
 from authentication.decorators import check_auth
 from authentication.models import Users
 from django.views.decorators.csrf import csrf_exempt
@@ -74,6 +74,394 @@ def create_game(request):
             return JsonResponse({'error': f'Failed to create game: {str(e)}'}, status=500)
     
     return JsonResponse({'error': 'Invalid request'}, status=400)
+
+
+@csrf_exempt
+@check_auth
+def send_game_invite(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            to_username = data.get('to_username')
+            game_mode = data.get('game_mode')
+            if not to_username or not game_mode:
+                return JsonResponse({'error': 'Missing fields (to_username or game_mode)'}, status=400)
+        except (json.JSONDecodeError, KeyError):
+            return JsonResponse({'error': 'Invalid request format'}, status=400)
+
+        # Validate game_mode
+        if game_mode not in GameInvites.GameModes.values:
+            return JsonResponse({'error': 'Invalid game mode'}, status=400)
+
+        try:
+            to_user = Users.objects.get(user_name=to_username)
+        except Users.DoesNotExist:
+            return JsonResponse({'error': 'User not found'}, status=404)
+
+        from_user = Users.objects.get(id=request.user_id)
+
+        # Prevent self-invites
+        if from_user == to_user:
+            return JsonResponse({'error': 'Cannot send game invite to yourself'}, status=400)
+
+        # Check if an invite already exists
+        if GameInvites.objects.filter(from_user=from_user, to_user=to_user, status=GameInvites.GameInviteStatus.PENDING).exists():
+            return JsonResponse({'error': 'Game invite already pending'}, status=400)
+
+        # Create the invite
+        invite = GameInvites.objects.create(
+            from_user=from_user,
+            to_user=to_user,
+            game_mode=game_mode,
+            status=GameInvites.GameInviteStatus.PENDING
+        )
+
+        # # Send WebSocket notification
+        # channel_layer = get_channel_layer()
+        # async_to_sync(channel_layer.group_send)(
+        #     f"game_invite_group_{to_user.id}",
+        #     {
+        #         'type': 'game_invite_notification',
+        #         'message': f'{from_user.user_name} has invited you to a {game_mode} game!',
+        #         'from_user_id': from_user.id,
+        #         'from_username': from_user.user_name,
+        #         'invite_id': invite.id,
+        #         'game_mode': game_mode
+        #     }
+        # )
+
+        return JsonResponse({'message': 'Game invite sent successfully', 'invite_id': invite.id}, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+@check_auth
+def cancel_game_invite(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            invite_id = data.get('invite_id')
+            if not invite_id:
+                return JsonResponse({'error': 'Missing invite_id'}, status=400)
+        except (json.JSONDecodeError, KeyError):
+            return JsonResponse({'error': 'Invalid request format'}, status=400)
+
+        from_user = Users.objects.get(id=request.user_id)
+
+        try:
+            invite = GameInvites.objects.get(id=invite_id, from_user=from_user, status=GameInvites.GameInviteStatus.PENDING)
+        except GameInvites.DoesNotExist:
+            return JsonResponse({'error': 'Pending game invite not found or not yours to cancel'}, status=404)
+
+        to_user = invite.to_user
+        invite.delete()
+
+        # # Notify the recipient
+        # channel_layer = get_channel_layer()
+        # async_to_sync(channel_layer.group_send)(
+        #     f"game_invite_group_{to_user.id}",
+        #     {
+        #         'type': 'game_invite_update',
+        #         'message': f'{from_user.user_name} canceled their game invite.',
+        #         'from_user_id': from_user.id
+        #     }
+        # )
+
+        return JsonResponse({'message': 'Game invite canceled successfully'}, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+@check_auth
+def accept_game_invite(request):
+    global games
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            invite_id = data.get('invite_id')
+            if not invite_id:
+                return JsonResponse({'error': 'Missing invite_id'}, status=400)
+        except (json.JSONDecodeError, KeyError):
+            return JsonResponse({'error': 'Invalid request format'}, status=400)
+
+        # Get the authenticated user (recipient)
+        to_user = Users.objects.get(id=request.user_id)
+
+        # Fetch the invite
+        try:
+            invite = GameInvites.objects.get(id=invite_id, to_user=to_user, status=GameInvites.GameInviteStatus.PENDING)
+        except GameInvites.DoesNotExist:
+            return JsonResponse({'error': 'Pending game invite not found'}, status=404)
+
+        from_user = invite.from_user
+
+        # Create the game directly
+        game_opponent = 'online'
+        game_name = f"{from_user.user_name} vs {to_user.user_name}"
+
+        try:
+            game = Match.objects.create(
+                match_name=game_name,
+                player_1=to_user,  # The accepting user is player_1
+                player_2=from_user,  # The inviter is player_2
+                game_opponent=game_opponent
+            )
+            game_id = str(game.id)
+            games[game_id] = create_new_game(to_user.user_name, from_user.user_name, game_opponent)
+        except Exception as e:
+            return JsonResponse({'error': f'Failed to create game: {str(e)}'}, status=500)
+
+        # Update the invite with game_id and status
+        invite.status = GameInvites.GameInviteStatus.ACCEPTED
+        invite.game_id = game_id
+        invite.save()
+
+        return JsonResponse({
+            'message': 'Game invite accepted and game created successfully',
+            'game_id': game_id,
+            'user': to_user.user_name  # Add the accepting user's username
+        }, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+# Reject a Game Invite
+@csrf_exempt
+@check_auth
+def reject_game_invite(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            invite_id = data.get('invite_id')
+            if not invite_id:
+                return JsonResponse({'error': 'Missing invite_id'}, status=400)
+        except (json.JSONDecodeError, KeyError):
+            return JsonResponse({'error': 'Invalid request format'}, status=400)
+
+        to_user = Users.objects.get(id=request.user_id)
+
+        try:
+            invite = GameInvites.objects.get(id=invite_id, to_user=to_user, status=GameInvites.GameInviteStatus.PENDING)
+        except GameInvites.DoesNotExist:
+            return JsonResponse({'error': 'Pending game invite not found'}, status=404)
+
+        from_user = invite.from_user
+        invite.status = GameInvites.GameInviteStatus.REFUSED
+        invite.save()
+
+        # # Notify the sender
+        # channel_layer = get_channel_layer()
+        # async_to_sync(channel_layer.group_send)(
+        #     f"game_invite_group_{from_user.id}",
+        #     {
+        #         'type': 'game_invite_update',
+        #         'message': f'{to_user.user_name} rejected your {invite.game_mode} game invite.',
+        #         'to_user_id': to_user.id,
+        #         'invite_id': invite.id
+        #     }
+        # )
+
+        return JsonResponse({'message': 'Game invite rejected successfully'}, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+# Get Received Game Invites
+@csrf_exempt
+@check_auth
+def get_game_invites_received(request):
+    if request.method == 'GET':
+        user = Users.objects.get(id=request.user_id)
+        invites = GameInvites.objects.filter(
+            to_user=user,
+            status__in=[GameInvites.GameInviteStatus.PENDING, GameInvites.GameInviteStatus.ACCEPTED]
+        )
+
+        invites_list = [
+            {
+                'invite_id': invite.id,
+                'from_user_id': invite.from_user.id,
+                'from_username': invite.from_user.user_name,
+                'game_mode': invite.game_mode,
+                'status': invite.status,
+                'issued_at': invite.issued_at.isoformat(),
+                'game_id': invite.game_id  # Include game_id
+            }
+            for invite in invites
+        ]
+
+        return JsonResponse({'invites': invites_list}, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+# Get Sent Game Invites
+@csrf_exempt
+@check_auth
+def get_game_invites_sent(request):
+    if request.method == 'GET':
+        user = Users.objects.get(id=request.user_id)
+        invites = GameInvites.objects.filter(
+            from_user=user,
+            status__in=[GameInvites.GameInviteStatus.PENDING, GameInvites.GameInviteStatus.ACCEPTED]
+        )
+
+        invites_list = [
+            {
+                'invite_id': invite.id,
+                'to_user_id': invite.to_user.id,
+                'to_username': invite.to_user.user_name,
+                'game_mode': invite.game_mode,
+                'status': invite.status,
+                'issued_at': invite.issued_at.isoformat(),
+                'game_id': invite.game_id  # Include game_id
+            }
+            for invite in invites
+        ]
+
+        return JsonResponse({'sent_invites': invites_list}, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+# Get Game Invite Status
+@csrf_exempt
+@check_auth
+def get_game_invite_status(request):
+    if request.method == 'GET':
+        invite_id = request.GET.get('invite_id', '').strip()
+        if not invite_id:
+            return JsonResponse({'error': 'Missing invite_id'}, status=400)
+
+        user = Users.objects.get(id=request.user_id)
+
+        try:
+            invite = GameInvites.objects.get(id=invite_id)
+        except GameInvites.DoesNotExist:
+            return JsonResponse({'error': 'Game invite not found'}, status=404)
+
+        # Ensure the user is involved in the invite
+        if invite.from_user != user and invite.to_user != user:
+            return JsonResponse({'error': 'Not authorized to view this invite'}, status=403)
+
+        return JsonResponse({
+            'invite_id': invite.id,
+            'status': invite.status,
+            'game_mode': invite.game_mode,
+            'from_user_id': invite.from_user.id,
+            'from_username': invite.from_user.user_name,
+            'to_user_id': invite.to_user.id,
+            'to_username': invite.to_user.user_name,
+            'issued_at': invite.issued_at.isoformat(),
+            'direction': 'sent' if invite.from_user == user else 'received'
+        }, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+# Bulk Game Invite Status
+@csrf_exempt
+@check_auth
+def bulk_game_invite_status(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            invite_ids = data.get('invite_ids', [])
+            if not invite_ids:
+                return JsonResponse({'error': 'No invite_ids provided'}, status=400)
+        except (json.JSONDecodeError, KeyError):
+            return JsonResponse({'error': 'Invalid request format'}, status=400)
+
+        user = Users.objects.get(id=request.user_id)
+        statuses = {}
+
+        for invite_id in invite_ids:
+            try:
+                invite = GameInvites.objects.get(id=invite_id)
+                if invite.from_user != user and invite.to_user != user:
+                    statuses[invite_id] = {'status': 'unauthorized', 'direction': None}
+                else:
+                    statuses[invite_id] = {
+                        'status': invite.status,
+                        'game_mode': invite.game_mode,
+                        'from_user_id': invite.from_user.id,
+                        'from_username': invite.from_user.user_name,
+                        'to_user_id': invite.to_user.id,
+                        'to_username': invite.to_user.user_name,
+                        'issued_at': invite.issued_at.isoformat(),
+                        'direction': 'sent' if invite.from_user == user else 'received'
+                    }
+            except GameInvites.DoesNotExist:
+                statuses[invite_id] = {'status': 'not_found', 'direction': None}
+
+        return JsonResponse({'statuses': statuses}, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+@check_auth
+def accept_game_invite_from_user(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            from_username = data.get('from_username')
+            if not from_username:
+                return JsonResponse({'error': 'Missing from_username'}, status=400)
+        except (json.JSONDecodeError, KeyError):
+            return JsonResponse({'error': 'Invalid request format'}, status=400)
+
+        # Get the authenticated user (recipient)
+        to_user = Users.objects.get(id=request.user_id)
+
+        try:
+            from_user = Users.objects.get(user_name=from_username)
+        except Users.DoesNotExist:
+            return JsonResponse({'error': 'User not found'}, status=404)
+
+        # Look for a pending invite from from_user to to_user
+        try:
+            invite = GameInvites.objects.get(
+                from_user=from_user,
+                to_user=to_user,
+                status=GameInvites.GameInviteStatus.PENDING
+            )
+        except GameInvites.DoesNotExist:
+            return JsonResponse({'error': f'No pending game invite from {from_username}'}, status=404)
+
+        # Accept the invite
+        invite.status = GameInvites.GameInviteStatus.ACCEPTED
+        invite.save()
+
+        # # Notify the sender via WebSocket
+        # channel_layer = get_channel_layer()
+        # async_to_sync(channel_layer.group_send)(
+        #     f"game_invite_group_{from_user.id}",
+        #     {
+        #         'type': 'game_invite_update',
+        #         'message': f'{to_user.user_name} accepted your {invite.game_mode} game invite!',
+        #         'to_user_id': to_user.id,
+        #         'invite_id': invite.id
+        #     }
+        # )
+
+        return JsonResponse({
+            'message': f'Game invite from {from_username} accepted successfully',
+            'invite_id': invite.id,
+            'game_mode': invite.game_mode
+        }, status=200)
+
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ///////////////////////////////////////////////////////////////////////////////////////////////////
+# ///////////////////////////////////////////////////////////////////////////////////////////////////
+# ------------------------------------------  Game  Logic  ------------------------------------------
+# ///////////////////////////////////////////////////////////////////////////////////////////////////
+# ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 def game_reset(game_id):
     global games
