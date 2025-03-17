@@ -7,50 +7,64 @@ import { storyActions } from "./pages/story/index.js"
 import { scrollAction } from "./pages/story/scroll.js"
 
 
-const authenticatedPages = ['home', 'settings', 'shop', 'play', 'game']
+const authenticatedPages = ['home', 'settings', 'shop', 'play', 'game'];
 
+// Initialize isAuthenticated from localStorage or default to false
 window.isAuthenticated = localStorage.getItem('isAuthenticated') === 'true' || false;
 console.log('Initial auth status:', window.isAuthenticated);
 
-window.onload = function () {
-    // localStorage.removeItem('isAuthenticated');
-    // window.isAuthenticated = false;
-    
+// Function to handle routing based on authentication status
+window.routeToPage = function (path) {
+    // Check if the route is valid
+    if (!isValidRoute(path)) {
+        loadPage('404'); // Load a 404 page for invalid routes
+        return;
+    }
 
-    const fragId = window.location.hash.substring(1) || 'story'
-    console.log(fragId)
-    routeToPage(fragId)
-    
+    // Redirect to story if the user is not authenticated and tries to access authenticated pages
+    if (authenticatedPages.includes(path) && !window.isAuthenticated) {
+        console.log('Unauthorized access. Redirecting to story.');
+        window.location.hash = 'story';
+        return;
+    }
+
+    // Redirect away from story if the user is authenticated
+    if (path === 'story' && window.isAuthenticated) {
+        console.log('Authenticated user trying to access story. Redirecting to home.');
+        window.location.hash = 'home';
+        return;
+    }
+
+    // Load the appropriate layout based on authentication
+    if (authenticatedPages.includes(path)) {
+        loadAuthenticatedLayout(path); // Load authenticated pages
+    } else {
+        loadPage(path); // Load non-authenticated pages (e.g., story)
+    }
+};
+
+// Handle page load and hash changes
+window.onload = function () {
+    const fragId = window.location.hash.substring(1) || 'story';
+
+    // Reset isAuthenticated to false if loading the story page
+    if (fragId === 'story') {
+        localStorage.setItem('isAuthenticated', 'false');
+        window.isAuthenticated = false;
+    }
+
+    console.log('Initial page:', fragId);
+    routeToPage(fragId);
+
+    // Listen for hash changes (e.g., user navigating to a new page)
     window.addEventListener('hashchange', () => {
         console.log('Hash changed:', window.location.hash);
         window.isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
         console.log('Current auth status:', window.isAuthenticated);
 
-        const path = window.location.hash.substring(1) || 'story'
-        routeToPage(path)
-    })
-
-    // if (isAuthenticated) {
-    //     initializeWebSocket()
-    // }
-}
-
-window.routeToPage = function (path) {
-    if (!isValidRoute(path)) {
-        loadPage('404');
-        return;
-    }
-
-    if (authenticatedPages.includes(path) && !window.isAuthenticated) {
-        window.location.hash = 'story'; // Redirect to story only if not authenticated
-        return;
-    }
-
-    if (authenticatedPages.includes(path)) {
-        loadAuthenticatedLayout(path);
-    } else {
-        loadPage(path);
-    }
+        const path = window.location.hash.substring(1) || 'story';
+        routeToPage(path);
+    });
 };
 
 
