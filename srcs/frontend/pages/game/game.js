@@ -1,5 +1,4 @@
 // frontend/game.js
-
 async function fetchLogin() {
     try {
         const response = await fetch('https://localhost:8000/profile/', {
@@ -16,13 +15,8 @@ async function fetchLogin() {
 }
 
 export async function game() {
-    let paddle1_x;
-    let paddle2_x;
-    let ball_bounds;
-    let paddle_bounds_x;
-    let paddle_bounds_y;
-    let score_1 = 0;
-    let score_2 = 0;
+    let paddle1_x, paddle2_x, ball_bounds, paddle_bounds_x, paddle_bounds_y;
+    let score_1 = 0, score_2 = 0;
     let initialStateReceived = false;
     let pastPositions = [];
     let keyState = {};
@@ -42,16 +36,6 @@ export async function game() {
     }
 
     console.log("Connecting to game ID:", gameId, "Player:", player);
-
-    function create_game(opponent_username) {
-        let body = opponent_username ? `player=${encodeURIComponent(opponent_username)}` : ``;
-        return fetch('https://localhost:8000/create_game/', {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: body
-        });
-    }
 
     if (!gameId) {
         console.error("No game ID found in history.state", { gameId, player });
@@ -77,6 +61,7 @@ export async function game() {
     }
 
     preGame.style.display = "flex";
+    preGame.textContent = "Connecting to game...";
     canvas.style.display = "none";
     postGame.style.display = "none";
 
@@ -334,7 +319,12 @@ export async function game() {
 
         if (playAgain) {
             playAgain.addEventListener("click", () => {
-                create_game('')
+                fetch('https://localhost:8000/create_game/', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: ''
+                })
                     .then(response => response.json().then(data => ({ ok: response.ok, data })))
                     .then(({ ok, data }) => {
                         if (ok && data.game_id) {
@@ -363,7 +353,7 @@ export async function game() {
             websocket = null;
         }
 
-        const wsUrl = `wss://localhost:8000/ws/pong/${gameId}/`; // Changed to wss://
+        const wsUrl = `wss://localhost:8000/ws/pong/${gameId}/`;
         console.log("Attempting to connect to WebSocket at:", wsUrl);
         websocket = new WebSocket(wsUrl);
 
@@ -377,11 +367,18 @@ export async function game() {
             let game_state = JSON.parse(event.data);
             if (game_state.error) {
                 console.error("Server error:", game_state.error);
+                preGame.textContent = game_state.error === 'Game not found or not yet accepted'
+                    ? "Waiting for opponent to accept the game invite..."
+                    : "Error: " + game_state.error;
                 return;
             }
 
+            if (game_state.message) {
+                preGame.textContent = game_state.message;
+            }
+
             if (game_state.game_opponent) {
-                gameMode = game_state.game_opponent; // 'local' or 'online'
+                gameMode = game_state.game_opponent;
                 console.log("Game mode set to:", gameMode);
             }
 
@@ -392,8 +389,8 @@ export async function game() {
                 paddle_bounds_x = game_state.paddle_bounds_x;
                 paddle_bounds_y = game_state.paddle_bounds_y;
                 initialStateReceived = true;
-                if (preGame) preGame.style.display = "none";
-                if (canvas) canvas.style.display = "flex";
+                preGame.style.display = "none";
+                canvas.style.display = "flex";
             }
 
             if (game_state.score1 > score_1) {
@@ -428,28 +425,40 @@ export async function game() {
 
         websocket.onerror = function (event) {
             console.error('WebSocket error details:', event);
-            cleanup();
-            window.location.hash = '#play';
+            preGame.textContent = "Connection error, please try again.";
+            setTimeout(() => {
+                window.location.hash = '#play';
+            }, 2000);
         };
 
         websocket.onclose = function (event) {
             console.log('WebSocket closed with code:', event.code, 'reason:', event.reason);
-            if (event.code === 4000 || event.code === 4001) {
-                console.error("Connection closed due to server error:", event.reason);
+            if (!initialStateReceived) {
+                if (event.code === 4000) {
+                    preGame.textContent = "Game not ready, waiting for opponent...";
+                } else {
+                    preGame.textContent = "Connection closed unexpectedly.";
+                    setTimeout(() => {
+                        window.location.hash = '#play';
+                    }, 2000);
+                }
             }
         };
     }
 
+    // Immediate connection attempt, no artificial delay
+    connectWebSocket();
+
+    // Timeout to redirect if game doesn't start (longer for online games)
     setTimeout(() => {
-        connectWebSocket();
-        setTimeout(() => {
-            if (!initialStateReceived && websocket && websocket.readyState !== WebSocket.OPEN) {
-                console.warn("WebSocket connection timed out, redirecting to #play");
+        if (!initialStateReceived && websocket && websocket.readyState !== WebSocket.OPEN) {
+            console.warn("WebSocket connection timed out, redirecting to #play");
+            preGame.textContent = gameMode === 'online' ? "Opponent hasn’t joined yet." : "Failed to start game.";
+            setTimeout(() => {
                 window.location.hash = '#play';
-                cleanup();
-            }
-        }, 15000);
-    }, 5000);
+            }, 2000);
+        }
+    }, gameMode === 'online' ? 30000 : 15000); // 30s for online, 15s for local
 }
 
 export function cleanup() {

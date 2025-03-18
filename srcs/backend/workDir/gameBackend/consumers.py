@@ -37,7 +37,7 @@ class PongConsumer(AsyncWebsocketConsumer):
             return user.user_name, "Success"
         except Users.DoesNotExist:
             return None, "User not found"
-
+            
     async def connect(self):
         try:
             from .views import games
@@ -55,8 +55,9 @@ class PongConsumer(AsyncWebsocketConsumer):
             await self.close()
             return
 
+        # Wait for game to be initialized with a longer timeout
         async with games_lock:
-            timeout = 10
+            timeout = 30  # Increase timeout to allow for invite acceptance
             elapsed = 0
             while self.game_id not in games and elapsed < timeout:
                 print(f"Game ID {self.game_id} not found in games, waiting... (elapsed: {elapsed}s)")
@@ -64,7 +65,7 @@ class PongConsumer(AsyncWebsocketConsumer):
                 elapsed += 1
             if self.game_id not in games:
                 print(f"Timeout: Game {self.game_id} not initialized in games: {games}")
-                await self.send(text_data=json.dumps({'error': 'Game not found'}))
+                await self.send(text_data=json.dumps({'error': 'Game not found or not yet accepted'}))
                 await self.close(code=4000)
                 return
 
@@ -93,26 +94,14 @@ class PongConsumer(AsyncWebsocketConsumer):
             'paddle_bounds_y': game['paddle_bounds_y']
         }))
 
-        # Send game mode to client
-        await self.send(text_data=json.dumps({
-            'game_opponent': game['game_opponent']
-        }))
+        await self.send(text_data=json.dumps({'game_opponent': game['game_opponent']}))
 
-        if game['game_opponent'] in ['local', 'online']:
-            await self.send(text_data=json.dumps({'message': 'local or online, starting now...'}))
-            asyncio.create_task(self.game_update_loop())
-        
-        status = game['player1_status'] if self.client_id == game['player_1'] else game['player2_status']
-        await self.send(text_data=json.dumps({'player': self.client_id, 'status': status}))
-
-        if game['player1_status'] == 'online' and game['player2_status'] == 'online' and game['game_opponent'] == 'online':
+        if game['player1_status'] == 'online' and game['player2_status'] == 'online':
             await self.send(text_data=json.dumps({'message': 'Both players are online, starting now...'}))
             if self.client_id == game['player_1']:
                 asyncio.create_task(self.game_update_loop())
         else:
             await self.send(text_data=json.dumps({'message': 'Waiting for the other player to connect...'}))
-
-        print(f"Player {self.client_id} connected to game {self.game_id}")
 
     async def disconnect(self, close_code):
         try:

@@ -13,6 +13,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Import games and create_new_game (assuming they're defined in gameBackend.views)
+from gameBackend.views import games, create_new_game
+# Define games_lock if not already imported or defined elsewhere
+games_lock = asyncio.Lock()
+
 class FriendshipConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def check_wsAuth(self):
@@ -138,7 +143,7 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
         except json.JSONDecodeError:
             logger.error("Invalid JSON data received")
 
-    # Friendship Handlers
+    # Friendship Handlers (unchanged)
     async def handle_send_friend_request(self, data):
         friend_username = data.get('friend_username')
         if not friend_username:
@@ -205,40 +210,49 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
                 'error': 'No pending friend request found from this user'
             }))
 
-    async def handle_reject_friend_request(self, data):
-        friend_username = data.get('friend_username')
-        if not friend_username:
-            logger.error("Missing friend_username in reject_friend_request")
+    async def handle_accept_game_invite(self, data):
+        invite_id = data.get('invite_id')
+        if not invite_id:
             await self.send(text_data=json.dumps({
-                'type': 'friend_request_error',
-                'error': 'Missing friend_username'
+                'type': 'game_invite_error',
+                'error': 'Missing invite_id'
             }))
             return
 
-        success = await self.process_friend_request(friend_username, Friendship.Status.REJECTED)
-        if success is not False:
+        result = await self.accept_game_invite(invite_id, self.user)
+        if result and 'game_id' in result and 'from_user_id' in result and 'from_username' in result:
+            game_id = result['game_id']
+            from_user_id = result['from_user_id']
+            from_username = result['from_username']
+            to_username = self.user.user_name
+
+            # Create the game state in the games dictionary
+            async with games_lock:
+                if game_id not in games:
+                    games[game_id] = create_new_game(to_username, from_username, 'online')
+
+            # Notify both players
+            await self.channel_layer.group_send(
+                f"friendship_group_{from_user_id}",
+                {
+                    'type': 'game_invite_accepted_notification',
+                    'invite_id': invite_id,
+                    'game_id': game_id,
+                    'to_username': to_username
+                }
+            )
             await self.send(text_data=json.dumps({
-                'type': 'friend_request_rejected',
-                'friend_username': friend_username,
-                'message': 'Friend request rejected and deleted successfully'
+                'type': 'game_invite_accepted',
+                'invite_id': invite_id,
+                'game_id': game_id,
+                'message': 'Game invite accepted, starting game'
             }))
-            try:
-                from_user = await database_sync_to_async(Users.objects.get)(user_name=friend_username)
-                await self.channel_layer.group_send(
-                    f"friendship_group_{from_user.id}",
-                    {
-                        'type': 'friend_request_rejected_notification',
-                        'from_user_id': self.user.id,
-                        'from_username': self.user.user_name
-                    }
-                )
-            except Users.DoesNotExist:
-                logger.error(f"Could not notify {friend_username} of rejection: user not found")
         else:
+            error_message = result.get('error', 'Failed to accept game invite') if result else 'Invalid response from accept_game_invite'
             await self.send(text_data=json.dumps({
-                'type': 'friend_request_error',
-                'friend_username': friend_username,
-                'error': 'No pending friend request found from this user'
+                'type': 'game_invite_error',
+                'invite_id': invite_id,
+                'error': error_message
             }))
 
     async def handle_cancel_friend_request(self, data):
@@ -307,40 +321,35 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
                 'error': 'Failed to send game invite (user not found or invite exists)'
             }))
 
-    async def handle_accept_game_invite(self, data):
-        invite_id = data.get('invite_id')
-        if not invite_id:
-            await self.send(text_data=json.dumps({
-                'type': 'game_invite_error',
-                'error': 'Missing invite_id'
-            }))
-            return
-
-        result = await self.accept_game_invite(invite_id, self.user)
-        if result and 'game_id' in result:
-            game_id = result['game_id']
-            from_user_id = result['from_user_id']
-            await self.channel_layer.group_send(
-                f"friendship_group_{from_user_id}",
-                {
-                    'type': 'game_invite_accepted_notification',
-                    'invite_id': invite_id,
-                    'game_id': game_id,
-                    'to_username': self.user.user_name
-                }
+    @database_sync_to_async
+    def accept_game_invite(self, invite_id, user):
+        try:
+            invite = GameInvites.objects.get(
+                id=invite_id,
+                to_user=user,
+                status=GameInvites.GameInviteStatus.PENDING
             )
-            await self.send(text_data=json.dumps({
-                'type': 'game_invite_accepted',
-                'invite_id': invite_id,
-                'game_id': game_id,
-                'message': 'Game invite accepted, starting game'
-            }))
-        else:
-            await self.send(text_data=json.dumps({
-                'type': 'game_invite_error',
-                'invite_id': invite_id,
-                'error': result.get('error', 'Failed to accept game invite')
-            }))
+            from_user = invite.from_user
+            game_name = f"{from_user.user_name} vs {user.user_name}"
+            game = Match.objects.create(
+                match_name=game_name,
+                player_1=user,  # Acceptor
+                player_2=from_user,  # Inviter
+                game_opponent='online'
+            )
+            invite.status = GameInvites.GameInviteStatus.ACCEPTED
+            invite.game_id = str(game.id)
+            invite.save()
+            return {
+                'game_id': str(game.id),
+                'from_user_id': from_user.id,
+                'from_username': from_user.user_name  # Added from_username
+            }
+        except GameInvites.DoesNotExist:
+            return {'error': 'Pending game invite not found'}
+        except Exception as e:
+            logger.error(f"Error accepting game invite: {e}")
+            return {'error': str(e)}
 
     async def handle_reject_game_invite(self, data):
         invite_id = data.get('invite_id')
@@ -374,7 +383,7 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
                 'error': 'Failed to reject game invite'
             }))
 
-    # Database Methods
+    # Database Methods (unchanged)
     @database_sync_to_async
     def create_friend_request(self, from_user_id, to_user_username):
         try:
@@ -469,32 +478,6 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
             return None
 
     @database_sync_to_async
-    def accept_game_invite(self, invite_id, user):
-        try:
-            invite = GameInvites.objects.get(
-                id=invite_id,
-                to_user=user,
-                status=GameInvites.GameInviteStatus.PENDING
-            )
-            from_user = invite.from_user
-            game_name = f"{from_user.user_name} vs {user.user_name}"
-            game = Match.objects.create(
-                match_name=game_name,
-                player_1=user,  # Acceptor
-                player_2=from_user,  # Inviter
-                game_opponent='online'
-            )
-            invite.status = GameInvites.GameInviteStatus.ACCEPTED
-            invite.game_id = str(game.id)
-            invite.save()
-            return {'game_id': str(game.id), 'from_user_id': from_user.id}
-        except GameInvites.DoesNotExist:
-            return {'error': 'Pending game invite not found'}
-        except Exception as e:
-            logger.error(f"Error accepting game invite: {e}")
-            return {'error': str(e)}
-
-    @database_sync_to_async
     def reject_game_invite(self, invite_id, user):
         try:
             invite = GameInvites.objects.get(
@@ -512,7 +495,7 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
             logger.error(f"Error rejecting game invite: {e}")
             return False
 
-    # Notification Handlers
+    # Notification Handlers (unchanged)
     async def friend_request_accepted_notification(self, event):
         await self.send(text_data=json.dumps({
             'type': 'friend_request_accepted_notification',

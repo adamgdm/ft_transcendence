@@ -1,16 +1,5 @@
 // frontend/play.js
-
 import { friendshipSocket } from "../../globalWebsocket.js";
-
-function create_game(opponent_username) {
-    let body = opponent_username ? `player=${encodeURIComponent(opponent_username)}` : ``;
-    return fetch('https://localhost:8000/create_game/', {
-        method: 'POST',
-        credentials: "include",
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: body
-    });
-}
 
 async function fetchLogin() {
     try {
@@ -29,10 +18,10 @@ async function fetchLogin() {
 
 async function fetchFriendsList() {
     try {
-        const response = await fetch('https://localhost:8000/get_friends/', { 
-            method: 'GET', 
-            headers: { 'Content-Type': 'application/json' }, 
-            credentials: 'include' 
+        const response = await fetch('https://localhost:8000/get_friends/', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
         });
         if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
         return (await response.json()).friends || [];
@@ -42,13 +31,22 @@ async function fetchFriendsList() {
     }
 }
 
+// Create local game only
+function createLocalGame() {
+    return fetch('https://localhost:8000/create_game/', {
+        method: 'POST',
+        credentials: "include",
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: '' // Empty body for local game
+    });
+}
+
 export async function flip() {
     let allFriends = [];
     let sentInvites = [];
     let receivedInvites = [];
     const currentUsername = await fetchLogin();
 
-    // Redirect to login if username fetch fails or returns null
     if (!currentUsername) {
         console.error("Failed to fetch username or not logged in, redirecting to login");
         history.pushState({}, "", "#login");
@@ -104,6 +102,7 @@ export async function flip() {
                 break;
             case 'game_invite_error':
                 console.error('Game invite error:', data.error);
+                alert(`Game invite error: ${data.error}`);
                 break;
         }
     });
@@ -127,7 +126,7 @@ export async function flip() {
 
     function renderFriends(friends, query, sentInvites, receivedInvites) {
         friendsList.innerHTML = '';
-        const filteredFriends = friends.filter(friend => 
+        const filteredFriends = friends.filter(friend =>
             friend.username.toLowerCase().startsWith(query)
         );
         if (filteredFriends.length === 0) {
@@ -381,7 +380,8 @@ export async function flip() {
     if (playLocallyButton && !playLocallyButton.dataset.listenerAdded) {
         playLocallyButton.addEventListener('click', function (e) {
             e.stopPropagation();
-            create_game('')
+            playLocallyButton.disabled = true;
+            createLocalGame()
                 .then(response => response.json().then(data => ({ ok: response.ok, data })))
                 .then(({ ok, data }) => {
                     if (ok && data.game_id) {
@@ -390,10 +390,17 @@ export async function flip() {
                         history.pushState(state, "", "#game");
                         window.routeToPage('game');
                     } else {
-                        console.error("Game creation failed:", data);
+                        console.error("Local game creation failed:", data);
+                        alert("Failed to create local game: " + (data.error || "Unknown error"));
                     }
                 })
-                .catch(error => console.error("Error:", error));
+                .catch(error => {
+                    console.error("Error creating local game:", error);
+                    alert("Error creating local game: " + error.message);
+                })
+                .finally(() => {
+                    playLocallyButton.disabled = false;
+                });
         });
         playLocallyButton.dataset.listenerAdded = 'true';
     }
