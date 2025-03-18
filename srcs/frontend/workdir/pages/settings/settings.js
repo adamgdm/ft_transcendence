@@ -1,4 +1,39 @@
 export function settings() {
+
+    
+    fetch('/api/profile/', {
+        method: "GET",
+        credentials: "include"
+    })
+    .then(response => {
+        if (response.status != 200) {
+            throw new Error('Network response was not ok: ' + response.status);
+        }
+        return response.json(); 
+    })
+    .then(userData => {
+        console.log('User Data:', userData);
+
+        console.log(userData)
+        // Populate personal information
+        document.getElementById('change-lastName').placeholder = userData.last_name || '';
+        document.getElementById('change-firstName').placeholder = userData.first_name || '';
+        document.getElementById('change-userName').placeholder = userData.user_name || '';
+        document.getElementById('change-email').placeholder = userData.email || '';
+
+        // Set the OTP checkbox state
+        const otpCheckbox = document.getElementById('change-otpLogin');
+        if (userData.two_factor_enabled) {
+            otpCheckbox.checked = true;
+        } else {
+            otpCheckbox.checked = false;
+        }
+
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+
     /*************************
     * Profile Picture change *
     *************************/
@@ -164,7 +199,7 @@ submitCodeBtn.addEventListener('click', function(event) {
         Promise.all(promises)
             .then(() => {
                 // Only reset the form if all promises resolve successfully
-                form.reset();
+                // form.reset();
                 showNotification('Settings updated successfully', 'success');
                 
                 // Reset email verification state after successful submission
@@ -215,6 +250,7 @@ submitCodeBtn.addEventListener('click', function(event) {
             .then(response => {
                 if (!response.ok) {
                     // Check if the response is not OK (status code other than 2xx)
+                    console.log('request faileed')
                     return response.json().then(errorData => {
                         // Handle the error based on the response status and message
                         if (response.status === 400 && errorData.error) {
@@ -223,6 +259,7 @@ submitCodeBtn.addEventListener('click', function(event) {
                         throw new Error(errorData.error || 'Something went wrong');
                     });
                 }
+                console.log('request successed')
                 return response.json(); // Return the response data if no error
             })
             .then(data => {
@@ -270,12 +307,25 @@ submitCodeBtn.addEventListener('click', function(event) {
         .then(response => response.json())
         .then(data => {
             if (data.two_factor_enabled !== enableOTP) {
+                if (enableOTP) {
+                    console.log('OTP enabled'); // Log when OTP is enabled
+                } else {
+                    console.log('OTP disabled'); // Log when OTP is disabled
+                }
                 return fetch(enableOTP ? '/api/enable_2fa/' : '/api/disable_2fa/', { 
                     method: 'POST', 
-                    credentials: 'include' 
+                    credentials: 'include'
                 })
                 .then(response => response.json())
-                .then(data => showNotification(data.success ? '2FA settings updated' : 'Error: ' + data.error, data.success ? 'success' : 'error'));
+                .then(data => showNotification(data.success ? '2FA settings updated' : 'Error: ' + data.error, data.success ? 'success' : 'error')); 
+            }
+            else {
+                // Log the current state of OTP if no change is made
+                if (enableOTP) {
+                    console.log('OTP is already enabled');
+                } else {
+                    console.log('OTP is already disabled');
+                }    
             }
         })
         .catch(error => console.error('Fetch error:', error.message));

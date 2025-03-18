@@ -666,6 +666,108 @@
 }
 
 /******************************************************************************/
+/* OTP VERIFICATION  */
+/******************************************************************************/
+
+[data-modal="otp-verification"] {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.08s ease-in-out, visibility 0.08s ease-in-out;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 1;
+}
+
+[data-modal="otp-verification"].active {
+    opacity: 100%;
+    visibility: visible;
+}
+
+[data-modal="otp-verification"] .verification-logo {
+    margin-top: 50px;
+}
+
+[data-modal="otp-verification"] .verification-des {
+    margin-top: 50px;
+    color: var(--white);
+    font-size: x-large;
+    letter-spacing: 3px;
+    word-wrap: break-word;
+    white-space: normal;
+    text-align: center;
+}
+
+[data-modal="otp-verification"] .verification-mail-text {
+    width: 90%;
+    margin-top: 30px;
+    color: var(--text-color);
+    font-size: xx-large;
+    letter-spacing: 3px;
+    text-align: center;
+    word-wrap: break-word;
+    white-space: normal;
+}
+
+[data-form="otp-verification"] {
+    margin-top: 20px;
+    width: 90%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 60px;
+}
+
+[data-form="otp-verification"] .input-holder {
+    width: 100%;
+    height: 100px;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+}
+
+[data-form="otp-verification"] .form-input {
+    padding: 2px;
+    width: 80px;
+    height: 100%;
+
+    border: 2px solid transparent;
+    border-radius: 7px;
+    background-clip: padding-box, border-box;
+    background-origin: padding-box, border-box;
+    background-color: #1C1B19;
+    background-image:
+        linear-gradient(#1C1B19, #1C1B19),
+        linear-gradient(to bottom,  
+            rgb(90, 82, 65, 0.99) 0%,  
+            rgba(97, 54, 40, 0.8) 50%,  
+            rgba(90, 82, 65, 0.99) 100%  
+        );
+
+    color: var(--white);
+    text-align: center;
+    font-size: x-large;
+    outline: none;
+}
+
+[data-form="otp-verification"] .form-submit {
+    width: 94%;
+    height: 80px;
+
+    padding: 10px;
+    background-color: #FF4622;
+    border: none;
+    border-radius: 4px;
+    color: var(--white);
+    font-size: 50px;
+    font-family: inherit;
+    -webkit-text-stroke: 2px black;
+    cursor: pointer;
+}
+
+/******************************************************************************/
 /* FORGOT PASSWORD MODAL  */
 /******************************************************************************/
 

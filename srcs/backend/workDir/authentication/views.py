@@ -153,7 +153,7 @@ def login(request):
                 email = user.email
                 otp = user.otp_password
                 if not send_2fa_email(email, otp):
-                    return JsonResponse({'error': 'Could not send OTP'}, status=500)
+                    return JsonResponse({'error': 'Could not send OTP'}, status=205)
                 return JsonResponse({'message': 'Two factor authentication enabled'}, status=200)
         jwt_token = generate_jwt_token(user)
         user.last_login = timezone.now()
@@ -218,10 +218,7 @@ def login_otp(request):
 @check_auth
 def enable_2fa(request):
     if request.method == 'POST':
-        token = request.COOKIES.get('token')
-        if not token:
-            return JsonResponse({'error': 'Token is missing'}, status=401)
-        user_id = verify_jwt_token(token)
+        user_id = request.user_id
         if not user_id:
             return JsonResponse({'error': 'Invalid token'}, status=401)
         try:
@@ -241,11 +238,7 @@ def enable_2fa(request):
 @check_auth
 def disable_2fa(request):
     if request.method == 'POST':
-        # get token from cookie 
-        token = request.COOKIES.get('token')
-        if not token:
-            return JsonResponse({'error': 'Token is missing'}, status=401)
-        user_id = verify_jwt_token(token)
+        user_id = request.user_id
         if not user_id:
             return JsonResponse({'error': 'Invalid token'}, status=401)
         

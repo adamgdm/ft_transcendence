@@ -142,7 +142,7 @@
             <h1 class="modal-title">Verify Your Email</h1>
             <img class="modal-close-btn" data-close="email-verification" src="assets/exit.svg" alt="close">
             <img class="verification-logo" src="assets/otp-verif-logo.svg" alt="verification-logo">
-            <h2 class="verification-des">We've sent a confirmation link to your email. Click the link to activate your account.</h2>
+            <h2 class="verification-des">We've sent a confirmation link to your email. Click the link to activate your account</h2>
             <h2 class="verification-mail-text"></h2>
 
             <form class="modal-form" data-form="email-verification">
@@ -178,6 +178,28 @@
                 <div class="form-group">
                     <button class="login-forpass-btn">Forgot password</button>
                 </div>
+            </form>
+        </div>
+
+
+        <!-- OTP Verification Modal -->
+        <div class="modal" data-modal="otp-verification">
+            <h1 class="modal-title">Verify Your Identity (OTP)</h1>
+            <img class="modal-close-btn" data-close="otp-verification" src="assets/exit.svg" alt="close">
+            <img class="verification-logo" src="assets/otp-verif-logo.svg" alt="verification-logo">
+            <h2 class="verification-des">We've sent a One-Time Password (OTP) to your email. Enter the code to verify your account</h2>
+            <h2 class="otpverification-mail-text"></h2>
+
+            <form class="modal-form" data-form="otp-verification">
+                <div class="input-holder">
+                    <input class="form-input" name="num-1" type="text" inputmode="numeric" maxlength="1" minlength="1" pattern="[0-9]*" required autocomplete="off">
+                    <input class="form-input" name="num-2" type="text" inputmode="numeric" maxlength="1" minlength="1" pattern="[0-9]*" required autocomplete="off">
+                    <input class="form-input" name="num-3" type="text" inputmode="numeric" maxlength="1" minlength="1" pattern="[0-9]*" required autocomplete="off">
+                    <input class="form-input" name="num-4" type="text" inputmode="numeric" maxlength="1" minlength="1" pattern="[0-9]*" required autocomplete="off">
+                    <input class="form-input" name="num-5" type="text" inputmode="numeric" maxlength="1" minlength="1" pattern="[0-9]*" required autocomplete="off">
+                    <input class="form-input" name="num-6" type="text" inputmode="numeric" maxlength="1" minlength="1" pattern="[0-9]*" required autocomplete="off">
+                </div>
+                <input type="submit" value="Verify OTP" class="form-submit">
             </form>
         </div>
 
