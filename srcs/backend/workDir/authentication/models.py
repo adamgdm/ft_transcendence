@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.hashers import check_password
+from django.db import IntegrityError
 import random
 
 def user_directory_path(instance, filename):
@@ -37,8 +38,11 @@ class Users(models.Model):
     online_status = models.DateTimeField(auto_now_add=True)
     last_login = models.DateTimeField(null=True, blank=True)
     last_password_change = models.DateTimeField(null=True, blank=True)
-    ppp_rating = models.IntegerField(unique=True, default=1200, db_index=True)
+    ppp_rating = models.IntegerField(unique=True, default=lambda: random.randint(1000, 1400), db_index=True)
     title = models.CharField(default="NEWBIE") #first is called a leader
+    win_ratio = models.IntegerField(default=0, null=False, blank=False)
+    matches_played = models.IntegerField(default=0, null=False, blank=False)
+
     def save(self, *args, **kwargs):
         # Ensure the ppp rating is unique
         while True:
@@ -47,7 +51,7 @@ class Users(models.Model):
                 super().save(*args, **kwargs)
                 break
             except IntegrityError:
-                luck_factor = random.randint(1, 10)
+                luck_factor = random.randint(1, 50)
                 if(luck_factor % 2 == 0):
                     self.ppp_rating += luck_factor
                 else:

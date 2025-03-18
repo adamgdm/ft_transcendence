@@ -278,7 +278,11 @@ def profile(request):
             'registration_date': user.registration_date,
             'online_status': user.online_status,
             'last_login': user.last_login,
-            'last_password_change': user.last_password_change
+            'last_password_change': user.last_password_change,
+            'ppp_rating': user.ppp_rating,
+            'title': user.title,
+            'win_ratio': user.win_ratio,
+            'matches_played': user.matches_played
         }, status=200)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
@@ -769,14 +773,15 @@ def bulk_friend_status(request):
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 #need to hide data in env
-auth_url_discord = "https://api.intra.42.fr/oauth/authorize?client_id=u-s4t2ud-729aed93b28338bae314686c66e3342c44503b544a2906dcb18c0cfc4080570e&redirect_uri=http%3A%2F%2F127.0.0.1%3A8000%2Foauth2%2Flogin%2Fredirect%2F&response_type=code"
+auth_url_42 = "https://api.intra.42.fr/oauth/authorize?client_id=u-s4t2ud-729aed93b28338bae314686c66e3342c44503b544a2906dcb18c0cfc4080570e&redirect_uri=http%3A%2F%2F127.0.0.1%3A8000%2Foauth2%2Flogin%2Fredirect%2F&response_type=code"
 @csrf_exempt
 def oauth2(request):
     return JsonResponse({"mssg": "hello"})
 
 @csrf_exempt
 def oauth2_login(request):
-    return redirect(auth_url_discord)
+    if request.method == 'POST':
+        return redirect(auth_url_42)
 
 @csrf_exempt
 def oauth2_login_redirect(request):
