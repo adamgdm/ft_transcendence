@@ -24,6 +24,8 @@ export async function game() {
     let gameId = history.state?.game_id;
     let player = history.state?.user;
     let gameMode = null; // 'local' or 'online'
+    let reconnectionAttempts = 0;
+    const maxReconnectionAttempts = 5;
 
     if (!player) {
         player = await fetchLogin();
@@ -272,6 +274,7 @@ export async function game() {
         pastPositions = [];
         keyState = {};
         gameMode = null;
+        reconnectionAttempts = 0;
 
         document.removeEventListener('keydown', handleKeyDown);
         document.removeEventListener('keyup', handleKeyUp);
@@ -286,9 +289,9 @@ export async function game() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         offScreenCtx.clearRect(0, 0, offScreenCanvas.width, offScreenCanvas.height);
 
-        if (preGame) preGame.style.display = "flex";
-        if (canvas) canvas.style.display = "none";
-        if (postGame) postGame.style.display = "none";
+        preGame.style.display = "flex";
+        canvas.style.display = "none";
+        postGame.style.display = "none";
     }
 
     function cleanup(winner = null) {
@@ -313,9 +316,9 @@ export async function game() {
             postGameMessage.textContent = winner === player ? "You have Won!" : "You have Lost!";
         }
 
-        if (preGame) preGame.style.display = "none";
-        if (canvas) canvas.style.display = "none";
-        if (postGame) postGame.style.display = "flex";
+        preGame.style.display = "none";
+        canvas.style.display = "none";
+        postGame.style.display = "flex";
 
         if (playAgain) {
             playAgain.addEventListener("click", () => {
@@ -345,12 +348,9 @@ export async function game() {
     }
 
     function connectWebSocket() {
-        if (websocket) {
-            console.warn("Existing WebSocket detected, forcing closure");
-            if (websocket.readyState === WebSocket.OPEN || websocket.readyState === WebSocket.CONNECTING) {
-                websocket.close(1000, "Forcing closure for new connection");
-            }
-            websocket = null;
+        if (websocket && (websocket.readyState === WebSocket.OPEN || websocket.readyState === WebSocket.CONNECTING)) {
+            console.warn("Existing WebSocket detected, skipping new connection");
+            return;
         }
 
         const wsUrl = `wss://localhost:8000/ws/pong/${gameId}/`;
@@ -359,6 +359,8 @@ export async function game() {
 
         websocket.onopen = function () {
             console.log('WebSocket opened for player:', player);
+            reconnectionAttempts = 0; // Reset attempts on successful connection
+            preGame.textContent = "Connected, waiting for game state...";
             websocket.send(JSON.stringify({ 'action': 'connect', 'player_id': player }));
             attachKeyListeners();
         };
@@ -368,7 +370,7 @@ export async function game() {
             if (game_state.error) {
                 console.error("Server error:", game_state.error);
                 preGame.textContent = game_state.error === 'Game not found or not yet accepted'
-                    ? "Waiting for opponent to accept the game invite..."
+                    ? "Waiting for opponent to join..."
                     : "Error: " + game_state.error;
                 return;
             }
@@ -424,41 +426,40 @@ export async function game() {
         };
 
         websocket.onerror = function (event) {
-            console.error('WebSocket error details:', event);
-            preGame.textContent = "Connection error, please try again.";
-            setTimeout(() => {
-                window.location.hash = '#play';
-            }, 2000);
+            console.error('WebSocket error:', event);
+            preGame.textContent = "Connection error, attempting to reconnect...";
         };
 
         websocket.onclose = function (event) {
             console.log('WebSocket closed with code:', event.code, 'reason:', event.reason);
-            if (!initialStateReceived) {
-                if (event.code === 4000) {
-                    preGame.textContent = "Game not ready, waiting for opponent...";
-                } else {
-                    preGame.textContent = "Connection closed unexpectedly.";
-                    setTimeout(() => {
-                        window.location.hash = '#play';
-                    }, 2000);
-                }
+            if (!initialStateReceived && reconnectionAttempts < maxReconnectionAttempts) {
+                reconnectionAttempts++;
+                preGame.textContent = `Connection lost, reconnecting (${reconnectionAttempts}/${maxReconnectionAttempts})...`;
+                setTimeout(() => connectWebSocket(), 1000 * reconnectionAttempts); // Exponential backoff
+            } else if (!initialStateReceived) {
+                preGame.textContent = "Failed to connect after multiple attempts, please refresh.";
+                setTimeout(() => {
+                    window.location.hash = '#play';
+                }, 3000);
+            } else {
+                preGame.textContent = "Disconnected from game.";
+                preGame.style.display = "flex";
+                canvas.style.display = "none";
             }
         };
     }
 
-    // Immediate connection attempt, no artificial delay
+    // Start WebSocket connection
     connectWebSocket();
 
-    // Timeout to redirect if game doesn't start (longer for online games)
+    // Timeout for initial state (adjusted for online games)
     setTimeout(() => {
-        if (!initialStateReceived && websocket && websocket.readyState !== WebSocket.OPEN) {
-            console.warn("WebSocket connection timed out, redirecting to #play");
-            preGame.textContent = gameMode === 'online' ? "Opponent hasn’t joined yet." : "Failed to start game.";
-            setTimeout(() => {
-                window.location.hash = '#play';
-            }, 2000);
+        if (!initialStateReceived && (!websocket || websocket.readyState !== WebSocket.OPEN)) {
+            console.warn("Initial state not received, attempting reconnection...");
+            preGame.textContent = "Game not started yet, reconnecting...";
+            connectWebSocket();
         }
-    }, gameMode === 'online' ? 30000 : 15000); // 30s for online, 15s for local
+    }, gameMode === 'online' ? 10000 : 5000); // 10s for online, 5s for local
 }
 
 export function cleanup() {

@@ -1,11 +1,13 @@
 import json
 import asyncio
 from datetime import datetime, timedelta
-from django.conf import settings
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from authentication.utils import decode_jwt_token
 from authentication.models import BlacklistedTokens, LoggedOutTokens, Users
+import logging
+
+logger = logging.getLogger(__name__)
 
 games_lock = asyncio.Lock()
 
@@ -37,13 +39,17 @@ class PongConsumer(AsyncWebsocketConsumer):
             return user.user_name, "Success"
         except Users.DoesNotExist:
             return None, "User not found"
-            
+        except Exception as e:
+            logger.error(f"Error during authentication: {e}")
+            return None, "Authentication failed"
+
     async def connect(self):
         try:
             from .views import games
         except ImportError as e:
-            print(f"Error importing views: {str(e)}")
-            await self.close()
+            logger.error(f"Error importing views: {e}")
+            await self.send(text_data=json.dumps({'error': 'Internal server error'}))
+            await self.close(code=4001, reason="Server misconfiguration")
             return
 
         self.game_id = self.scope['url_route']['kwargs']['game_id']
@@ -51,178 +57,171 @@ class PongConsumer(AsyncWebsocketConsumer):
         
         self.client_id, result = await self.check_wsAuth(self.scope)
         if self.client_id is None:
-            print(f"Authentication failed: {result}")
-            await self.close()
+            logger.info(f"Authentication failed for game {self.game_id}: {result}")
+            await self.close(code=4001, reason=result)
             return
 
-        # Wait for game to be initialized with a longer timeout
-        async with games_lock:
-            timeout = 30  # Increase timeout to allow for invite acceptance
-            elapsed = 0
-            while self.game_id not in games and elapsed < timeout:
-                print(f"Game ID {self.game_id} not found in games, waiting... (elapsed: {elapsed}s)")
-                await asyncio.sleep(1)
-                elapsed += 1
-            if self.game_id not in games:
-                print(f"Timeout: Game {self.game_id} not initialized in games: {games}")
-                await self.send(text_data=json.dumps({'error': 'Game not found or not yet accepted'}))
-                await self.close(code=4000)
-                return
-
-            game = games[self.game_id]
-            print(f"Game {self.game_id} found: {game}")
-
-            if self.client_id not in [game['player_1'], game['player_2']]:
-                print(f"Client ID {self.client_id} not recognized in game {self.game_id}")
-                await self.close()
-                return
-
-            if self.client_id == game['player_1']:
-                game['player1_status'] = 'online'
-            elif self.client_id == game['player_2']:
-                game['player2_status'] = 'online'
-
+        # Join the group immediately
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
 
-        # Send initial game state
-        await self.send(text_data=json.dumps({
-            'paddle1_x': game['paddle1_x'],
-            'paddle2_x': game['paddle2_x'],
-            'ball_bounds': game['ball_bounds'],
-            'paddle_bounds_x': game['paddle_bounds_x'],
-            'paddle_bounds_y': game['paddle_bounds_y']
-        }))
+        # Wait for game to be ready
+        timeout = 30
+        elapsed = 0
+        game = None
+        while elapsed < timeout:
+            async with games_lock:
+                if self.game_id in games:
+                    game = games[self.game_id]
+                    logger.debug(f"Game {self.game_id} found: {game}")
+                    break
+            await self.send(text_data=json.dumps({
+                'type': 'status',
+                'message': 'Waiting for game to start...'
+            }))
+            await asyncio.sleep(2)
+            elapsed += 2
 
-        await self.send(text_data=json.dumps({'game_opponent': game['game_opponent']}))
+        if not game:
+            logger.warning(f"Timeout: Game {self.game_id} not initialized after {timeout}s")
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'error': 'Game not found or not yet started'
+            }))
+            await self.close(code=4000, reason="Game not ready")
+            return
 
+        # Verify player
+        if self.client_id not in [game['player_1'], game['player_2']]:
+            logger.warning(f"Client {self.client_id} not in game {self.game_id}")
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'error': 'You are not a player in this game'
+            }))
+            await self.close(code=4002, reason="Unauthorized player")
+            return
+
+        # Update player status and reset disconnection time
+        async with games_lock:
+            if self.client_id == game['player_1']:
+                game['player1_status'] = 'online'
+                game['player1_disconnect_time'] = None
+            elif self.client_id == game['player_2']:
+                game['player2_status'] = 'online'
+                game['player2_disconnect_time'] = None
+
+        # Send initial state
+        await self.send_initial_state(game)
+
+        # Check if both players are online and start game with delay
         if game['player1_status'] == 'online' and game['player2_status'] == 'online':
-            await self.send(text_data=json.dumps({'message': 'Both players are online, starting now...'}))
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'game_start',
+                    'message': 'Both players are online, game starting in 2 seconds...',
+                    'game_id': self.game_id
+                }
+            )
+            await asyncio.sleep(2)
             if self.client_id == game['player_1']:
                 asyncio.create_task(self.game_update_loop())
         else:
-            await self.send(text_data=json.dumps({'message': 'Waiting for the other player to connect...'}))
+            await self.send(text_data=json.dumps({
+                'type': 'status',
+                'message': 'Waiting for the other player to connect...'
+            }))
 
     async def disconnect(self, close_code):
         try:
             from .views import games
         except ImportError as e:
-            print(f"Error importing views: {str(e)}")
+            logger.error(f"Error importing views on disconnect: {e}")
             return
 
-        try:
-            await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
-        except Exception as e:
-            print(f"Error discarding group: {str(e)}")
-
+        await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
         async with games_lock:
             game = games.get(self.game_id)
             if game and hasattr(self, 'client_id'):
                 if self.client_id == game['player_1']:
                     game['player1_status'] = 'offline'
+                    game['player1_disconnect_time'] = datetime.utcnow()
                 elif self.client_id == game['player_2']:
                     game['player2_status'] = 'offline'
-                print(f"Player {self.client_id} disconnected from game {self.game_id}")
+                    game['player2_disconnect_time'] = datetime.utcnow()
+                logger.info(f"Player {self.client_id} disconnected from game {self.game_id}")
 
     async def receive(self, text_data):
         try:
             from .views import games
         except ImportError as e:
-            await self.send(text_data=json.dumps({'error': 'Internal server error'}))
+            logger.error(f"Error importing views in receive: {e}")
+            await self.send(text_data=json.dumps({'type': 'error', 'error': 'Internal server error'}))
             return
 
-        text_data_json = json.loads(text_data)
-        action = text_data_json['action']
-        player_id = text_data_json['player_id']
-        paddle = text_data_json.get('paddle')  # For local mode, specifies which paddle to control
+        try:
+            data = json.loads(text_data)
+            action = data['action']
+            player_id = data['player_id']
+            paddle = data.get('paddle')
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON: {e}")
+            return
 
-        # Validate action based on game mode
         async with games_lock:
-            game_state = games.get(self.game_id)
-            if not game_state:
-                await self.send(text_data=json.dumps({'error': 'Game not found'}))
+            game = games.get(self.game_id)
+            if not game:
+                logger.warning(f"Game {self.game_id} not found in receive")
                 return
 
             valid_actions = ['upStart', 'upStop', 'downStart', 'downStop']
-            if game_state['game_opponent'] == 'local':
+            if game['game_opponent'] == 'local':
                 valid_actions.extend(['wStart', 'wStop', 'sStart', 'sStop'])
 
             if action not in valid_actions:
-                await self.send(text_data=json.dumps({'error': 'Invalid action'}))
+                logger.debug(f"Invalid action: {action}")
                 return
 
-            if game_state['status'] == 'Done':
+            if game.get('status') == 'Done':
                 await self.send(text_data=json.dumps({'status': 'Done'}))
+                return
 
-            # Determine which player is sending the action
-            player = 'player1' if game_state['player_1'] == player_id else 'player2'
-
-            # Handle actions for local mode
-            if game_state['game_opponent'] == 'local':
-                # In local mode, player_1 controls both paddles
-                if player_id == game_state['player_1']:
-                    target_paddle = paddle  # Use the paddle specified in the message ('player1' or 'player2')
-                    if not target_paddle:
-                        await self.send(text_data=json.dumps({'error': 'Paddle not specified in local mode'}))
-                        return
-                    if target_paddle not in ['player1', 'player2']:
-                        await self.send(text_data=json.dumps({'error': 'Invalid paddle specified'}))
-                        return
-
-                    if action == 'wStart':
-                        game_state[f'{target_paddle}_moving'] = 'up'
-                    elif action == 'wStop':
-                        if game_state.get(f'{target_paddle}_moving') == 'up':
-                            game_state[f'{target_paddle}_moving'] = None
-                    elif action == 'sStart':
-                        game_state[f'{target_paddle}_moving'] = 'down'
-                    elif action == 'sStop':
-                        if game_state.get(f'{target_paddle}_moving') == 'down':
-                            game_state[f'{target_paddle}_moving'] = None
-                    elif action == 'upStart':
-                        game_state[f'{target_paddle}_moving'] = 'up'
-                    elif action == 'upStop':
-                        if game_state.get(f'{target_paddle}_moving') == 'up':
-                            game_state[f'{target_paddle}_moving'] = None
-                    elif action == 'downStart':
-                        game_state[f'{target_paddle}_moving'] = 'down'
-                    elif action == 'downStop':
-                        if game_state.get(f'{target_paddle}_moving') == 'down':
-                            game_state[f'{target_paddle}_moving'] = None
-                else:
-                    await self.send(text_data=json.dumps({'error': f'Only player_1 can control paddles in local mode'}))
+            player = 'player1' if game['player_1'] == player_id else 'player2'
+            if game['game_opponent'] == 'local':
+                if player_id != game['player_1']:
                     return
+                target_paddle = paddle
+                if not target_paddle or target_paddle not in ['player1', 'player2']:
+                    logger.debug(f"Invalid paddle: {paddle}")
+                    return
+                if action in ['wStart', 'upStart']:
+                    game[f'{target_paddle}_moving'] = 'up'
+                elif action in ['wStop', 'upStop']:
+                    if game.get(f'{target_paddle}_moving') == 'up':
+                        game[f'{target_paddle}_moving'] = None
+                elif action in ['sStart', 'downStart']:
+                    game[f'{target_paddle}_moving'] = 'down'
+                elif action in ['sStop', 'downStop']:
+                    if game.get(f'{target_paddle}_moving') == 'down':
+                        game[f'{target_paddle}_moving'] = None
             else:
-                # Online mode: each player controls their own paddle
                 if action == 'upStart':
-                    game_state[f'{player}_moving'] = 'up'
+                    game[f'{player}_moving'] = 'up'
                 elif action == 'upStop':
-                    if game_state.get(f'{player}_moving') == 'up':
-                        game_state[f'{player}_moving'] = None
+                    if game.get(f'{player}_moving') == 'up':
+                        game[f'{player}_moving'] = None
                 elif action == 'downStart':
-                    game_state[f'{player}_moving'] = 'down'
+                    game[f'{player}_moving'] = 'down'
                 elif action == 'downStop':
-                    if game_state.get(f'{player}_moving') == 'down':
-                        game_state[f'{player}_moving'] = None
-
-        await self.send(text_data=json.dumps({'success': True}))
+                    if game.get(f'{player}_moving') == 'down':
+                        game[f'{player}_moving'] = None
 
     async def game_update_loop(self):
         try:
             from .views import games, game_update
         except ImportError as e:
-            print(f"Error importing views: {str(e)}")
+            logger.error(f"Error importing views in game_update_loop: {e}")
             return
-
-        async with games_lock:
-            game_state = games.get(self.game_id)
-
-        if not game_state:
-            return
-
-        score1 = game_state['score1']
-        score2 = game_state['score2']
-        await asyncio.sleep(1)
 
         frame_rate = 60
         frame_duration = 1 / frame_rate
@@ -230,63 +229,108 @@ class PongConsumer(AsyncWebsocketConsumer):
         while True:
             start_time = asyncio.get_event_loop().time()
 
-            game_state = await game_update(self.game_id)
-            if not game_state:
-                await self.channel_layer.group_discard(
-                    self.room_group_name,
-                    self.channel_name
-                )
-                break
+            async with games_lock:
+                game = games.get(self.game_id)
+                if not game:
+                    logger.warning(f"Game {self.game_id} not found in update loop")
+                    break
 
-            if game_state.get('status') == 'Done':
-                await self.channel_layer.group_send(
-                    self.room_group_name,
-                    {
-                        'type': 'game_state',
-                        'game_state': game_state
-                    }
-                )
-                await self.channel_layer.group_discard(
-                    self.room_group_name,
-                    self.channel_name
-                )
-                async with games_lock:
+                # Check for disconnection timeout
+                now = datetime.utcnow()
+                for player, status_key, disconnect_key, opponent_score_key in [
+                    ('player1', 'player1_status', 'player1_disconnect_time', 'score2'),
+                    ('player2', 'player2_status', 'player2_disconnect_time', 'score1')
+                ]:
+                    if game[status_key] == 'offline' and game[disconnect_key]:
+                        disconnect_duration = (now - game[disconnect_key]).total_seconds()
+                        if disconnect_duration > 5:
+                            # Opponent wins due to disconnection
+                            game[opponent_score_key] = 7  # Assuming 7 is the winning score
+                            game['status'] = 'Done'
+                            game['winner'] = game['player_2'] if player == 'player1' else game['player_1']
+                            logger.info(f"Player {game[player + '_1' if player == 'player1' else 'player_2']} disconnected for >5s, {game['winner']} wins game {self.game_id}")
+                            await self.channel_layer.group_send(
+                                self.room_group_name,
+                                {'type': 'game_state', 'game_state': game}
+                            )
+                            del games[self.game_id]
+                            return
+
+                # Update paddle positions
+                for player in ['player1', 'player2']:
+                    paddle = 'paddle1_y' if player == 'player1' else 'paddle2_y'
+                    if game.get(f'{player}_moving') == 'up':
+                        game[paddle] = max(0 + game['paddle_bounds_y'], game[paddle] - game['paddle_speed'])
+                    elif game.get(f'{player}_moving') == 'down':
+                        game[paddle] = min(1 - game['paddle_bounds_y'], game[paddle] + game['paddle_speed'])
+
+                # Normal game update
+                updated_game = await game_update(self.game_id)
+                if not updated_game:
+                    logger.warning(f"Game update failed for {self.game_id}")
+                    break
+                game.update(updated_game)
+
+                # Check for normal game end
+                if game.get('status') == 'Done':
+                    logger.info(f"Game {self.game_id} finished normally")
+                    await self.channel_layer.group_send(
+                        self.room_group_name,
+                        {'type': 'game_state', 'game_state': game}
+                    )
                     del games[self.game_id]
-                break
-
-            # Update paddle positions based on movement state
-            for player in ['player1', 'player2']:
-                paddle = 'paddle1_y' if player == 'player1' else 'paddle2_y'
-                if game_state.get(f'{player}_moving') == 'up':
-                    game_state[paddle] = max(0 + game_state['paddle_bounds_y'], game_state[paddle] - game_state['paddle_speed'])
-                elif game_state.get(f'{player}_moving') == 'down':
-                    game_state[paddle] = min(1 - game_state['paddle_bounds_y'], game_state[paddle] + game_state['paddle_speed'])
-
-            if score1 != game_state['score1'] or score2 != game_state['score2']:
-                score1 = game_state['score1']
-                score2 = game_state['score2']
+                    break
 
             await self.channel_layer.group_send(
                 self.room_group_name,
-                {
-                    'type': 'game_state',
-                    'game_state': game_state
-                }
+                {'type': 'game_state', 'game_state': game}
             )
 
-            end_time = asyncio.get_event_loop().time()
-            elapsed_time = end_time - start_time
-
+            elapsed_time = asyncio.get_event_loop().time() - start_time
             await asyncio.sleep(max(0, frame_duration - elapsed_time))
 
+    async def send_initial_state(self, game):
+        await self.send(text_data=json.dumps({
+            'type': 'initial_state',
+            'paddle1_x': game['paddle1_x'],
+            'paddle2_x': game['paddle2_x'],
+            'paddle1_y': game['paddle1_y'],
+            'paddle2_y': game['paddle2_y'],
+            'ball_x': game['ball_x'],
+            'ball_y': game['ball_y'],
+            'score1': game['score1'],
+            'score2': game['score2'],
+            'ball_bounds': game['ball_bounds'],
+            'paddle_bounds_x': game['paddle_bounds_x'],
+            'paddle_bounds_y': game['paddle_bounds_y'],
+            'game_opponent': game['game_opponent']
+        }))
+
     async def game_state(self, event):
-        game_send = event['game_state']
-        game_state = {
-            'ball_x': game_send['ball_x'],
-            'ball_y': game_send['ball_y'],
-            'paddle1_y': game_send['paddle1_y'],
-            'paddle2_y': game_send['paddle2_y'],
-            'score1': game_send['score1'],
-            'score2': game_send['score2']
+        game = event['game_state']
+        state = {
+            'type': 'game_state',
+            'ball_x': game['ball_x'],
+            'ball_y': game['ball_y'],
+            'paddle1_y': game['paddle1_y'],
+            'paddle2_y': game['paddle2_y'],
+            'score1': game['score1'],
+            'score2': game['score2'],
+            'paddle1_x': game['paddle1_x'],
+            'paddle2_x': game['paddle2_x'],
+            'ball_bounds': game['ball_bounds'],
+            'paddle_bounds_x': game['paddle_bounds_x'],
+            'paddle_bounds_y': game['paddle_bounds_y'],
+            'game_opponent': game['game_opponent']
         }
-        await self.send(text_data=json.dumps(game_state))
+        if game.get('status') == 'Done':
+            state['status'] = 'Done'
+            state['winner'] = game.get('winner', 'Unknown')  # Include winner if set
+        await self.send(text_data=json.dumps(state))
+
+    async def game_start(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'game_start',
+            'message': event['message'],
+            'game_id': event['game_id']
+        }))

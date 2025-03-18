@@ -198,10 +198,10 @@ function loadAuthenticatedLayout(contentPath) {
 
 function loadContentIntoLayout(path) {
     const contentContainer = document.querySelector('.content-wrapper');
-    const loader = document.querySelector('.loading-div');
-    if (!contentContainer || !loader) return;
+    // const loader = document.querySelector('.loading-div');
+    if (!contentContainer) return;
 
-    loader.classList.remove('fade-out');
+    // loader.classList.remove('fade-out');
     contentContainer.style.opacity = "0";
 
     const request = new XMLHttpRequest();
@@ -211,18 +211,18 @@ function loadContentIntoLayout(path) {
             contentContainer.innerHTML = request.responseText;
             updateStylesheet(`pages/${path}/${path}.css`);
             executePageScripts(path);
-            setTimeout(() => {
-                loader.classList.add('fade-out');
-                contentContainer.style.opacity = "1";
-            }, 1000);
+            contentContainer.style.opacity = "1";
+            // setTimeout(() => {
+            //     loader.classList.add('fade-out');
+            // }, 1000);
         } else {
             contentContainer.innerHTML = '<p>Error loading content</p>';
-            loader.classList.add('fade-out');
+            // loader.classList.add('fade-out');
         }
     };
     request.onerror = function () {
         contentContainer.innerHTML = '<p>Error loading content</p>';
-        loader.classList.add('fade-out');
+        // loader.classList.add('fade-out');
     };
     request.send();
 }
