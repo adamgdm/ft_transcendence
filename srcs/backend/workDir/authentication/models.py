@@ -7,6 +7,8 @@ def user_directory_path(instance, filename):
     # file will be uploaded to MEDIA_ROOT/user_<id>/<filename>
     return f'user_{instance.id}/{filename}'
 
+def generate_unique_ppp():
+    return(random.randint(1000, 1400))
 
 class Users(models.Model):
     class AccountStatusChoices(models.TextChoices):
@@ -38,10 +40,16 @@ class Users(models.Model):
     online_status = models.DateTimeField(auto_now_add=True)
     last_login = models.DateTimeField(null=True, blank=True)
     last_password_change = models.DateTimeField(null=True, blank=True)
-    ppp_rating = models.IntegerField(unique=True, default=lambda: random.randint(1000, 1400), db_index=True)
+    ppp_rating = models.IntegerField(unique=True, db_index=True)
     title = models.CharField(default="NEWBIE") #first is called a leader
-    win_ratio = models.IntegerField(default=0, null=False, blank=False)
     matches_played = models.IntegerField(default=0, null=False, blank=False)
+    win_ratio = models.IntegerField(default=0, null=False, blank=False)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Only set initial PPP if not provided and object is new
+        if not self.pk and not self.ppp_rating:
+            self.ppp_rating = generate_unique_ppp()
 
     def save(self, *args, **kwargs):
         # Ensure the ppp rating is unique
@@ -60,10 +68,11 @@ class Users(models.Model):
                 
     def update_ppp_ratings(self):
         user_with_highest_ppp = Users.objects.order_by('-ppp_rating').first()
-        if(self == user_with_highest_ppp and self.title == "CHALLENGER"):
-            self.title = "LEADER"
-        elif(self.ppp_rating >= 2000):
-            self.title = "CHALLENGER"
+        if(self.ppp_rating >= 2000):
+            if(self == user_with_highest_ppp):
+                self.title = "LEADER"
+            else:
+                self.title = "CHALLENGER"
         else:
             self.title = "NEWBIE"
 

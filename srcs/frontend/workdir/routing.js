@@ -46,6 +46,45 @@ window.routeToPage = function (path) {
 // Handle page load and hash changes
 window.onload = function () {
     const fragId = window.location.hash.substring(1) || 'story';
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');  // Get the 'code' query parameter from the URL
+
+    if (code) {
+        console.log(code)
+        // Now send the 'code' back to the backend for exchanging it for the user data
+        fetch('/api/oauth2/login/redirect/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ code: code }), // Send the code as JSON
+            credentials: 'include',
+        })
+        .then(response => {
+            console.log('Response status:', response.status);
+            if (response.status !== 200) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Login successful:', data);
+        
+            localStorage.setItem('isAuthenticated', 'true');
+            window.isAuthenticated = true;
+            // generate_jwt_token fix
+            window.location.hash = 'home';
+            const currentUrl = new URL(window.location);
+            currentUrl.searchParams.delete('code'); // Delete the 'code' parameter
+            window.history.replaceState({}, '', currentUrl.toString());
+            return ;
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Login failed: ' + error.message);
+        });
+    }
+
 
     // Reset isAuthenticated to false if loading the story page
     if (fragId === 'story') {

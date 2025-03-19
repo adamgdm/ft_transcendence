@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from backend import settings
 from django.core.mail import EmailMessage
 import math
+import re
 
 def UsernameValidator(user_name):
     if not user_name.isalnum():
@@ -127,3 +128,9 @@ def send_2fa_email_verification(mail, otp):
         logger.error(f'Failed to send email: {e}')
         return False
     return True
+
+def is_valid_email(email):
+    # Regex to check if email ends with @student.1337.ma
+    if re.match(r".+@student\.1337\.ma$", email):
+        return False  # Reject the email if it matches the pattern
+    return True  # Accept the email if it doesn't match
