@@ -196,7 +196,6 @@ function syncStateWithWebSocket() {
     console.log('syncStateWithWebSocket: Setting up listener');
     window.addEventListener('websocketMessage', (event) => {
         const data = event.detail;
-        console.log('syncStateWithWebSocket: Received:', data);
         switch (data.type) {
             case 'friend_request_sent':
                 pendingSentRequests.add(data.friend_username);
@@ -215,10 +214,8 @@ function syncStateWithWebSocket() {
                 break;
             case 'game_invite_sent':
                 // Optionally track sent invites if needed
-                console.log('syncStateWithWebSocket: Game invite sent to:', data.to_username);
                 break;
             default:
-                console.log('syncStateWithWebSocket: Unhandled type:', data.type);
         }
     });
 }
@@ -229,7 +226,6 @@ function isValidRoute(path) {
 }
 
 function loadAuthenticatedLayout(contentPath) {
-    console.log('loadAuthenticatedLayout:', contentPath);
     const content = document.getElementById('content');
     if (!content) {
         console.error('loadAuthenticatedLayout: Content element missing');
@@ -259,7 +255,6 @@ function loadAuthenticatedLayout(contentPath) {
 }
 
 function loadContentIntoLayout(path) {
-    console.log('loadContentIntoLayout:', path);
     const contentContainer = document.querySelector('.content-wrapper');
     if (!contentContainer) {
         console.error('loadContentIntoLayout: Content wrapper missing');
@@ -286,10 +281,8 @@ function loadContentIntoLayout(path) {
 }
 
 function setupSidebarNavigation() {
-    console.log('setupSidebarNavigation');
     document.querySelectorAll('.sidebar-menu div, .sidebar-actions div').forEach(item => {
         item.addEventListener('click', () => {
-            console.log('Sidebar click:', item.getAttribute('data-target'));
             handleNotifBtn(item);
             const target = item.getAttribute('data-target');
             if (target) {
@@ -307,7 +300,6 @@ function setupSidebarNavigation() {
 }
 
 function setupFriendsModal() {
-    console.log('setupFriendsModal');
     const waitForButton = setInterval(() => {
         const seeFriendsBtn = document.querySelector(".see-friends-btn");
         if (seeFriendsBtn) {
@@ -362,7 +354,6 @@ function setupFriendsModal() {
     }, 5000);
 
     function renderFriends(friends, container) {
-        console.log('renderFriends:', friends);
         container.innerHTML = '';
         if (!Array.isArray(friends) || friends.length === 0) {
             container.innerHTML = '<p>No friends found.</p>';
@@ -394,7 +385,6 @@ function setupFriendsModal() {
 document.addEventListener("DOMContentLoaded", setupFriendsModal);
 
 function setupSearchBar() {
-    console.log('setupSearchBar');
     const searchInput = document.getElementById('search-bar');
     const userSuggestionsBox = document.createElement('div');
     userSuggestionsBox.classList.add('user-suggestions');
@@ -513,7 +503,6 @@ function setupSearchBar() {
 }
 
 function handleNotifBtn(item) {
-    console.log('handleNotifBtn');
     const notifBar = document.querySelector('[layout="notifbar"]');
     if (item.classList.contains('notif')) {
         notifBar.classList.toggle('active');
@@ -527,7 +516,6 @@ function handleNotifBtn(item) {
 }
 
 function loadPage(path) {
-    console.log('loadPage:', path);
     const content = document.getElementById('content');
     const request = new XMLHttpRequest();
     request.open('GET', `pages/${path}/${path}.html`, true);
@@ -547,7 +535,6 @@ function loadPage(path) {
 }
 
 function updateStylesheet(href) {
-    console.log('updateStylesheet:', href);
     let linkTag = document.querySelector("link[data-section-style]");
     if (!linkTag) {
         linkTag = document.createElement("link");

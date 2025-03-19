@@ -54,18 +54,15 @@ function initializeWebSocket() {
     friendshipSocket.onmessage = (event) => {
         try {
             const data = JSON.parse(event.data);
-            console.log('onmessage: Received:', data);
 
             // Queue notifications for UI updates
             if (data.type && (data.type.includes('notification') || data.type.includes('pending'))) {
-                console.log('onmessage: Queuing notification:', data);
                 pendingNotifications.push(data);
                 processNotifications();
             }
 
             // Handle game invite acceptance for invitee
             if (data.type === 'game_invite_accepted') {
-                console.log('onmessage: Game invite accepted detected:', data);
                 const state = {
                     game_id: data.game_id,
                     from_username: data.from_username || sentInvites.get(String(data.invite_id))?.from_username || null,
@@ -74,8 +71,6 @@ function initializeWebSocket() {
                     user: currentUsername,
                     invite_id: data.invite_id
                 };
-                console.log(`onmessage: User ${currentUsername} navigating to #game, game_id: ${data.game_id}`);
-                console.log('onmessage: Setting state:', state);
                 window.location.hash = 'game';
                 window.history.replaceState(state, '', '#game');
                 window.routeToPage('game');
@@ -83,7 +78,6 @@ function initializeWebSocket() {
 
             // Handle game invite acceptance notification for inviter
             if (data.type === 'game_invite_accepted_notification') {
-                console.log('onmessage: Game invite accepted notification detected:', data);
                 const inviteIdStr = String(data.invite_id);
                 const isInviter = sentInvites.has(inviteIdStr);
                 if (isInviter) {
@@ -96,8 +90,6 @@ function initializeWebSocket() {
                         user: currentUsername,
                         invite_id: data.invite_id
                     };
-                    console.log(`onmessage: Inviter ${currentUsername} navigating to #game, game_id: ${data.game_id}`);
-                    console.log('onmessage: Setting state:', state);
                     window.location.hash = 'game';
                     window.history.replaceState(state, '', '#game');
                     window.routeToPage('game');
@@ -107,7 +99,6 @@ function initializeWebSocket() {
 
             // Track sent invites
             if (data.type === 'game_invite_sent') {
-                console.log('onmessage: Tracking sent invite:', data);
                 sentInvites.set(String(data.invite_id), {
                     from_username: currentUsername,
                     to_username: data.to_username,
@@ -123,16 +114,13 @@ function initializeWebSocket() {
 }
 
 function processNotifications() {
-    console.log('processNotifications: Starting, pending count:', pendingNotifications.length);
     const notifContainer = document.querySelector('[layout="notifbar"] .notif-container');
     if (!notifContainer) {
-        console.log('processNotifications: No container found, skipping');
         return;
     }
 
     while (pendingNotifications.length > 0) {
         const data = pendingNotifications.shift();
-        console.log('processNotifications: Processing:', data);
 
         switch (data.type) {
             case 'pending_friend_requests':
@@ -180,19 +168,16 @@ function processNotifications() {
                 }
                 break;
             case 'pong':
-                console.log('processNotifications: Pong received');
                 break;
             case 'error':
                 console.error('processNotifications: Server error:', data.message);
                 break;
             default:
-                console.log('processNotifications: Unhandled type:', data.type);
         }
     }
 }
 
 function appendFriendRequestNotification(container, fromUsername) {
-    console.log('appendFriendRequestNotification:', fromUsername);
     const notifItem = document.createElement('div');
     notifItem.className = 'notif-item';
     notifItem.innerHTML = `
@@ -206,7 +191,6 @@ function appendFriendRequestNotification(container, fromUsername) {
     const declineBtn = notifItem.querySelector('.decline-btn');
 
     const acceptHandler = async () => {
-        console.log('Accepting friend request from:', fromUsername);
         const result = await acceptFriendRequest(fromUsername);
         if (!result.error) notifItem.remove();
         acceptBtn.removeEventListener('click', acceptHandler);
@@ -214,7 +198,6 @@ function appendFriendRequestNotification(container, fromUsername) {
     };
 
     const declineHandler = async () => {
-        console.log('Declining friend request from:', fromUsername);
         const result = await rejectFriendRequest(fromUsername);
         if (!result.error) notifItem.remove();
         acceptBtn.removeEventListener('click', acceptHandler);
@@ -226,7 +209,6 @@ function appendFriendRequestNotification(container, fromUsername) {
 }
 
 function appendGameInviteNotification(container, fromUsername, gameMode, inviteId) {
-    console.log('appendGameInviteNotification:', { fromUsername, gameMode, inviteId });
     const notifItem = document.createElement('div');
     notifItem.className = 'notif-item';
     notifItem.innerHTML = `
@@ -244,7 +226,6 @@ function appendGameInviteNotification(container, fromUsername, gameMode, inviteI
             console.error('WebSocket not open, cannot accept invite');
             return;
         }
-        console.log('Sending accept_game_invite for invite_id:', inviteId);
         friendshipSocket.send(JSON.stringify({
             type: 'accept_game_invite',
             invite_id: inviteId,
@@ -261,7 +242,6 @@ function appendGameInviteNotification(container, fromUsername, gameMode, inviteI
             console.error('WebSocket not open, cannot decline invite');
             return;
         }
-        console.log('Sending reject_game_invite for invite_id:', inviteId);
         friendshipSocket.send(JSON.stringify({
             type: 'reject_game_invite',
             invite_id: inviteId
@@ -276,7 +256,6 @@ function appendGameInviteNotification(container, fromUsername, gameMode, inviteI
 }
 
 function sendGameInvite(toUsername, gameMode) {
-    console.log('sendGameInvite:', { toUsername, gameMode });
     if (!friendshipSocket || friendshipSocket.readyState !== WebSocket.OPEN) {
         console.error('sendGameInvite: WebSocket not open');
         return Promise.resolve({ error: 'WebSocket connection not open' });
@@ -291,7 +270,6 @@ function sendGameInvite(toUsername, gameMode) {
             try {
                 const data = JSON.parse(event.data);
                 if (data.type === 'game_invite_sent' && data.to_username === toUsername) {
-                    console.log('sendGameInvite: Invite sent, tracking:', data);
                     sentInvites.set(String(data.invite_id), {
                         from_username: currentUsername,
                         to_username: toUsername,
@@ -313,7 +291,6 @@ function sendGameInvite(toUsername, gameMode) {
 }
 
 function acceptGameInvite(inviteId, fromUsername, gameMode) {
-    console.log('acceptGameInvite: Manual acceptance for invite_id:', inviteId);
     if (!friendshipSocket || friendshipSocket.readyState !== WebSocket.OPEN) {
         console.error('acceptGameInvite: WebSocket not open, cannot accept invite');
         return Promise.resolve({ error: 'WebSocket connection not open' });
@@ -329,7 +306,6 @@ function acceptGameInvite(inviteId, fromUsername, gameMode) {
             try {
                 const data = JSON.parse(event.data);
                 if (data.type === 'game_invite_accepted' && data.invite_id === inviteId) {
-                    console.log('acceptGameInvite: Accepted, received confirmation:', data);
                     friendshipSocket.removeEventListener('message', handleMessage);
                     resolve({ message: 'Game invite accepted' });
                 } else if (data.type === 'error' && data.invite_id === inviteId) {
@@ -346,7 +322,6 @@ function acceptGameInvite(inviteId, fromUsername, gameMode) {
 }
 
 function sendFriendRequest(friendUsername) {
-    console.log('sendFriendRequest:', friendUsername);
     if (!friendshipSocket || friendshipSocket.readyState !== WebSocket.OPEN) {
         console.error('sendFriendRequest: WebSocket not open');
         return Promise.resolve({ error: 'WebSocket connection not open' });
@@ -375,7 +350,6 @@ function sendFriendRequest(friendUsername) {
 }
 
 function acceptFriendRequest(friendUsername) {
-    console.log('acceptFriendRequest:', friendUsername);
     if (!friendshipSocket || friendshipSocket.readyState !== WebSocket.OPEN) {
         console.error('acceptFriendRequest: WebSocket not open');
         return Promise.resolve({ error: 'WebSocket connection not open' });
@@ -404,7 +378,6 @@ function acceptFriendRequest(friendUsername) {
 }
 
 function rejectFriendRequest(friendUsername) {
-    console.log('rejectFriendRequest:', friendUsername);
     if (!friendshipSocket || friendshipSocket.readyState !== WebSocket.OPEN) {
         console.error('rejectFriendRequest: WebSocket not open');
         return Promise.resolve({ error: 'WebSocket connection not open' });
@@ -433,7 +406,6 @@ function rejectFriendRequest(friendUsername) {
 }
 
 function cancelFriendRequest(friendUsername) {
-    console.log('cancelFriendRequest:', friendUsername);
     if (!friendshipSocket || friendshipSocket.readyState !== WebSocket.OPEN) {
         console.error('cancelFriendRequest: WebSocket not open');
         return Promise.resolve({ error: 'WebSocket connection not open' });
