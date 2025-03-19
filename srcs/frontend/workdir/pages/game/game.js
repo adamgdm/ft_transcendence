@@ -1,7 +1,7 @@
 // frontend/game.js
 async function fetchLogin() {
     try {
-        const response = await fetch('https://localhost:8000/profile/', {
+        const response = await fetch('api/profile/', {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include'
@@ -322,7 +322,7 @@ export async function game() {
 
         if (playAgain) {
             playAgain.addEventListener("click", () => {
-                fetch('https://localhost:8000/create_game/', {
+                fetch('api/create_game/', {
                     method: 'POST',
                     credentials: 'include',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -353,7 +353,8 @@ export async function game() {
             return;
         }
 
-        const wsUrl = `wss://localhost:8000/ws/pong/${gameId}/`;
+        let wHost = window.location.host
+        const wsUrl = `wss://${wHost}/ws/pong/${gameId}/`;
         console.log("Attempting to connect to WebSocket at:", wsUrl);
         websocket = new WebSocket(wsUrl);
 

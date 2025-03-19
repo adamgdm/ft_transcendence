@@ -6,7 +6,8 @@ const currentUsername = localStorage.getItem('username');
 let pendingNotifications = [];
 
 function initializeWebSocket() {
-    const wsUrl = `wss://localhost:8000/ws/friendship/`;
+    let wHost = window.location.host
+    const wsUrl = `wss://${wHost}/ws/friendship/`;
     friendshipSocket = new WebSocket(wsUrl);
 
     friendshipSocket.onopen = () => {

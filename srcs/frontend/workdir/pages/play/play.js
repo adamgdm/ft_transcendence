@@ -3,7 +3,7 @@ import { friendshipSocket } from "../../globalWebsocket.js";
 
 async function fetchLogin() {
     try {
-        const response = await fetch('https://localhost:8000/profile/', {
+        const response = await fetch('api/profile/', {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include'
@@ -18,7 +18,7 @@ async function fetchLogin() {
 
 async function fetchFriendsList() {
     try {
-        const response = await fetch('https://localhost:8000/get_friends/', {
+        const response = await fetch('api/get_friends/', {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include'
@@ -33,7 +33,7 @@ async function fetchFriendsList() {
 
 // Create local game only
 function createLocalGame() {
-    return fetch('https://localhost:8000/create_game/', {
+    return fetch('api/create_game/', {
         method: 'POST',
         credentials: "include",
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

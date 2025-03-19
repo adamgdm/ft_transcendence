@@ -3,9 +3,13 @@ from . import views
 
 urlpatterns = [
     path('register/', views.register, name='register'),
+    path('delete_account/', views.delete_account, name='delete_account'),
     path('verify_email/', views.verify_email, name='verify_email'),
     path('login/', views.login, name='login'),
     path('login_otp/', views.login_otp, name='login_otp'),
+    path('oauth42/', views.oauth2, name='oauth2'),
+    path('oauth2/login/', views.oauth2_login, name='oauth2_login'),
+    path('oauth2/login/redirect/', views.oauth2_login_redirect, name='oauth2_redirect'),
     path('enable_2fa/', views.enable_2fa, name='enable_2fa'),
     path('disable_2fa/', views.disable_2fa, name='disable_2fa'),
     path('profile/', views.profile, name='profile'),

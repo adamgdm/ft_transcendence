@@ -17,7 +17,7 @@ async function login(username, password) {
     let body = `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
 
     try {  // Add try-catch for better error handling
-        const response = await fetch('https://localhost:8000/login/', {
+        const response = await fetch('/api/login/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
@@ -43,7 +43,7 @@ async function create_game(my_username, opponent_username, game_opponent) {
     let body = `player_1=${encodeURIComponent(my_username)}&player_2=${encodeURIComponent(opponent_username)}&game_opponent=${encodeURIComponent(game_opponent)}`;
 
     try {  // Add try-catch
-        const response = await fetch('https://localhost:8000/create_game/', {
+        const response = await fetch('/api/create_game/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'

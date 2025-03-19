@@ -8,13 +8,17 @@ import { settings } from "./pages/settings/settings.js";
 import { storyActions } from "./pages/story/index.js";
 import { scrollAction } from "./pages/story/scroll.js";
 
+const authenticatedPages = ['home', 'settings', 'shop', 'play', 'game'];
+
+// Initialize isAuthenticated from localStorage or default to false
+window.isAuthenticated = localStorage.getItem('isAuthenticated') === 'true' || false;
+console.log('Initial auth status:', window.isAuthenticated);
+
 // State management
-let isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
 let pendingSentRequests = new Set();
 let pendingReceivedRequests = new Set();
 let friendsList = new Set();
 
-const authenticatedPages = ['home', 'settings', 'shop', 'play', 'game'];
 
 // Initialize state from localStorage
 try {
@@ -46,42 +50,10 @@ function saveFriendsList() {
     }
 }
 
-window.onload = function () {
-    const fragId = window.location.hash.substring(1) || 'story';
-    routeToPage(fragId);
-
-    window.addEventListener('hashchange', () => {
-        const path = window.location.hash.substring(1) || 'story';
-        routeToPage(path);
-    });
-
-    if (isAuthenticated) {
-        initializeWebSocket();
-        syncStateWithWebSocket();
-    }
-}
-
-window.routeToPage = function (path) {
-    if (!isValidRoute(path)) {
-        loadPage('404');
-        return;
-    }
-
-    if (authenticatedPages.includes(path)) {
-        if (!isAuthenticated) {
-            window.location.hash = 'story';
-            return;
-        }
-        loadAuthenticatedLayout(path);
-    } else {
-        loadPage(path);
-    }
-};
-
 // API Functions
 async function fetchUsers(query) {
     try {
-        const url = `https://localhost:8000/search_users/?query=${encodeURIComponent(query)}`;
+        const url = `api/search_users/?query=${encodeURIComponent(query)}`;
         const response = await fetch(url, { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
         if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
         return (await response.json()).users || [];
@@ -93,7 +65,7 @@ async function fetchUsers(query) {
 
 async function fetchPendingReceivedRequests() {
     try {
-        const response = await fetch('https://localhost:8000/get_friend_requests/', { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
+        const response = await fetch('api/get_friend_requests/', { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
         if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
         return (await response.json()).requests || [];
     } catch (error) {
@@ -104,7 +76,7 @@ async function fetchPendingReceivedRequests() {
 
 async function fetchPendingSentRequests() {
     try {
-        const response = await fetch('https://localhost:8000/get_sent_friend_requests/', { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
+        const response = await fetch('api/get_sent_friend_requests/', { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
         if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
         return (await response.json()).sent_requests || [];
     } catch (error) {
@@ -115,7 +87,7 @@ async function fetchPendingSentRequests() {
 
 async function fetchFriendsList() {
     try {
-        const response = await fetch('https://localhost:8000/get_friends/', { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
+        const response = await fetch('api/get_friends/', { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
         if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
         return (await response.json()).friends || [];
     } catch (error) {
@@ -126,7 +98,7 @@ async function fetchFriendsList() {
 
 async function removeFriend(username) {
     try {
-        const response = await fetch('https://localhost:8000/remove_friend/', {
+        const response = await fetch('api/remove_friend/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -140,6 +112,65 @@ async function removeFriend(username) {
         return { error: 'Network error' };
     }
 }
+
+// Function to handle routing based on authentication status
+window.routeToPage = function (path) {
+    // Check if the route is valid
+    if (!isValidRoute(path)) {
+        loadPage('404'); // Load a 404 page for invalid routes
+        return;
+    }
+
+    // Redirect to story if the user is not authenticated and tries to access authenticated pages
+    if (authenticatedPages.includes(path) && !window.isAuthenticated) {
+        console.log('Unauthorized access. Redirecting to story.');
+        window.location.hash = 'story';
+        return;
+    }
+
+    // Redirect away from story if the user is authenticated
+    if (path === 'story' && window.isAuthenticated) {
+        console.log('Authenticated user trying to access story. Redirecting to home.');
+        window.location.hash = 'home';
+        return;
+    }
+
+    // Load the appropriate layout based on authentication
+    if (authenticatedPages.includes(path)) {
+        loadAuthenticatedLayout(path); // Load authenticated pages
+    } else {
+        loadPage(path); // Load non-authenticated pages (e.g., story)
+    }
+};
+
+// Handle page load and hash changes
+window.onload = function () {
+    const fragId = window.location.hash.substring(1) || 'story';
+
+    // Reset isAuthenticated to false if loading the story page
+    if (fragId === 'story') {
+        localStorage.setItem('isAuthenticated', 'false');
+        window.isAuthenticated = false;
+    }
+
+    console.log('Initial page:', fragId);
+    routeToPage(fragId);
+
+    // Listen for hash changes (e.g., user navigating to a new page)
+    window.addEventListener('hashchange', () => {
+        console.log('Hash changed:', window.location.hash);
+        window.isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+        console.log('Current auth status:', window.isAuthenticated);
+        const path = window.location.hash.substring(1) || 'story';
+        routeToPage(path);
+    });
+
+    
+    if (window.isAuthenticated) {
+        initializeWebSocket();
+        syncStateWithWebSocket();
+    }
+};
 
 // Sync state with WebSocket events
 function syncStateWithWebSocket() {
@@ -165,6 +196,7 @@ function syncStateWithWebSocket() {
     };
 }
 
+
 // Routing Functions
 function isValidRoute(path) {
     const validRoutes = ['story', 'home', 'play', 'shop', 'settings', '404', 'game'];
@@ -179,19 +211,20 @@ function loadAuthenticatedLayout(contentPath) {
         layoutRequest.onload = function () {
             if (layoutRequest.status === 200) {
                 content.innerHTML = layoutRequest.responseText;
-                console.log("Authenticated layout rendered");
                 loadContentIntoLayout(contentPath);
+
                 setupSidebarNavigation();
                 setupSearchBar();
             } else {
                 loadPage('404');
             }
         };
-        layoutRequest.onerror = function () {
+        layoutRequest.onerror = function() {
             loadPage('404');
         };
         layoutRequest.send();
-    } else {
+    }
+    else {
         loadContentIntoLayout(contentPath);
     }
 }
@@ -233,15 +266,26 @@ function setupSidebarNavigation() {
             handleNotifBtn(item);
             const target = item.getAttribute('data-target');
             if (target) {
+                if (target === '#story') {
+                    // Set isAuthenticated to false
+                    localStorage.setItem('isAuthenticated', 'false');
+                    window.isAuthenticated = false;
+                    console.log('User logged out. isAuthenticated set to false.');
+                }
+
+                // Remove 'clicked' class from all buttons
                 document.querySelectorAll('.sidebar-menu div, .sidebar-actions div')
                     .forEach(button => button.classList.remove('clicked'));
+
+                // Add 'clicked' class to the clicked button
                 item.classList.add('clicked');
+
+                // Change the window location hash to the target
                 window.location.hash = target;
             }
         });
     });
 }
-
 function setupFriendsModal() {
     const waitForButton = setInterval(() => {
         const seeFriendsBtn = document.querySelector(".see-friends-btn");
@@ -540,12 +584,15 @@ function executePageScripts(path) {
             scrollAction();
             break;
         case "play":
-            flip();
+            flip()
             setupFriendsModal();
-            break;
+            break
         case "home":
-            home();
-            break;
+            home()
+            break
+        case "settings":
+            settings()
+            break
         case "game":
             game();
             break;
