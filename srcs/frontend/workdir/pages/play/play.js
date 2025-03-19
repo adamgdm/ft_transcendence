@@ -1,4 +1,3 @@
-// frontend/play.js
 import { friendshipSocket } from "../../globalWebsocket.js";
 
 async function fetchLogin() {
@@ -29,16 +28,6 @@ async function fetchFriendsList() {
         console.error('Error fetching friends list:', error);
         return [];
     }
-}
-
-// Create local game only
-function createLocalGame() {
-    return fetch('api/create_game/', {
-        method: 'POST',
-        credentials: "include",
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: '' // Empty body for local game
-    });
 }
 
 export async function flip() {
@@ -327,26 +316,49 @@ export async function flip() {
         playLocallyButton.addEventListener('click', function (e) {
             e.stopPropagation();
             playLocallyButton.disabled = true;
-            createLocalGame()
-                .then(response => response.json().then(data => ({ ok: response.ok, data })))
-                .then(({ ok, data }) => {
-                    if (ok && data.game_id) {
-                        const state = { game_id: data.game_id, user: currentUsername };
+    
+            if (!friendshipSocket || friendshipSocket.readyState !== WebSocket.OPEN) {
+                console.error('WebSocket not open, cannot create local game');
+                alert('Connection error: Please try again later');
+                playLocallyButton.disabled = false;
+                return;
+            }
+    
+            friendshipSocket.send(JSON.stringify({
+                type: 'create_local_game',
+                user: currentUsername
+            }));
+    
+            const handleMessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log('playLocallyButton: Received:', data);
+    
+                    if (data.type === 'local_game_created' && data.user === currentUsername) {
+                        const state = {
+                            game_id: data.game_id,
+                            user: currentUsername,
+                            from_username: currentUsername,
+                            to_username: null,
+                            game_mode: 'local'  // Explicitly set for game.js
+                        };
                         console.log("Pushing state for local game:", state);
                         history.pushState(state, "", "#game");
                         window.routeToPage('game');
-                    } else {
-                        console.error("Local game creation failed:", data);
-                        alert("Failed to create local game: " + (data.error || "Unknown error"));
+                        friendshipSocket.removeEventListener('message', handleMessage);
+                    } else if (data.type === 'error' && data.user === currentUsername) {
+                        console.error('playLocallyButton: Error creating local game:', data.message);
+                        alert('Failed to create local game: ' + (data.message || 'Unknown error'));
+                        friendshipSocket.removeEventListener('message', handleMessage);
                     }
-                })
-                .catch(error => {
-                    console.error("Error creating local game:", error);
-                    alert("Error creating local game: " + error.message);
-                })
-                .finally(() => {
+                } catch (error) {
+                    console.error('playLocallyButton: Error parsing message:', error);
+                } finally {
                     playLocallyButton.disabled = false;
-                });
+                }
+            };
+    
+            friendshipSocket.addEventListener('message', handleMessage);
         });
         playLocallyButton.dataset.listenerAdded = 'true';
     }
