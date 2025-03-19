@@ -333,8 +333,8 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
             game_name = f"{from_user.user_name} vs {user.user_name}"
             game = Match.objects.create(
                 match_name=game_name,
-                player_1=user,  # Acceptor
-                player_2=from_user,  # Inviter
+                player_1=user,
+                player_2=from_user, 
                 game_opponent='online'
             )
             invite.status = GameInvites.GameInviteStatus.ACCEPTED
