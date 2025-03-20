@@ -1,4 +1,3 @@
-// frontend/play.js
 import { friendshipSocket } from "../../globalWebsocket.js";
 
 async function fetchLogin() {
@@ -31,16 +30,6 @@ async function fetchFriendsList() {
     }
 }
 
-// Create local game only
-function createLocalGame() {
-    return fetch('api/create_game/', {
-        method: 'POST',
-        credentials: "include",
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: '' // Empty body for local game
-    });
-}
-
 export async function flip() {
     let allFriends = [];
     let sentInvites = [];
@@ -49,63 +38,9 @@ export async function flip() {
 
     if (!currentUsername) {
         console.error("Failed to fetch username or not logged in, redirecting to login");
-        history.pushState({}, "", "#login");
         window.routeToPage('story');
         return;
     }
-
-    window.addEventListener('websocketMessage', (event) => {
-        const data = event.detail;
-        switch (data.type) {
-            case 'pending_game_invites':
-                receivedInvites = data.invites;
-                renderFriends(allFriends, friendSearch.value.trim().toLowerCase(), sentInvites, receivedInvites);
-                break;
-            case 'new_game_invite_notification':
-                receivedInvites.push({
-                    invite_id: data.invite_id,
-                    from_username: data.from_username,
-                    game_mode: data.game_mode,
-                    status: 'pending'
-                });
-                renderFriends(allFriends, friendSearch.value.trim().toLowerCase(), sentInvites, receivedInvites);
-                break;
-            case 'game_invite_sent':
-                sentInvites.push({
-                    invite_id: data.invite_id,
-                    to_username: data.to_username,
-                    status: 'pending'
-                });
-                renderFriends(allFriends, friendSearch.value.trim().toLowerCase(), sentInvites, receivedInvites);
-                break;
-            case 'game_invite_accepted':
-            case 'game_invite_accepted_notification':
-                const gameId = data.game_id;
-                sentInvites = sentInvites.map(invite =>
-                    invite.invite_id === data.invite_id ? { ...invite, status: 'accepted', game_id: gameId } : invite
-                );
-                receivedInvites = receivedInvites.map(invite =>
-                    invite.invite_id === data.invite_id ? { ...invite, status: 'accepted', game_id: gameId } : invite
-                );
-                const state = { game_id: gameId, user: currentUsername };
-                console.log("Pushing state for online game start:", state);
-                history.pushState(state, "", "#game");
-                window.routeToPage('game');
-                break;
-            case 'game_invite_rejected':
-                receivedInvites = receivedInvites.filter(invite => invite.invite_id !== data.invite_id);
-                renderFriends(allFriends, friendSearch.value.trim().toLowerCase(), sentInvites, receivedInvites);
-                break;
-            case 'game_invite_rejected_notification':
-                sentInvites = sentInvites.filter(invite => invite.invite_id !== data.invite_id);
-                renderFriends(allFriends, friendSearch.value.trim().toLowerCase(), sentInvites, receivedInvites);
-                break;
-            case 'game_invite_error':
-                console.error('Game invite error:', data.error);
-                alert(`Game invite error: ${data.error}`);
-                break;
-        }
-    });
 
     const play1v1Inner = document.querySelector('.play1v1-inner');
     if (play1v1Inner && !play1v1Inner.dataset.listenerAdded) {
@@ -381,26 +316,49 @@ export async function flip() {
         playLocallyButton.addEventListener('click', function (e) {
             e.stopPropagation();
             playLocallyButton.disabled = true;
-            createLocalGame()
-                .then(response => response.json().then(data => ({ ok: response.ok, data })))
-                .then(({ ok, data }) => {
-                    if (ok && data.game_id) {
-                        const state = { game_id: data.game_id, user: currentUsername };
+    
+            if (!friendshipSocket || friendshipSocket.readyState !== WebSocket.OPEN) {
+                console.error('WebSocket not open, cannot create local game');
+                alert('Connection error: Please try again later');
+                playLocallyButton.disabled = false;
+                return;
+            }
+    
+            friendshipSocket.send(JSON.stringify({
+                type: 'create_local_game',
+                user: currentUsername
+            }));
+    
+            const handleMessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log('playLocallyButton: Received:', data);
+    
+                    if (data.type === 'local_game_created' && data.user === currentUsername) {
+                        const state = {
+                            game_id: data.game_id,
+                            user: currentUsername,
+                            from_username: currentUsername,
+                            to_username: null,
+                            game_mode: 'local'  // Explicitly set for game.js
+                        };
                         console.log("Pushing state for local game:", state);
                         history.pushState(state, "", "#game");
                         window.routeToPage('game');
-                    } else {
-                        console.error("Local game creation failed:", data);
-                        alert("Failed to create local game: " + (data.error || "Unknown error"));
+                        friendshipSocket.removeEventListener('message', handleMessage);
+                    } else if (data.type === 'error' && data.user === currentUsername) {
+                        console.error('playLocallyButton: Error creating local game:', data.message);
+                        alert('Failed to create local game: ' + (data.message || 'Unknown error'));
+                        friendshipSocket.removeEventListener('message', handleMessage);
                     }
-                })
-                .catch(error => {
-                    console.error("Error creating local game:", error);
-                    alert("Error creating local game: " + error.message);
-                })
-                .finally(() => {
+                } catch (error) {
+                    console.error('playLocallyButton: Error parsing message:', error);
+                } finally {
                     playLocallyButton.disabled = false;
-                });
+                }
+            };
+    
+            friendshipSocket.addEventListener('message', handleMessage);
         });
         playLocallyButton.dataset.listenerAdded = 'true';
     }

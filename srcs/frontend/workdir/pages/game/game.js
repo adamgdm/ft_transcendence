@@ -201,7 +201,6 @@ export async function game() {
     }
 
     function handleKeyDown(event) {
-        console.log("Key down event:", event.key);
         if (gameMode === 'local') {
             if (event.key === 'w' && !keyState['w']) {
                 keyState['w'] = true;
@@ -228,7 +227,6 @@ export async function game() {
     }
 
     function handleKeyUp(event) {
-        console.log("Key up event:", event.key);
         if (gameMode === 'local') {
             if (event.key === 'w' && keyState['w']) {
                 keyState['w'] = false;
@@ -255,7 +253,6 @@ export async function game() {
     }
 
     function attachKeyListeners() {
-        console.log("Attaching key event listeners");
         document.removeEventListener('keydown', handleKeyDown);
         document.removeEventListener('keyup', handleKeyUp);
         document.addEventListener('keydown', handleKeyDown);
@@ -382,7 +379,6 @@ export async function game() {
 
             if (game_state.game_opponent) {
                 gameMode = game_state.game_opponent;
-                console.log("Game mode set to:", gameMode);
             }
 
             if (!initialStateReceived) {

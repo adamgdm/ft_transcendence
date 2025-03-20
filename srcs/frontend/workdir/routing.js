@@ -1,5 +1,3 @@
-// routing.js
-
 import { initializeWebSocket, sendFriendRequest, acceptFriendRequest, rejectFriendRequest, cancelFriendRequest, isConnected, closeConnection } from "./globalWebsocket.js";
 import { game } from "./pages/game/game.js";
 import { home } from "./pages/home/home.js";
@@ -10,17 +8,13 @@ import { scrollAction } from "./pages/story/scroll.js";
 
 const authenticatedPages = ['home', 'settings', 'shop', 'play', 'game'];
 
-// Initialize isAuthenticated from localStorage or default to false
 window.isAuthenticated = localStorage.getItem('isAuthenticated') === 'true' || false;
-console.log('Initial auth status:', window.isAuthenticated);
+console.log('Initial isAuthenticated:', window.isAuthenticated);
 
-// State management
 let pendingSentRequests = new Set();
 let pendingReceivedRequests = new Set();
 let friendsList = new Set();
 
-
-// Initialize state from localStorage
 try {
     const savedSentRequests = localStorage.getItem('pendingFriendRequests');
     if (savedSentRequests) pendingSentRequests = new Set(JSON.parse(savedSentRequests));
@@ -28,12 +22,13 @@ try {
     if (savedReceivedRequests) pendingReceivedRequests = new Set(JSON.parse(savedReceivedRequests));
     const savedFriends = localStorage.getItem('friendsList');
     if (savedFriends) friendsList = new Set(JSON.parse(savedFriends));
+    console.log('Loaded state:', { pendingSentRequests: [...pendingSentRequests], pendingReceivedRequests: [...pendingReceivedRequests], friendsList: [...friendsList] });
 } catch (error) {
-    console.error('Error loading data from localStorage:', error);
+    console.error('Error loading from localStorage:', error);
 }
 
-// Save state to localStorage
 function savePendingRequests() {
+    console.log('savePendingRequests');
     try {
         localStorage.setItem('pendingFriendRequests', JSON.stringify([...pendingSentRequests]));
         localStorage.setItem('pendingReceivedRequests', JSON.stringify([...pendingReceivedRequests]));
@@ -43,6 +38,7 @@ function savePendingRequests() {
 }
 
 function saveFriendsList() {
+    console.log('saveFriendsList');
     try {
         localStorage.setItem('friendsList', JSON.stringify([...friendsList]));
     } catch (error) {
@@ -50,13 +46,17 @@ function saveFriendsList() {
     }
 }
 
-// API Functions
 async function fetchUsers(query) {
+    console.log('fetchUsers:', query);
     try {
-        const url = `api/search_users/?query=${encodeURIComponent(query)}`;
-        const response = await fetch(url, { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
-        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-        return (await response.json()).users || [];
+        const response = await fetch(`api/search_users/?query=${encodeURIComponent(query)}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+        });
+        if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+        const data = await response.json();
+        return data.users || [];
     } catch (error) {
         console.error('Error fetching users:', error);
         return [];
@@ -64,10 +64,16 @@ async function fetchUsers(query) {
 }
 
 async function fetchPendingReceivedRequests() {
+    console.log('fetchPendingReceivedRequests');
     try {
-        const response = await fetch('api/get_friend_requests/', { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
-        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-        return (await response.json()).requests || [];
+        const response = await fetch('api/get_friend_requests/', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+        });
+        if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+        const data = await response.json();
+        return data.requests || [];
     } catch (error) {
         console.error('Error fetching received requests:', error);
         return [];
@@ -75,10 +81,16 @@ async function fetchPendingReceivedRequests() {
 }
 
 async function fetchPendingSentRequests() {
+    console.log('fetchPendingSentRequests');
     try {
-        const response = await fetch('api/get_sent_friend_requests/', { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
-        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-        return (await response.json()).sent_requests || [];
+        const response = await fetch('api/get_sent_friend_requests/', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+        });
+        if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+        const data = await response.json();
+        return data.sent_requests || [];
     } catch (error) {
         console.error('Error fetching sent requests:', error);
         return [];
@@ -86,10 +98,16 @@ async function fetchPendingSentRequests() {
 }
 
 async function fetchFriendsList() {
+    console.log('fetchFriendsList');
     try {
-        const response = await fetch('api/get_friends/', { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
-        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-        return (await response.json()).friends || [];
+        const response = await fetch('api/get_friends/', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+        });
+        if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+        const data = await response.json();
+        return data.friends || [];
     } catch (error) {
         console.error('Error fetching friends list:', error);
         return [];
@@ -97,6 +115,7 @@ async function fetchFriendsList() {
 }
 
 async function removeFriend(username) {
+    console.log('removeFriend:', username);
     try {
         const response = await fetch('api/remove_friend/', {
             method: 'POST',
@@ -105,7 +124,6 @@ async function removeFriend(username) {
             body: JSON.stringify({ friend_username: username })
         });
         const data = await response.json();
-        console.log(data.message || data.error);
         return data;
     } catch (error) {
         console.error('Error removing friend:', error);
@@ -113,69 +131,71 @@ async function removeFriend(username) {
     }
 }
 
-// Function to handle routing based on authentication status
+function handleAuthStateChange() {
+    window.isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+    console.log('handleAuthStateChange: isAuthenticated=', window.isAuthenticated);
+    if (window.isAuthenticated) {
+        console.log('handleAuthStateChange: Initializing WebSocket');
+        initializeWebSocket();
+        syncStateWithWebSocket();
+    } else {
+        console.log('handleAuthStateChange: Closing WebSocket');
+        closeConnection();
+    }
+}
+
 window.routeToPage = function (path) {
-    // Check if the route is valid
+    console.log('routeToPage:', path);
     if (!isValidRoute(path)) {
-        loadPage('404'); // Load a 404 page for invalid routes
+        console.log('routeToPage: Invalid route, loading 404');
+        loadPage('404');
         return;
     }
 
-    // Redirect to story if the user is not authenticated and tries to access authenticated pages
     if (authenticatedPages.includes(path) && !window.isAuthenticated) {
-        console.log('Unauthorized access. Redirecting to story.');
+        console.log('routeToPage: Unauthorized, redirecting to #story');
         window.location.hash = 'story';
         return;
     }
 
-    // Redirect away from story if the user is authenticated
     if (path === 'story' && window.isAuthenticated) {
-        console.log('Authenticated user trying to access story. Redirecting to home.');
+        console.log('routeToPage: Authenticated user on story, redirecting to #home');
         window.location.hash = 'home';
         return;
     }
 
-    // Load the appropriate layout based on authentication
+    console.log('routeToPage: Proceeding to load:', path);
     if (authenticatedPages.includes(path)) {
-        loadAuthenticatedLayout(path); // Load authenticated pages
+        loadAuthenticatedLayout(path);
     } else {
-        loadPage(path); // Load non-authenticated pages (e.g., story)
+        loadPage(path);
     }
 };
 
-// Handle page load and hash changes
 window.onload = function () {
     const fragId = window.location.hash.substring(1) || 'story';
+    console.log('onload: Initial fragment:', fragId);
 
-    // Reset isAuthenticated to false if loading the story page
     if (fragId === 'story') {
         localStorage.setItem('isAuthenticated', 'false');
         window.isAuthenticated = false;
+        console.log('onload: Reset isAuthenticated for story');
     }
 
-    console.log('Initial page:', fragId);
+    handleAuthStateChange();
     routeToPage(fragId);
 
-    // Listen for hash changes (e.g., user navigating to a new page)
     window.addEventListener('hashchange', () => {
-        console.log('Hash changed:', window.location.hash);
-        window.isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
-        console.log('Current auth status:', window.isAuthenticated);
         const path = window.location.hash.substring(1) || 'story';
+        console.log('hashchange:', path);
         routeToPage(path);
     });
-
-    
-    if (window.isAuthenticated) {
-        initializeWebSocket();
-        syncStateWithWebSocket();
-    }
 };
 
-// Sync state with WebSocket events
 function syncStateWithWebSocket() {
-    WebSocket.onmessage = (event) => {
-        const data = JSON.parse(event.data);
+    console.log('syncStateWithWebSocket: Setting up listener');
+    window.addEventListener('websocketMessage', (event) => {
+        const data = event.detail;
         switch (data.type) {
             case 'friend_request_sent':
                 pendingSentRequests.add(data.friend_username);
@@ -192,12 +212,14 @@ function syncStateWithWebSocket() {
                 pendingSentRequests.delete(data.friend_username);
                 savePendingRequests();
                 break;
+            case 'game_invite_sent':
+                // Optionally track sent invites if needed
+                break;
+            default:
         }
-    };
+    });
 }
 
-
-// Routing Functions
 function isValidRoute(path) {
     const validRoutes = ['story', 'home', 'play', 'shop', 'settings', '404', 'game'];
     return validRoutes.includes(path);
@@ -205,57 +227,55 @@ function isValidRoute(path) {
 
 function loadAuthenticatedLayout(contentPath) {
     const content = document.getElementById('content');
+    if (!content) {
+        console.error('loadAuthenticatedLayout: Content element missing');
+        return;
+    }
+
     if (!document.querySelector('.layout-container')) {
         const layoutRequest = new XMLHttpRequest();
-        layoutRequest.open('GET', 'layout/authenticated-layout.html');
+        layoutRequest.open('GET', 'layout/authenticated-layout.html', true);
         layoutRequest.onload = function () {
             if (layoutRequest.status === 200) {
                 content.innerHTML = layoutRequest.responseText;
                 loadContentIntoLayout(contentPath);
-
                 setupSidebarNavigation();
                 setupSearchBar();
             } else {
                 loadPage('404');
             }
         };
-        layoutRequest.onerror = function() {
+        layoutRequest.onerror = function () {
             loadPage('404');
         };
         layoutRequest.send();
-    }
-    else {
+    } else {
         loadContentIntoLayout(contentPath);
     }
 }
 
 function loadContentIntoLayout(path) {
     const contentContainer = document.querySelector('.content-wrapper');
-    // const loader = document.querySelector('.loading-div');
-    if (!contentContainer) return;
+    if (!contentContainer) {
+        console.error('loadContentIntoLayout: Content wrapper missing');
+        return;
+    }
 
-    // loader.classList.remove('fade-out');
-    contentContainer.style.opacity = "0";
-
+    contentContainer.style.opacity = '0';
     const request = new XMLHttpRequest();
-    request.open('GET', `pages/${path}/${path}.html`);
+    request.open('GET', `pages/${path}/${path}.html`, true);
     request.onload = function () {
         if (request.status === 200) {
             contentContainer.innerHTML = request.responseText;
             updateStylesheet(`pages/${path}/${path}.css`);
             executePageScripts(path);
-            contentContainer.style.opacity = "1";
-            // setTimeout(() => {
-            //     loader.classList.add('fade-out');
-            // }, 1000);
+            contentContainer.style.opacity = '1';
         } else {
             contentContainer.innerHTML = '<p>Error loading content</p>';
-            // loader.classList.add('fade-out');
         }
     };
     request.onerror = function () {
         contentContainer.innerHTML = '<p>Error loading content</p>';
-        // loader.classList.add('fade-out');
     };
     request.send();
 }
@@ -267,71 +287,23 @@ function setupSidebarNavigation() {
             const target = item.getAttribute('data-target');
             if (target) {
                 if (target === '#story') {
-                    // Set isAuthenticated to false
                     localStorage.setItem('isAuthenticated', 'false');
                     window.isAuthenticated = false;
-                    console.log('User logged out. isAuthenticated set to false.');
+                    handleAuthStateChange();
                 }
-
-                // Remove 'clicked' class from all buttons
-                document.querySelectorAll('.sidebar-menu div, .sidebar-actions div')
-                    .forEach(button => button.classList.remove('clicked'));
-
-                // Add 'clicked' class to the clicked button
+                document.querySelectorAll('.sidebar-menu div, .sidebar-actions div').forEach(button => button.classList.remove('clicked'));
                 item.classList.add('clicked');
-
-                // Change the window location hash to the target
                 window.location.hash = target;
             }
         });
     });
 }
+
 function setupFriendsModal() {
     const waitForButton = setInterval(() => {
         const seeFriendsBtn = document.querySelector(".see-friends-btn");
         if (seeFriendsBtn) {
             clearInterval(waitForButton);
-
-            function renderFriends(friends, container) {
-                container.innerHTML = '';
-                if (!Array.isArray(friends) || friends.length === 0) {
-                    container.innerHTML = '<p>No friends found.</p>';
-                    return;
-                }
-                friends.forEach((friend, index) => {
-                    const username = typeof friend === 'string' ? friend : friend.username || friend.name || `Friend ${index + 1}`;
-                    if (!username) return;
-
-                    const friendItem = document.createElement('div');
-                    friendItem.classList.add('friend-item');
-
-                    const img = document.createElement('img');
-                    img.src = "https://cdn-icons-png.flaticon.com/512/147/147144.png";
-                    img.alt = `${username} image`;
-
-                    const name = document.createElement('p');
-                    name.textContent = username;
-
-                    const removeButton = document.createElement('button');
-                    removeButton.classList.add('remove-friend');
-                    removeButton.textContent = 'Remove Friend';
-                    removeButton.addEventListener('click', async (e) => {
-                        e.stopPropagation();
-                        const result = await removeFriend(username);
-                        if (!result.error) {
-                            friendsList.delete(username);
-                            saveFriendsList();
-                            renderFriends([...friendsList].filter(f => f.toLowerCase().startsWith(searchBar.value.trim().toLowerCase())), container);
-                        }
-                    });
-
-                    friendItem.appendChild(img);
-                    friendItem.appendChild(name);
-                    friendItem.appendChild(removeButton);
-                    container.appendChild(friendItem);
-                });
-            }
-
             seeFriendsBtn.addEventListener("click", async () => {
                 let friendsModal = document.getElementById("friends-modal");
                 if (!friendsModal) {
@@ -355,15 +327,10 @@ function setupFriendsModal() {
                 friendsModal.style.opacity = "1";
                 friendsModal.style.visibility = "visible";
 
-                try {
-                    const friends = await fetchFriendsList();
-                    friendsList = new Set(friends.map(f => f.username));
-                    saveFriendsList();
-                    renderFriends([...friendsList], friendsListContainer);
-                } catch (error) {
-                    console.error('Error loading friends list:', error);
-                    friendsListContainer.innerHTML = '<p>Error loading friends.</p>';
-                }
+                const friends = await fetchFriendsList();
+                friendsList = new Set(friends.map(f => f.username));
+                saveFriendsList();
+                renderFriends([...friendsList], friendsListContainer);
 
                 closeBtn.addEventListener("click", () => {
                     friendsModal.style.opacity = "0";
@@ -383,8 +350,36 @@ function setupFriendsModal() {
 
     setTimeout(() => {
         clearInterval(waitForButton);
-        console.error("Timed out waiting for .see-friends-btn");
+        console.error('setupFriendsModal: Timed out waiting for .see-friends-btn');
     }, 5000);
+
+    function renderFriends(friends, container) {
+        container.innerHTML = '';
+        if (!Array.isArray(friends) || friends.length === 0) {
+            container.innerHTML = '<p>No friends found.</p>';
+            return;
+        }
+        friends.forEach((friend) => {
+            const username = typeof friend === 'string' ? friend : friend.username;
+            const friendItem = document.createElement('div');
+            friendItem.classList.add('friend-item');
+            friendItem.innerHTML = `
+                <img src="https://cdn-icons-png.flaticon.com/512/147/147144.png" alt="${username} image">
+                <p>${username}</p>
+                <button class="remove-friend">Remove Friend</button>
+            `;
+            friendItem.querySelector('.remove-friend').addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const result = await removeFriend(username);
+                if (!result.error) {
+                    friendsList.delete(username);
+                    saveFriendsList();
+                    renderFriends([...friendsList].filter(f => f.toLowerCase().startsWith(searchBar.value.trim().toLowerCase())), container);
+                }
+            });
+            container.appendChild(friendItem);
+        });
+    }
 }
 
 document.addEventListener("DOMContentLoaded", setupFriendsModal);
@@ -425,21 +420,15 @@ function setupSearchBar() {
             users.slice(0, 3).forEach(user => {
                 const suggestionDiv = document.createElement('div');
                 suggestionDiv.classList.add('suggestion-item');
-
-                const usernameText = document.createElement('span');
-                usernameText.textContent = user.username;
-                usernameText.addEventListener('click', () => {
+                suggestionDiv.innerHTML = `<span>${user.username}</span>`;
+                suggestionDiv.querySelector('span').addEventListener('click', () => {
                     searchInput.value = user.username;
                     userSuggestionsBox.style.display = 'none';
                 });
 
-                suggestionDiv.appendChild(usernameText);
-
                 if (friendsList.has(user.username)) {
-                    const removeButton = document.createElement('button');
-                    removeButton.classList.add('remove-btn');
-                    removeButton.textContent = 'Remove';
-                    removeButton.onclick = async (e) => {
+                    suggestionDiv.innerHTML += `<button class="remove-btn">Remove</button>`;
+                    suggestionDiv.querySelector('.remove-btn').onclick = async (e) => {
                         e.stopPropagation();
                         const result = await removeFriend(user.username);
                         if (!result.error) {
@@ -448,12 +437,12 @@ function setupSearchBar() {
                             handleSearchInput();
                         }
                     };
-                    suggestionDiv.appendChild(removeButton);
                 } else if (pendingReceivedRequests.has(user.username)) {
-                    const acceptButton = document.createElement('button');
-                    acceptButton.classList.add('accept-btn');
-                    acceptButton.textContent = 'Accept';
-                    acceptButton.onclick = async (e) => {
+                    suggestionDiv.innerHTML += `
+                        <button class="accept-btn">Accept</button>
+                        <button class="ignore-btn">Ignore</button>
+                    `;
+                    suggestionDiv.querySelector('.accept-btn').onclick = async (e) => {
                         e.stopPropagation();
                         const result = await acceptFriendRequest(user.username);
                         if (!result.error) {
@@ -464,11 +453,7 @@ function setupSearchBar() {
                             handleSearchInput();
                         }
                     };
-
-                    const ignoreButton = document.createElement('button');
-                    ignoreButton.classList.add('ignore-btn');
-                    ignoreButton.textContent = 'Ignore';
-                    ignoreButton.onclick = async (e) => {
+                    suggestionDiv.querySelector('.ignore-btn').onclick = async (e) => {
                         e.stopPropagation();
                         const result = await rejectFriendRequest(user.username);
                         if (!result.error) {
@@ -477,14 +462,9 @@ function setupSearchBar() {
                             handleSearchInput();
                         }
                     };
-
-                    suggestionDiv.appendChild(acceptButton);
-                    suggestionDiv.appendChild(ignoreButton);
                 } else if (pendingSentRequests.has(user.username)) {
-                    const cancelButton = document.createElement('button');
-                    cancelButton.classList.add('cancel-btn');
-                    cancelButton.textContent = 'Cancel';
-                    cancelButton.onclick = async (e) => {
+                    suggestionDiv.innerHTML += `<button class="cancel-btn">Cancel</button>`;
+                    suggestionDiv.querySelector('.cancel-btn').onclick = async (e) => {
                         e.stopPropagation();
                         const result = await cancelFriendRequest(user.username);
                         if (!result.error) {
@@ -493,12 +473,9 @@ function setupSearchBar() {
                             handleSearchInput();
                         }
                     };
-                    suggestionDiv.appendChild(cancelButton);
                 } else {
-                    const addButton = document.createElement('button');
-                    addButton.classList.add('add-btn');
-                    addButton.textContent = 'Add';
-                    addButton.onclick = async (e) => {
+                    suggestionDiv.innerHTML += `<button class="add-btn">Add</button>`;
+                    suggestionDiv.querySelector('.add-btn').onclick = async (e) => {
                         e.stopPropagation();
                         const result = await sendFriendRequest(user.username);
                         if (!result.error) {
@@ -507,14 +484,14 @@ function setupSearchBar() {
                             handleSearchInput();
                         }
                     };
-                    suggestionDiv.appendChild(addButton);
                 }
 
                 userSuggestionsBox.appendChild(suggestionDiv);
             });
+            userSuggestionsBox.style.display = 'block';
+        } else {
+            userSuggestionsBox.style.display = 'none';
         }
-
-        userSuggestionsBox.style.display = userSuggestionsBox.children.length > 0 ? 'block' : 'none';
     }, 300);
 
     searchInput.addEventListener('input', handleSearchInput);
@@ -533,37 +510,28 @@ function handleNotifBtn(item) {
             item.classList.remove('clicked');
         }
     } else {
-        hideNotifBar(notifBar);
+        notifBar.classList.remove('active');
         item.classList.remove('clicked');
     }
 }
 
-function hideNotifBar(bar) {
-    bar.classList.remove('active');
-}
-
 function loadPage(path) {
     const content = document.getElementById('content');
-    try {
-        const request = new XMLHttpRequest();
-        request.open('GET', `pages/${path}/${path}.html`);
-        request.onload = function () {
-            if (request.status === 200) {
-                content.innerHTML = request.responseText;
-                updateStylesheet(`pages/${path}/${path}.css`);
-                executePageScripts(path);
-            } else {
-                loadPage('404');
-            }
-        };
-        request.onerror = function () {
+    const request = new XMLHttpRequest();
+    request.open('GET', `pages/${path}/${path}.html`, true);
+    request.onload = function () {
+        if (request.status === 200) {
+            content.innerHTML = request.responseText;
+            updateStylesheet(`pages/${path}/${path}.css`);
+            executePageScripts(path);
+        } else {
             loadPage('404');
-        };
-        request.send();
-    } catch (error) {
-        console.log("Error loading page:", error);
+        }
+    };
+    request.onerror = function () {
         loadPage('404');
-    }
+    };
+    request.send();
 }
 
 function updateStylesheet(href) {
@@ -578,25 +546,26 @@ function updateStylesheet(href) {
 }
 
 function executePageScripts(path) {
+    console.log('executePageScripts:', path);
     switch (path) {
         case "story":
             storyActions();
             scrollAction();
             break;
         case "play":
-            flip()
+            flip();
             setupFriendsModal();
-            break
+            break;
         case "home":
-            home()
-            break
+            home();
+            break;
         case "settings":
-            settings()
-            break
+            settings();
+            break;
         case "game":
             game();
             break;
-        default:
-            break;
     }
 }
+
+export { handleAuthStateChange };
