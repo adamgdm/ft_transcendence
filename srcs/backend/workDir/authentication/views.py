@@ -273,6 +273,9 @@ def profile(request):
             'email': user.email,
             'bio_description': user.bio_description,
             'profile_picture_url': user.profile_picture_url.url if user.profile_picture_url else None,
+            'profile_pic_42': user.profile_pic_42,
+            'has_profile_pic': bool(user.has_profile_pic),
+            'has_42_image': bool(user.has_42_image),
             'account_status': user.account_status,
             'two_factor_enabled': user.two_factor_enabled,
             'registration_date': user.registration_date,
@@ -301,8 +304,16 @@ def another_user_profile(request):
             'email': user.email,
             'bio_description': user.bio_description,
             'profile_picture_url': user.profile_picture_url.url if user.profile_picture_url else None,
+            'profile_pic_42': user.profile_pic_42,
+            'has_profile_pic': bool(user.has_profile_pic),
+            'has_42_image': bool(user.has_42_image),
             'account_status': user.account_status,
             'two_factor_enabled': user.two_factor_enabled,
+            # has_42_image has_profile_pic
+            #      0              0           ==>  blank
+            #      0              1           ==>  (image) profile_pic_url     
+            #      1              0           ==>  (url) profile_pic_42
+            #      1              1           ==> 
             'registration_date': user.registration_date,
             'online_status': user.online_status,
             'last_login': user.last_login,
@@ -324,6 +335,8 @@ def add_profile_picture(request):
 
         user = Users.objects.get(id=request.user_id)
         user.profile_picture_url = profile_pic
+        user.has_profile_pic = True
+        user.has_42_image = False
         user.save()
 
         return JsonResponse({'message': 'Profile picture updated successfully'}, status=200)
@@ -890,6 +903,8 @@ def exchange_code(code):
                     'profile_pic_42': user_data.get('image').get("link"),
                     'intra_url': user_data.get('url'),
                     'oauth2_authentified': True,
+                    'has_42_image': True,
+                    'has_profile_pic': False,
                     'last_login': timezone.now(),
                     # Add any other fields you want to store
                 }

@@ -90,11 +90,11 @@ def update_ppp_ratings(player1, player2, result):
 
     # Update player1's rating
     player1.ppp_rating = calculate_ppp(player1_rating, player2_rating, result)
-    player1.save()
+    # player1.save()
 
     # Update player2's rating
     player2.ppp_rating = calculate_ppp(player2_rating, player1_rating, 1 - result)
-    player2.save()
+    # player2.save()
 
 
 # example of using these functions

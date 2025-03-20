@@ -5,6 +5,7 @@ export function home() {
     const player_title = document.querySelector('[profileElement="player_title"]')
     const win_ratio = document.querySelector('[profileElement="win_ratio"]')
     const matches_played = document.querySelector('[profileElement="matches_played"]')
+    const profile_pic = document.querySelector('[profileElement="picture"] img')
     
     fetch('/api/profile/', {
         method: "GET",
@@ -36,6 +37,19 @@ export function home() {
         }
         if(matches_played) {
             matches_played.textContent = userData.matches_played;
+        }
+        if(profile_pic) {
+            let image_path;
+            if(userData.has_42_image == false && userData.has_profile_pic == false){
+                image_path = "https://articles-images.sftcdn.net/wp-content/uploads/sites/3/2016/01/wallpaper-for-facebook-profile-photo.jpg"
+            }
+            else if(userData.has_42_image == true && userData.has_profile_pic == false){
+                image_path = userData.profile_pic_42;
+            }
+            else if(userData.has_42_image == false && userData.has_profile_pic == true){
+                image_path = userData.profile_picture_url;
+            }
+            profile_pic.src = image_path;
         }
     })
     .catch(error => {

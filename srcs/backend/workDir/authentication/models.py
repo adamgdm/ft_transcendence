@@ -32,9 +32,10 @@ class Users(models.Model):
     account_status = models.CharField(max_length=15, choices=AccountStatusChoices.choices, default=AccountStatusChoices.ACTIVE)
     two_factor_enabled = models.BooleanField(default=False)
     two_factor_info = models.OneToOneField('TwoFactorData', on_delete=models.CASCADE, null=True, blank=True)
-    oauth2_authentified = models.BooleanField(default=False) #just added
     oauth2_data = models.OneToOneField('Oauth2AuthenticationData', on_delete=models.CASCADE, null=True, blank=True)
-
+    has_profile_pic = models.BooleanField(default=False, blank=False)
+    has_42_image = models.BooleanField(default=False, blank=False)
+    oauth2_authentified = models.BooleanField(default=False, blank=False) #just added
     is_Email_Verified = models.BooleanField(default=False)
     registration_date = models.DateTimeField(auto_now_add=True)
     online_status = models.DateTimeField(auto_now_add=True)
@@ -43,6 +44,7 @@ class Users(models.Model):
     ppp_rating = models.IntegerField(unique=True, db_index=True)
     title = models.CharField(default="NEWBIE") #first is called a leader
     matches_played = models.IntegerField(default=0, null=False, blank=False)
+    matches_won = models.IntegerField(default=0, null=False, blank=False)
     win_ratio = models.IntegerField(default=0, null=False, blank=False)
 
     def __init__(self, *args, **kwargs):
