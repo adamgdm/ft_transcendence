@@ -134,6 +134,12 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
                 await self.handle_reject_game_invite(data)
             elif message_type == "create_local_game":
                 await self.handle_create_local_game(data)
+            elif message_type == "create_tournament":
+                await self.handle_create_tournament(data)
+            elif message_type == "accept_tournament_invite":
+                await self.handle_accept_tournament_invite(data)
+            elif message_type == "start_tournament":
+                await self.handle_start_tournament(data)
             else:
                 logger.warning(f"Unknown message type: {message_type}")
         except json.JSONDecodeError:

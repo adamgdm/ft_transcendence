@@ -11,6 +11,7 @@ import json
 
 games = {}
 
+
 def create_new_game(player_1, player_2=None, game_opponent='local'):
     return {
         'ball_x': 0.5,

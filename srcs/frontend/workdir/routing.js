@@ -139,7 +139,6 @@ function handleAuthStateChange() {
         initializeWebSocket();
         syncStateWithWebSocket();
     } else {
-        console.log('handleAuthStateChange: Closing WebSocket');
         closeConnection();
     }
 }

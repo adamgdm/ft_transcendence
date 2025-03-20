@@ -46,6 +46,8 @@
         </div>
     </div>
     
+
+    <!-- Back of the card -->
     <div class="playTourn-card" mode="tourn">
         <div class="playTourn-inner">
             <!-- Front of the card -->
@@ -54,42 +56,19 @@
                 <h1>Tournament</h1>
                 <h2>Conquer the tournament and seize the throne as Universal Leader!</h2>
             </div>
-    
+
             <!-- Back of the card -->
             <div class="playTourn-face playTourn-back">
                 <h1>Tournament</h1>
-                <div class="buttons">
-                    <div class="create-tourn">
-                        <i class="fa-solid fa-crown"></i>
-                        <span>Create Tournament</span>
-                        <i class="fa-solid fa-chevron-right"></i>
-                    </div>
-                    <div class="join-tourn">
-                        <i class="fa-solid fa-users-line"></i>
-                        <span>Join Tournament</span>
-                        <i class="fa-solid fa-chevron-right"></i>
-                    </div>
+                <input type="text" id="tournFriendSearch" class="search-bar" placeholder="Search friends to invite...">
+                <div class="play-tournament-button buttons">
+                    <span>Start Tournament</span>
                 </div>
-                <div class="tourn-created">
-                    <h2>Tournament Created!</h2>
-                    <span>share this code with your players</span>
-                    <div class="code-generated">
-                        <h4>153658</h4>
-                        <i class="copy-btn fa-solid fa-copy"></i>
-                    </div>
-                    <h3 class="cancel-btn">Cancel</h3>
-                </div>
-                <div class="tourn-joined">
-                    <h2>Join tournament</h2>
-                    <span>Enter the tournament code</span>
-                    <form>
-                        <input class="tourn-code" type="text">
-                    </form>
-                    <button>join Tournament</button>
-                    <h3 class="cancel-btn">Cancel</h3>
-                </div>
+                <ul id="tournFriendsList">
+
+                </ul>
             </div>
         </div>
     </div>
-    
+
 </div>

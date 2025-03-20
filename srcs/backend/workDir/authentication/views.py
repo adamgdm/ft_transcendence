@@ -500,11 +500,7 @@ def modify_password(request):
 @check_auth
 def logout(request):
     if request.method == 'POST':
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return JsonResponse({'error': 'Authorization header missing'}, status=401)
         
-        token = auth_header.split(' ')[1]
         LoggedOutTokens.objects.create(token=token)
         return JsonResponse({'message': 'Logged out successfully'}, status=200)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
@@ -534,6 +530,7 @@ def update_profile(request):
             
         # Save changes
         user.save()
+        user.refresh_from_db()
         return JsonResponse({'success': True})
 
     return JsonResponse({'success': False, 'error': 'Invalid request method'})

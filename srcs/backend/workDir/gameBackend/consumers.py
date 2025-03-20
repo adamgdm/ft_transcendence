@@ -251,7 +251,7 @@ class PongConsumer(AsyncWebsocketConsumer):
                 ]:
                     if game[status_key] == 'offline' and game[disconnect_key]:
                         disconnect_duration = (now - game[disconnect_key]).total_seconds()
-                        if disconnect_duration > 5:
+                        if disconnect_duration > 7:
                             game[opponent_score_key] = 7
                             game['status'] = 'Done'
                             game['winner'] = game['player_2'] if player == 'player1' else game['player_1']
@@ -338,3 +338,4 @@ class PongConsumer(AsyncWebsocketConsumer):
             'message': event['message'],
             'game_id': event['game_id']
         }))
+

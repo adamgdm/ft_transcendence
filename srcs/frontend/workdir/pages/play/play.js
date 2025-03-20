@@ -240,10 +240,178 @@ export async function flip() {
         playTournInner.dataset.listenerAdded = 'true';
     }
 
+    const tournFriendSearch = document.querySelector('#tournFriendSearch');
+    const tournFriendsList = document.querySelector('#tournFriendsList');
+    // Removed startTournamentButton since the tournament starts automatically
+
+    let invitedFriends = new Set();
+    let tournamentId = null;
+
+    function renderTournamentFriends(friends, query) {
+        tournFriendsList.innerHTML = '';
+        const filteredFriends = friends.filter(friend =>
+            friend.username.toLowerCase().startsWith(query) && friend.username !== currentUsername
+        );
+        if (filteredFriends.length === 0) {
+            tournFriendsList.innerHTML = '<li>No friends found</li>';
+            return;
+        }
+
+        filteredFriends.forEach(friend => {
+            const li = document.createElement('li');
+            li.textContent = friend.username;
+
+            const inviteBtn = document.createElement('button');
+            inviteBtn.textContent = invitedFriends.has(friend.username) ? 'Invited' : 'Invite';
+            inviteBtn.classList.add('invite-btn');
+            if (!invitedFriends.has(friend.username) && invitedFriends.size < 3) {
+                inviteBtn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    friendshipSocket.send(JSON.stringify({
+                        type: 'send_game_invite',
+                        to_username: friend.username,
+                        game_mode: 'tournament',
+                        tournament_id: tournamentId
+                    }));
+                    invitedFriends.add(friend.username);
+                    inviteBtn.textContent = 'Invited';
+                    inviteBtn.disabled = true;
+                });
+            } else {
+                inviteBtn.disabled = true;
+            }
+            li.appendChild(inviteBtn);
+            tournFriendsList.appendChild(li);
+        });
+    }
+
+    if (tournFriendSearch && tournFriendsList && !tournFriendSearch.dataset.listenerAdded) {
+        tournFriendSearch.addEventListener('focus', async function (e) {
+            e.stopPropagation();
+            if (allFriends.length === 0) {
+                allFriends = await fetchFriendsList();
+            }
+            renderTournamentFriends(allFriends, this.value.trim().toLowerCase());
+            tournFriendsList.style.display = 'block';
+        });
+
+        tournFriendSearch.addEventListener('blur', function (e) {
+            setTimeout(() => {
+                if (!tournFriendsList.contains(document.activeElement)) {
+                    tournFriendsList.style.display = 'none';
+                }
+            }, 100);
+        });
+
+        tournFriendSearch.addEventListener('input', function (e) {
+            renderTournamentFriends(allFriends, this.value.trim().toLowerCase());
+        });
+
+        tournFriendSearch.dataset.listenerAdded = 'true';
+    }
+
+    // WebSocket message handler
+    friendshipSocket.addEventListener('message', (event) => {
+        const data = JSON.parse(event.data);
+        switch (data.type) {
+            case 'game_invite_sent':
+                sentInvites.push({
+                    to_username: data.to_username,
+                    invite_id: data.invite_id,
+                    status: 'pending',
+                    tournament_id: data.tournament_id || null
+                });
+                renderFriends(allFriends, friendSearch.value.trim().toLowerCase(), sentInvites, receivedInvites);
+                if (data.tournament_id) {
+                    renderTournamentFriends(allFriends, tournFriendSearch.value.trim().toLowerCase());
+                }
+                break;
+            case 'new_game_invite_notification':
+                receivedInvites.push({
+                    invite_id: data.invite_id,
+                    from_username: data.from_username,
+                    status: 'pending',
+                    tournament_id: data.tournament_id || null
+                });
+                renderFriends(allFriends, friendSearch.value.trim().toLowerCase(), sentInvites, receivedInvites);
+                break;
+            case 'game_invite_accepted':
+                const sentInvite = sentInvites.find(i => i.invite_id === data.invite_id);
+                if (sentInvite) {
+                    sentInvite.status = 'accepted';
+                    sentInvite.game_id = data.game_id;
+                }
+                renderFriends(allFriends, friendSearch.value.trim().toLowerCase(), sentInvites, receivedInvites);
+                const stateOnline = { game_id: data.game_id, user: currentUsername };
+                history.pushState(stateOnline, "", "#game");
+                window.routeToPage('game');
+                break;
+            case 'game_invite_rejected':
+                sentInvites = sentInvites.filter(i => i.invite_id !== data.invite_id);
+                renderFriends(allFriends, friendSearch.value.trim().toLowerCase(), sentInvites, receivedInvites);
+                break;
+            case 'tournament_created':
+                tournamentId = data.tournament_id;
+                invitedFriends = new Set(data.invited_usernames);
+                renderTournamentFriends(allFriends, tournFriendSearch.value.trim().toLowerCase());
+                break;
+            case 'tournament_invite_accepted':
+                if (data.tournament_id === tournamentId) {
+                    // Update UI if needed, e.g., show waiting message
+                    tournFriendsList.innerHTML = '<li>Waiting for all participants to join...</li>';
+                }
+                break;
+            case 'tournament_match_start':
+                const state = {
+                    game_id: data.game_id,
+                    user: currentUsername,
+                    from_username: data.player_1,
+                    to_username: data.player_2,
+                    game_mode: 'online'
+                };
+                history.pushState(state, "", "#game");
+                window.routeToPage('game');
+                break;
+            case 'tournament_completed':
+                alert(`Tournament ${data.tournament_id} completed! Champion: ${data.champion}`);
+                invitedFriends.clear();
+                tournamentId = null;
+                tournFriendsList.innerHTML = '';
+                const buttons = document.querySelector('.buttons');
+                const tournCreated = document.querySelector('.tourn-created');
+                if (buttons && tournCreated) {
+                    tournCreated.style.display = 'none';
+                    buttons.style.display = 'flex';
+                }
+                break;
+            case 'tournament_error':
+                alert(`Tournament error: ${data.error}`);
+                break;
+            case 'local_game_created':
+                if (data.user === currentUsername) {
+                    const stateLocal = {
+                        game_id: data.game_id,
+                        user: currentUsername,
+                        from_username: currentUsername,
+                        to_username: null,
+                        game_mode: 'local'
+                    };
+                    history.pushState(stateLocal, "", "#game");
+                    window.routeToPage('game');
+                }
+                break;
+        }
+    });
+
     const createTourn = document.querySelector('.create-tourn');
     if (createTourn && !createTourn.dataset.listenerAdded) {
         createTourn.addEventListener('click', function (e) {
             e.stopPropagation();
+            friendshipSocket.send(JSON.stringify({
+                type: 'create_tournament',
+                tournament_name: `${currentUsername}'s Tournament`,
+                invited_usernames: []
+            }));
             const buttons = document.querySelector('.buttons');
             const tournCreated = document.querySelector('.tourn-created');
             if (buttons && tournCreated) {
@@ -252,6 +420,8 @@ export async function flip() {
                 tournCreated.style.flexDirection = 'column';
                 tournCreated.style.alignItems = 'center';
                 tournCreated.style.justifyContent = 'center';
+                tournFriendSearch.style.display = 'block';
+                tournFriendsList.style.display = 'block';
             }
         });
         createTourn.dataset.listenerAdded = 'true';
@@ -316,49 +486,18 @@ export async function flip() {
         playLocallyButton.addEventListener('click', function (e) {
             e.stopPropagation();
             playLocallyButton.disabled = true;
-    
+
             if (!friendshipSocket || friendshipSocket.readyState !== WebSocket.OPEN) {
                 console.error('WebSocket not open, cannot create local game');
                 alert('Connection error: Please try again later');
                 playLocallyButton.disabled = false;
                 return;
             }
-    
+
             friendshipSocket.send(JSON.stringify({
                 type: 'create_local_game',
                 user: currentUsername
             }));
-    
-            const handleMessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    console.log('playLocallyButton: Received:', data);
-    
-                    if (data.type === 'local_game_created' && data.user === currentUsername) {
-                        const state = {
-                            game_id: data.game_id,
-                            user: currentUsername,
-                            from_username: currentUsername,
-                            to_username: null,
-                            game_mode: 'local'  // Explicitly set for game.js
-                        };
-                        console.log("Pushing state for local game:", state);
-                        history.pushState(state, "", "#game");
-                        window.routeToPage('game');
-                        friendshipSocket.removeEventListener('message', handleMessage);
-                    } else if (data.type === 'error' && data.user === currentUsername) {
-                        console.error('playLocallyButton: Error creating local game:', data.message);
-                        alert('Failed to create local game: ' + (data.message || 'Unknown error'));
-                        friendshipSocket.removeEventListener('message', handleMessage);
-                    }
-                } catch (error) {
-                    console.error('playLocallyButton: Error parsing message:', error);
-                } finally {
-                    playLocallyButton.disabled = false;
-                }
-            };
-    
-            friendshipSocket.addEventListener('message', handleMessage);
         });
         playLocallyButton.dataset.listenerAdded = 'true';
     }
