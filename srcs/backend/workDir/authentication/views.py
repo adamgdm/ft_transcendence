@@ -114,13 +114,25 @@ def send_otp_email_change(request):
             return JsonResponse({'error': 'User not found'}, status=404)
         
         try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'could not fetch data'}, status=400)
+
+        email = data.get('email', '').strip()
+        validator = EmailValidator()
+        try:
+            validator(email)
+        except ValidationError:
+            return JsonResponse({'error': 'Invalid email format'}, status=400)
+
+        try:
             user.otp_password = random.randint(100000, 999999)
             user.otp_expiry = timezone.now() + timedelta(minutes=5)
             user.save()
         except Exception as e: 
             return JsonResponse({'error': 'Error generating OTP'}, status=400)
         
-        if not send_2fa_email(user.email, user.otp_password, 2):  # Fixed: use user.email
+        if not send_2fa_email(email, user.otp_password, 2):  # Fixed: use user.email
             return JsonResponse({'error': 'Could not send email OTP'}, status=400)
         
         return JsonResponse({'message': 'Email verification sent'}, status=200)
@@ -170,7 +182,7 @@ def delete_account(request):
             user = Users.objects.get(email=email)
             if user.is_Email_Verified is False:
                 user.delete()
-            else
+            else:
                 return JsonResponse({'error': 'Account verified'}, status=400)
         except Exception as e: 
             return JsonResponse({'error': f'An error occured: {e}'}, status=400)
