@@ -79,7 +79,7 @@ def send_otp_pass(request):
         except json.JSONDecodeError:
             return JsonResponse({'error': 'could not fetch data'}, status=400)
 
-        email = data.get('email', '').strip()
+        email = data.get('email')
         if not email:
             return JsonResponse({'error': 'Missing fields'}, status=400)
 

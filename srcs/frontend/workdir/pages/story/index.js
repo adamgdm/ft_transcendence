@@ -329,38 +329,190 @@ export function storyActions() {
         });
     });
 
+    function isValidEmail(email) {
+        const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return re.test(email);
+    }
+
+    // Define variables to track if event listeners are already set up
+    let forgotPasswordListenersInitialized = false;
+
+    // Define these functions outside any event handler
+    function showStep(stepNumber, steps) {
+        steps.forEach(step => {
+            step.classList.add("hidden");
+            if (step.getAttribute('for-step') == stepNumber) {
+                step.classList.remove("hidden");
+            }
+        });
+    }
+
     // Event listener for the FORGOT PASSWORD button in login modal
     loginForBtn.addEventListener('click', () => {
         hideModal(loginModal);
         displayModal(forgotPassModal);
         forgotPassForm.reset();
         
+        // Only set up the event listeners if they haven't been set up before
+        if (!forgotPasswordListenersInitialized) {
+            initializeForgotPasswordFlow();
+            forgotPasswordListenersInitialized = true;
+        }
+        
+        // Always reset to step 1 when opening the modal
+        const steps = document.querySelectorAll("[for-step]");
+        showStep(1, steps);
+    });
+
+    // Function to initialize all the forgot password step listeners
+    function initializeForgotPasswordFlow() {
+        // Get step elements
+        const forgotPassModal = document.querySelector('[data-modal="forgot-password"]');
         const steps = document.querySelectorAll("[for-step]");
         let currentStep = 1;
-        showStep(currentStep);
+        
+        // Send verification code button
+        document.getElementById("sendCode").addEventListener("click", async () => {
+            const email = document.getElementById("forgot-mail").value;
 
-        function showStep(stepNumber) {
-            steps.forEach(step => {
-                step.classList.add("hidden");
-                if (step.getAttribute('for-step') == stepNumber) {
-                    step.classList.remove("hidden");
+            if (!email || !isValidEmail(email)) {
+                console.log("Please enter a valid email address");
+                showError(forgotPassModal, "Please enter a valid email address", false);
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/send_otp_pass/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 'email': email })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showError(forgotPassModal, 'OTP sent successfully', true);
+                    currentStep = 2;
+                    showStep(currentStep, steps);
+                } else {
+                    showError(forgotPassModal, data.error || 'Failed to send OTP', false);
                 }
-            });
+            } catch (error) {
+                console.error('Error:', error);
+                showError(forgotPassModal, 'An error occurred while sending OTP', false);
+            }
+        });
+
+        // Verify code button
+        document.getElementById("verifyCode").addEventListener("click", async () => {
+            const email = document.getElementById("forgot-mail").value;
+            const otp = document.getElementById("reset-code").value;
+
+            if (!email || !otp) {
+                showError(forgotPassModal, "Please enter your email and OTP.", false);
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/verify_email/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        email: email,
+                        code: otp 
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showError(forgotPassModal, 'OTP verified successfully', true);
+                    currentStep = 3;
+                    showStep(currentStep, steps);
+                } else {
+                    showError(forgotPassModal, data.error || 'Invalid OTP or email', false);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showError(forgotPassModal, 'An error occurred while verifying OTP', false);
+            }
+        });
+
+        // Reset password button
+        document.getElementById("resetPassword").addEventListener("click", async () => {
+            const email = document.getElementById("forgot-mail").value;
+            const newPassword = document.getElementById("new-password").value;
+            const confirmPassword = document.getElementById("confirm-password").value;
+            
+
+            if (newPassword !== confirmPassword) {
+                showError(forgotPassModal, "Passwords do not match.", false);
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/forgot_password/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        email: email,
+                        new_password: newPassword 
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showError(forgotPassModal, 'Password reset successfully', true);
+                    setTimeout(() => {
+                        currentStep = 1;
+                        hideModal(forgotPassModal);
+                    }, 500);
+                } else {
+                    showError(forgotPassModal, data.error || 'Failed to reset password', false);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showError(forgotPassModal, 'An error occurred while resetting password', false);
+            }
+        });
+    }
+
+    function showError(modalSelector, message, isSuccess = false) {
+        const errorModal = modalSelector.querySelector(".modal #errorModal");
+        const errorMessage = modalSelector.querySelector(".modal #errorMessage");
+    
+        if (!errorModal || !errorMessage) {
+            console.error("Error Modal or Message not found!");
+            return;
         }
+    
+        errorMessage.textContent = message;
+    
+        errorModal.classList.remove("success", "failure");
+    
+        if (isSuccess) {
+            errorModal.classList.add("success");
+        } else {
+            errorModal.classList.add("failure");
+        }
+    
+        errorModal.style.opacity = "1";
+        errorModal.style.visibility = 'visible'
+    
+        setTimeout(() => {
+            errorModal.style.opacity = "0";
+            errorModal.style.visibility = 'hidden'
+            errorModal.style.transition = "opacity 0.3s ease-in-out, visibility 0.3s ease-in-out";
+        }, 3000);
+    }
+    
+    
 
-        document.getElementById("sendCode").addEventListener("click", () => {
-            currentStep = 2;
-            showStep(currentStep);
-        });
-
-        document.getElementById("verifyCode").addEventListener("click", () => {
-            currentStep = 3;
-            showStep(currentStep);
-        });
-
-        document.getElementById("resetPassword").addEventListener("click", () => {
-            currentStep = 1;
-            hideModal(forgotPassModal);
-        });
-    });
 }
