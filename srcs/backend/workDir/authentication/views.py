@@ -664,6 +664,19 @@ def get_friends(request):
 
 @csrf_exempt
 @check_auth
+def check_settings_password(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        password = data.get('password')
+        user = Users.objects.get(id=request.user_id)
+        if check_password(password, user.password_hash):
+            return JsonResponse({'success': True}, status=200)
+        else:
+            return JsonResponse({'success': False}, status=200)
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+@csrf_exempt
+@check_auth
 def accept_friend(request):
     if request.method == 'POST':
         try:

@@ -183,26 +183,45 @@ submitCodeBtn.addEventListener('click', function(event) {
             return; // Stop form submission entirely if email is not verified
         }
         
-        // If we get here, the email is either unchanged or verified
-        const personalInfoPromise = updatePersonalInfo();
-        if (personalInfoPromise) promises.push(personalInfoPromise);
+
         
-        // If password was entered, update password
-        if (document.getElementById('currentPassword').value) {
-            const passwordPromise = updatePassword();
-            if (passwordPromise) promises.push(passwordPromise);
-        }
-        
-        const otpPromise = updateOTPSetting();
-        if (otpPromise) promises.push(otpPromise);
-        
-        Promise.all(promises)
-            .then(() => {
-                // Only reset the form if all promises resolve successfully
-                // form.reset();
-                showNotification('Settings updated successfully', 'success');
-                
-                // Reset email verification state after successful submission
+        let personalResult, passwordResult, otpResult; // Store results for later use
+
+        // Chain promises sequentially
+        updatePersonalInfo()
+            .then(result => {
+                personalResult = result; // Save the result
+                console.log('Personal info result:', personalResult);
+                if (document.getElementById('currentPassword').value) {
+                    return updatePassword()
+                            .then(passwordResult => {
+                                // Check if password update was successful
+                                if (!passwordResult || passwordResult.error) {
+                                    throw new Error(passwordResult.error || 'Password update failed');
+                                }
+                                return passwordResult;
+                            });;
+                }
+                return Promise.resolve({ skipped: true }); // Skip password if no input
+            })
+            .then(result => {
+                passwordResult = result; // Save the result
+                console.log('Password result:', passwordResult);
+                return updateOTPSetting(); // Always call OTP update (no conditional skip here)
+            })
+            .then(result => {
+                otpResult = result; // Save the result
+                console.log('OTP result:', otpResult);
+                // Only show success if at least one update occurred
+                if (
+                    (personalResult && !personalResult.skipped) ||
+                    (passwordResult && !passwordResult.skipped) ||
+                    (otpResult && !otpResult.skipped)
+                ) {
+                    showNotification('Settings updated successfully', 'success');
+                } else {
+                    showNotification('No changes were made', 'info');
+                }
                 emailInput.setAttribute('data-original-email', emailInput.value);
                 emailInput.classList.remove('verified-email');
                 emailInput.removeAttribute('readonly');
@@ -211,14 +230,15 @@ submitCodeBtn.addEventListener('click', function(event) {
                 verifyEmailBtn.disabled = false;
             })
             .catch(error => {
-                showNotification('An error occurred', 'error');
+                console.error('Error in updates:', error);
+                showNotification('An error occurred: ' + error.message, 'error');
             })
             .finally(() => {
                 isSubmitting = false;
                 submitBtn.disabled = false;
                 submitBtn.textContent = originalBtnText;
             });
-    });
+});
     
     /**********************
      * Profile Updates *
@@ -235,7 +255,10 @@ submitCodeBtn.addEventListener('click', function(event) {
         Object.keys(formData).forEach(key => { if (!formData[key]) delete formData[key]; });
         
         // If no form data, return without doing anything
-        if (Object.keys(formData).length === 0) return;
+        if (Object.keys(formData).length === 0) {
+            console.log('Empty fields in settings form')
+            return Promise.resolve({ skipped: true})
+        }
         
         console.log("Form data being sent to backend:", JSON.stringify(formData, null, 2));
 
@@ -264,11 +287,15 @@ submitCodeBtn.addEventListener('click', function(event) {
             })
             .then(data => {
                 // Handle success response
-                showNotification('Settings updated successfully', 'success');
+                if (!data.success) {
+                    alert('Error: ', data.error)
+                    throw new Error(data.error);
+                }
+                return data
             })
             .catch(error => {
-                // Handle any other errors (including the ones thrown above)
-                showNotification(error.message, 'error');
+                showNotification(error.message, 'error'); // Show specific error message
+                return Promise.reject(error); // Propagate the error to the chain
             });
 
     }
@@ -284,21 +311,63 @@ submitCodeBtn.addEventListener('click', function(event) {
         const currentPassword = document.getElementById('currentPassword').value;
         const newPassword = document.getElementById('change-newPassword').value;
         const confirmPassword = document.getElementById('change-confirmPassword').value;
-        
+    
         if (!currentPassword || !newPassword || newPassword !== confirmPassword) {
             alert('Check your password inputs');
-            return;
+            return Promise.reject(new Error('Check your password inputs'));
         }
-        
-        return fetch('/api/modify_password/', {
-            method: 'POST', 
-            credentials: 'include', 
+
+        console.log('currentPass:' + currentPassword)
+        console.log('newPass:' + newPassword)
+    
+        // First, check the current password
+        return fetch('/api/check_settings_password/', {
+            method: 'POST',
+            credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ currentPassword, new_password: confirmPassword })
+            body: JSON.stringify({ 'password': currentPassword })
         })
-        .then(response => response.json())
-        .then(data => showNotification(data.success ? 'Password updated successfully' : 'Error: ' + data.error, data.success ? 'success' : 'error'))
-        .catch(error => showNotification('An error occurred', 'error'));
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(errorData => {
+                        throw new Error(errorData.error || 'Password check failed');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (!data.success) {
+                    alert('Current password incorrect')
+                    throw new Error(data.error || 'Current password incorrect');
+                }
+                // If we get here, the current password is correct
+                console.log("New password: ", confirmPassword);
+                return fetch('/api/modify_password/', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ currentPassword, new_password: confirmPassword })
+                });
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(errorData => {
+                        throw new Error(errorData.error || 'Password update failed');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (!data.success) {
+                    throw new Error(data.error || 'Password update failed');
+                }
+                // Let the main chain handle the notification for consistency
+                return data; // e.g., { success: true }
+            })
+            .catch(error => {
+                showNotification(error.message, 'error'); // Show specific error message
+                return Promise.reject(error); // Propagate the error to the chain
+            });
     }
     
     function updateOTPSetting() {
@@ -317,7 +386,10 @@ submitCodeBtn.addEventListener('click', function(event) {
                     credentials: 'include'
                 })
                 .then(response => response.json())
-                .then(data => showNotification(data.success ? '2FA settings updated' : 'Error: ' + data.error, data.success ? 'success' : 'error')); 
+                .then(data => {
+                    showNotification(data.success ? '2FA settings updated' : 'Error: ' + data.error, data.success ? 'success' : 'error')
+                    return data
+                }); 
             }
             else {
                 // Log the current state of OTP if no change is made
@@ -327,6 +399,8 @@ submitCodeBtn.addEventListener('click', function(event) {
                     console.log('OTP is already disabled');
                 }    
             }
+
+            return Promise.resolve({ skipped: true });
         })
         .catch(error => console.error('Fetch error:', error.message));
     }

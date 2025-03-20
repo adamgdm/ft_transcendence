@@ -25,6 +25,7 @@ urlpatterns = [
     path('modify_password/', views.modify_password, name='modify_password'),
     path('logout/', views.logout, name='logout'),
     path('update_profile/', views.update_profile, name='update_profile'),
+    path('check_settings_password/', views.check_settings_password, name='check_settings_password'),
     # Friendships
     path('add_friend/', views.add_friend, name='add_friend'),
     path('cancel_invite/', views.cancel_invite, name='cancel_invite'),
