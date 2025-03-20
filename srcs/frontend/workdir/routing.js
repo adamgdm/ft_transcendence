@@ -63,7 +63,7 @@ window.onload = function () {
         .then(response => {
             console.log('Response status:', response.status);
             if (response.status !== 200) {
-                throw new Error('Network response was not ok');
+                throw new Error('Network response was not ok' + response.text());
             }
             return response.json();
         })

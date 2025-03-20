@@ -808,7 +808,7 @@ def oauth2(request):
 @csrf_exempt
 def oauth2_login(request):
     if request.method == 'POST':
-        auth_url_42 = "https://api.intra.42.fr/oauth/authorize?client_id=u-s4t2ud-729aed93b28338bae314686c66e3342c44503b544a2906dcb18c0cfc4080570e&redirect_uri=https%3A%2F%2F10.11.2.3%3A8443%2F&response_type=code"
+        auth_url_42 = "https://api.intra.42.fr/oauth/authorize?client_id=u-s4t2ud-729aed93b28338bae314686c66e3342c44503b544a2906dcb18c0cfc4080570e&redirect_uri=https%3A%2F%2F10.11.2.4%3A8443%2F&response_type=code"
         return JsonResponse({'auth_url': auth_url_42}, status=200)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
@@ -822,10 +822,20 @@ def oauth2_login_redirect(request):
 
         try:
             user_data = exchange_code(code)
-            return JsonResponse({
-                'status': 'success',
-                'user_data': user_data
+            user = Users.objects.get(user_name=user_data.get('login'))
+            jwt_token = generate_jwt_token(user)
+            response = JsonResponse({
+                'message': 'Login successful'
                 }, status=200)
+            response.set_cookie(
+                'token',
+                jwt_token,
+                httponly=True,
+                secure=getattr(settings, 'SESSION_COOKIE_SECURE', False),
+                samesite='None',
+                max_age=601
+            )
+            return response
         except Exception as e:
             return JsonResponse({"error": f"Authentication failed: {str(e)}"}, status=500)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
@@ -837,7 +847,7 @@ def exchange_code(code):
         "client_id": "u-s4t2ud-729aed93b28338bae314686c66e3342c44503b544a2906dcb18c0cfc4080570e",
         "client_secret": "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",
         "code": code,
-        "redirect_uri" : "https://10.11.2.3:8443/",#actual domain name
+        "redirect_uri" : "https://10.11.2.4:8443/",#actual domain name
         # "scope": "public"
     }
     headers = {
@@ -879,7 +889,8 @@ def exchange_code(code):
                     'last_name': user_data.get('last_name'),
                     'profile_pic_42': user_data.get('image').get("link"),
                     'intra_url': user_data.get('url'),
-                    'oauth2_authentified': True
+                    'oauth2_authentified': True,
+                    'last_login': timezone.now(),
                     # Add any other fields you want to store
                 }
             )
