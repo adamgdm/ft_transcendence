@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from .models import Users, Oauth2AuthenticationData
 from django.contrib.auth.hashers import make_password
 from django.http import JsonResponse, HttpRequest, HttpResponse
-from .utils import UsernameValidator, PasswordValidator, NameValidator, generate_jwt_token, decode_jwt_token, verify_jwt_token, send_2fa_email, send_2fa_email_verification
+from .utils import UsernameValidator, PasswordValidator, NameValidator, generate_jwt_token, decode_jwt_token, verify_jwt_token, send_2fa_email
 from django.db.models import Q
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.hashers import check_password
@@ -63,13 +63,100 @@ def register(request):
                 otp_expiry = timezone.now() + timedelta(minutes=5),
             )
         except Exception as e: 
-            return JsonResponse({'error': f'An error occured: {e}'}, status=500)
+            return JsonResponse({'error': f'An error occured: {e}'}, status=400)
         
         # Send email verification
-        if send_2fa_email_verification(email, user.otp_password):
-            return JsonResponse({'error': 'Could not send Verification Email'}, status=500)
+        if send_2fa_email(email, user.otp_password, 2):
+            return JsonResponse({'error': 'Could not send Verification Email'}, status=400)
         return JsonResponse({'message': 'User registered successfully'}, status=201)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt 
+def send_otp_pass(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'could not fetch data'}, status=400)
+
+        email = data.get('email', '').strip()
+        if not email:
+            return JsonResponse({'error': 'Missing fields'}, status=400)
+
+        try:
+            user = Users.objects.get(email=email)
+        except Users.DoesNotExist:
+            return JsonResponse({'error': 'No user found with the email entered'}, status=400)
+        
+        try:
+            user.otp_password = random.randint(100000, 999999)
+            user.otp_expiry = timezone.now() + timedelta(minutes=5)
+            user.save()
+        except Exception as e: 
+            return JsonResponse({'error': 'Error generating OTP'}, status=400)
+        
+        if not send_2fa_email(email, user.otp_password, 2):
+            return JsonResponse({'error': 'Could not send email OTP'}, status=400)
+        
+        return JsonResponse({'message': 'OTP sent'}, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+@check_auth
+def send_otp_email_change(request):
+    if request.method == 'POST':
+        user_id = request.user_id
+        if not user_id:
+            return JsonResponse({'error': 'Invalid token'}, status=401)
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return JsonResponse({'error': 'User not found'}, status=404)
+        
+        try:
+            user.otp_password = random.randint(100000, 999999)
+            user.otp_expiry = timezone.now() + timedelta(minutes=5)
+            user.save()
+        except Exception as e: 
+            return JsonResponse({'error': 'Error generating OTP'}, status=400)
+        
+        if not send_2fa_email(user.email, user.otp_password, 2):  # Fixed: use user.email
+            return JsonResponse({'error': 'Could not send email OTP'}, status=400)
+        
+        return JsonResponse({'message': 'Email verification sent'}, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+def forgot_password(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+    
+        email = data.get('email', '').strip()
+        new_password = data.get('new_password', '').strip()
+        
+        if not email or not new_password:
+            return JsonResponse({'error': 'Missing email or password'}, status=400)
+        
+        try:
+            user = Users.objects.get(email=email)
+        except Users.DoesNotExist:
+            return JsonResponse({'error': 'User not found'}, status=404)
+
+        if not PasswordValidator(new_password):
+            return JsonResponse({'error': 'Invalid password'}, status=400)
+        
+        try:
+            user.password_hash = make_password(new_password)
+            user.last_password_change = timezone.now()
+            user.save()
+        except Exception as e:
+            return JsonResponse({'error': 'Failed to change password'}, status=400)
+        
+        return JsonResponse({'success': True}, status=200)
+    return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
 
 @csrf_exempt
 def delete_account(request):
@@ -81,11 +168,12 @@ def delete_account(request):
         email = data.get('email')
         try:
             user = Users.objects.get(email=email)
-            if user.is_Email_Verified is True:
+            if user.is_Email_Verified is False:
+                user.delete()
+            else
                 return JsonResponse({'error': 'Account verified'}, status=400)
-            user.delete()
         except Exception as e: 
-            return JsonResponse({'error': f'An error occured: {e}'}, status=500)
+            return JsonResponse({'error': f'An error occured: {e}'}, status=400)
         return JsonResponse({'message': 'User deleted successfully'}, status=201)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
@@ -152,8 +240,8 @@ def login(request):
                 user.save()
                 email = user.email
                 otp = user.otp_password
-                if not send_2fa_email(email, otp):
-                    return JsonResponse({'error': 'Could not send OTP'}, status=500)
+                if not send_2fa_email(email, otp, 1):
+                    return JsonResponse({'error': 'Could not send OTP'}, status=400)
                 return JsonResponse({'message': 'Two factor authentication enabled'}, status=205)
         jwt_token = generate_jwt_token(user)
         user.last_login = timezone.now()
@@ -781,7 +869,7 @@ def oauth2_login_redirect(request):
         user_data = exchange_code(code)
         return JsonResponse(user_data)
     except Exception as e:
-        return JsonResponse({"error EXCHANGECODE": f"Authentication failed: {str(e)}"}, status=500)
+        return JsonResponse({"error EXCHANGECODE": f"Authentication failed: {str(e)}"}, status=400)
 
 @csrf_exempt
 def exchange_code(code):
