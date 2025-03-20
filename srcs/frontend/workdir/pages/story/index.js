@@ -90,8 +90,46 @@ export function storyActions() {
 
     // Event listener for opening the LOGIN modal
     loginBtn.addEventListener('click', () => {
-        displayModal(loginModal);
-    });
+        displayModal(loginModal)
+    })
+
+    ////////////////////////////////////   ////////////////////////////////////   
+    // this is ossama's part to be handled
+    ////////////////////////////////////   ////////////////////////////////////   
+
+    oauth2Btn.addEventListener('click', () => {
+        fetch('/api/oauth2/login/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+        })
+        .then(response => {
+            console.log('Response status:', response.status);
+            if (response.status !== 200) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Received auth URL', data);
+            if (data.auth_url){
+                window.location.href = data.auth_url;
+                console.log('holaaaa')
+            } else {
+                throw new Error('URL was not received')
+            }
+            // localStorage.setItem('isAuthenticated', 'true');
+            // window.isAuthenticated = true;
+
+            // window.location.hash = 'home';
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Login failed: ' + error.message);
+        });
+    })
 
     // Event listener for submitting the signup form
     signupForm.addEventListener('submit', (e) => {
