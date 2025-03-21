@@ -2,6 +2,7 @@
 <div layout="choose-mode" class="choose mode active">
     <div class="playLocally-card" mode="1vAI">
         <div class="playLocally-inner">
+            <button class="flip-btn">Flip</button>
             <!-- Front of the card -->
             <div class="playLocally-face playLocally-front">
                 <img src="assets/backgrounds/robot.svg" alt="bot">
@@ -11,6 +12,7 @@
     
             <!-- Back of the card -->
             <div class="playLocally-face playLocally-back">
+                <button class="flip-btn">Flip</button>
                 <h1>Challenge Yourself</h1>
                 <div class="playLocally-button buttons">
                     <span> Play Now </span>
@@ -21,6 +23,7 @@
 
     <div class="play1v1-card" mode="1v1">
         <div class="play1v1-inner">
+            <button class="flip-btn">Flip</button>
             <!-- Front of the card -->
             <div class="play1v1-face play1v1-front">
                 <img src="assets/backgrounds/p1v1.svg" alt="p1">
@@ -30,6 +33,7 @@
     
             <!-- Back of the card -->
             <div class="play1v1-face play1v1-back">
+                <button class="flip-btn">Flip</button>
                 <h1>The Ultimate Battle</h1>
                 <input type="text" id="friendSearch" class="search-bar" placeholder="Search friends..." oninput="searchFriends()">           
                 <div class="play-online-button buttons">
@@ -46,27 +50,32 @@
         </div>
     </div>
     
-
-    <!-- Back of the card -->
     <div class="playTourn-card" mode="tourn">
         <div class="playTourn-inner">
+            <button class="flip-btn">Flip</button>
             <!-- Front of the card -->
             <div class="playTourn-face playTourn-front">
-                <img src="assets/backgrounds/tourn1.svg" alt="p3">
+                <img src="assets/backgrounds/tourn1.svg" alt="tournament">
                 <h1>Tournament</h1>
                 <h2>Conquer the tournament and seize the throne as Universal Leader!</h2>
             </div>
-
+    
             <!-- Back of the card -->
             <div class="playTourn-face playTourn-back">
-                <h1>Tournament</h1>
+                <button class="flip-btn">Flip</button>
+                <h1>The Ultimate Tournament</h1>
                 <input type="text" id="tournFriendSearch" class="search-bar" placeholder="Search friends to invite...">
-                <div class="play-tournament-button buttons">
+                <div class="playOnline-button buttons">
                     <span>Start Tournament</span>
                 </div>
                 <ul id="tournFriendsList">
-
+                    <!-- Friends will be dynamically inserted here -->
                 </ul>
+            </div>
+    
+            <!-- Button outside the inner div, matching 1v1 -->
+            <div class="playOnline-button buttons">
+                <span>Start Tournament</span>
             </div>
         </div>
     </div>

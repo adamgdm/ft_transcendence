@@ -6,7 +6,7 @@ from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from authentication.utils import decode_jwt_token
 from authentication.models import BlacklistedTokens, LoggedOutTokens, Users
-from gameBackend.models import GameInvites, Match
+from gameBackend.models import GameInvites, Match, Tournament
 from django.db.models import Q
 from .models import Friendship
 import logging
@@ -110,8 +110,7 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def update_user_online_status(self):
-        self.user.online_status = datetime.utcnow()
-        self.user.save()
+        return
 
     async def receive(self, text_data):
         try:
@@ -138,8 +137,8 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
                 await self.handle_create_tournament(data)
             elif message_type == "accept_tournament_invite":
                 await self.handle_accept_tournament_invite(data)
-            elif message_type == "start_tournament":
-                await self.handle_start_tournament(data)
+            elif message_type == "report_match_result":
+                await self.handle_match_result(data)
             else:
                 logger.warning(f"Unknown message type: {message_type}")
         except json.JSONDecodeError:
@@ -221,7 +220,23 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
             return
 
         result = await self.accept_game_invite(invite_id, self.user)
-        if result and 'game_id' in result and 'from_user_id' in result and 'from_username' in result:
+        if result and 'error' in result:
+            await self.send(text_data=json.dumps({
+                'type': 'game_invite_error',
+                'invite_id': invite_id,
+                'error': result['error']
+            }))
+            return
+        
+        if result.get('tournament'):
+            logger.info(f"Tournament invite {invite_id} accepted, processing tournament logic")
+            await self.handle_accept_tournament_invite({
+                'invite_id': invite_id,
+                'tournament_id': result['tournament_id']
+            })
+            return
+        
+        if 'game_id' in result and 'from_user_id' in result and 'from_username' in result:
             game_id = result['game_id']
             from_user_id = result['from_user_id']
             from_username = result['from_username']
@@ -230,7 +245,6 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
             async with games_lock:
                 if game_id not in games:
                     games[game_id] = create_new_game(to_username, from_username, 'online')
-                    # Ensure players are online for online game
                     games[game_id]['player1_status'] = 'online'
                     games[game_id]['player2_status'] = 'online'
 
@@ -248,13 +262,6 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
                 'invite_id': invite_id,
                 'game_id': game_id,
                 'message': 'Game invite accepted, starting game'
-            }))
-        else:
-            error_message = result.get('error', 'Failed to accept game invite') if result else 'Invalid response from accept_game_invite'
-            await self.send(text_data=json.dumps({
-                'type': 'game_invite_error',
-                'invite_id': invite_id,
-                'error': error_message
             }))
 
     async def handle_cancel_friend_request(self, data):
@@ -284,21 +291,15 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
     async def handle_send_game_invite(self, data):
         to_username = data.get('to_username')
         game_mode = data.get('game_mode', 'online')
+        tournament_id = data.get('tournament_id')
         if not to_username:
-            await self.send(text_data=json.dumps({
-                'type': 'game_invite_error',
-                'error': 'Missing to_username'
-            }))
+            await self.send(text_data=json.dumps({'type': 'game_invite_error', 'error': 'Missing to_username'}))
             return
-
         if game_mode not in GameInvites.GameModes.values:
-            await self.send(text_data=json.dumps({
-                'type': 'game_invite_error',
-                'error': 'Invalid game mode'
-            }))
+            await self.send(text_data=json.dumps({'type': 'game_invite_error', 'error': 'Invalid game mode'}))
             return
-
-        invite = await self.create_game_invite(self.user.id, to_username, game_mode)
+        
+        invite = await self.create_game_invite(self.user.id, to_username, game_mode, tournament_id)
         if invite:
             await self.channel_layer.group_send(
                 f"friendship_group_{invite.to_user.id}",
@@ -307,20 +308,22 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
                     'invite_id': invite.id,
                     'from_user_id': self.user.id,
                     'from_username': self.user.user_name,
-                    'game_mode': game_mode
+                    'game_mode': game_mode,
+                    'tournament_id': tournament_id
                 }
             )
             await self.send(text_data=json.dumps({
                 'type': 'game_invite_sent',
                 'to_username': to_username,
                 'invite_id': invite.id,
+                'tournament_id': tournament_id,
                 'message': 'Game invite sent successfully'
             }))
         else:
             await self.send(text_data=json.dumps({
                 'type': 'game_invite_error',
                 'to_username': to_username,
-                'error': 'Failed to send game invite (user not found or invite exists)'
+                'error': 'Failed to send game invite'
             }))
 
     async def handle_create_local_game(self, data):
@@ -338,9 +341,7 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
             game_id = str(game.id)
             async with games_lock:
                 if game_id not in games:
-                    # Use create_new_game for consistency with game logic
                     games[game_id] = create_new_game(self.user.user_name, self.user.user_name, 'local')
-                    # Override statuses to online for local game
                     games[game_id]['player1_status'] = 'online'
                     games[game_id]['player2_status'] = 'online'
                     games[game_id]['status'] = 'Playing'
@@ -367,6 +368,10 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
                 to_user=user,
                 status=GameInvites.GameInviteStatus.PENDING
             )
+            if invite.game_mode == 'tournament':
+                logger.info(f"Tournament invite {invite_id} detected, deferring to tournament logic")
+                return {'tournament': True, 'tournament_id': invite.game_id}
+            
             from_user = invite.from_user
             game_name = f"{from_user.user_name} vs {user.user_name}"
             game = Match.objects.create(
@@ -500,7 +505,7 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
             return False
 
     @database_sync_to_async
-    def create_game_invite(self, from_user_id, to_username, game_mode):
+    def create_game_invite(self, from_user_id, to_username, game_mode, tournament_id=None):
         try:
             from_user = Users.objects.get(id=from_user_id)
             to_user = Users.objects.get(user_name=to_username)
@@ -519,7 +524,8 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
                 from_user=from_user,
                 to_user=to_user,
                 game_mode=game_mode,
-                status=GameInvites.GameInviteStatus.PENDING
+                status=GameInvites.GameInviteStatus.PENDING,
+                game_id=tournament_id if game_mode == 'tournament' else None
             )
             return invite
         except Users.DoesNotExist:
@@ -546,6 +552,268 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             logger.error(f"Error rejecting game invite: {e}")
             return False
+
+    @database_sync_to_async
+    def create_tournament(self, creator, tournament_name):
+        tournament = Tournament.objects.create(
+            tournament_name=tournament_name,
+            creator=creator,
+            status='pending'
+        )
+        tournament.participants.add(creator)  # Creator is a participant
+        logger.info(f"Tournament {tournament.id} created by {creator.user_name} with 1 participant")
+        return tournament
+
+    @database_sync_to_async
+    def check_tournament_timeout(self, tournament_id):
+        try:
+            from django.utils import timezone
+            tournament = Tournament.objects.get(id=tournament_id)
+            if tournament.status == 'pending' and (timezone.now() - tournament.creation_date).total_seconds() > 300:
+                tournament.status = 'cancelled'
+                tournament.save()
+                logger.info(f"Tournament {tournament_id} cancelled due to timeout")
+                return True
+            return False
+        except Tournament.DoesNotExist:
+            return False
+
+    async def handle_create_tournament(self, data):
+        tournament_name = data.get('tournament_name')
+        invited_usernames = data.get('invited_usernames', [])
+        logger.info(f"Creating tournament: {tournament_name} by {self.user.user_name}, invited: {invited_usernames}")
+        
+        tournament = await self.create_tournament(self.user, tournament_name)
+        participant_count = await database_sync_to_async(lambda: tournament.participants.count())()
+        logger.info(f"Tournament {tournament.id} created, initial participant count: {participant_count}")
+        
+        await self.send(text_data=json.dumps({
+            'type': 'tournament_created',
+            'tournament_id': tournament.id,
+            'tournament_name': tournament_name,
+            'invited_usernames': invited_usernames
+        }))
+
+        for username in invited_usernames:
+            await self.handle_send_game_invite({
+                'to_username': username,
+                'game_mode': 'tournament',
+                'tournament_id': tournament.id
+            })
+        asyncio.create_task(self.timeout_tournament(tournament.id))
+
+    async def timeout_tournament(self, tournament_id):
+        await asyncio.sleep(300)  # Wait 5 minutes
+        if await self.check_tournament_timeout(tournament_id):
+            participants = await database_sync_to_async(lambda: list(Tournament.objects.get(id=tournament_id).participants.all()))()
+            for participant in participants:
+                await self.channel_layer.group_send(
+                    f"friendship_group_{participant.id}",
+                    {'type': 'tournament_error', 'error': 'Tournament timed out', 'tournament_id': tournament_id}
+                )
+
+    @database_sync_to_async
+    def accept_tournament_invite(self, invite_id, user, tournament_id):
+        try:
+            invite = GameInvites.objects.get(id=invite_id, to_user=user, status='pending', game_mode='tournament')
+            tournament = Tournament.objects.get(id=tournament_id, status='pending')
+            participant_count = tournament.participants.count()
+            logger.info(f"Processing invite {invite_id} for tournament {tournament_id}, current participants: {participant_count}")
+            
+            if participant_count >= 4:
+                logger.warning(f"Tournament {tournament_id} is already full with {participant_count} participants")
+                return {'error': 'Tournament is full'}
+            
+            if user in tournament.participants.all():
+                logger.warning(f"User {user.user_name} already in tournament {tournament_id}")
+                return {'error': 'User already in tournament'}
+            
+            invite.status = 'accepted'
+            invite.game_id = str(tournament.id)
+            invite.save()
+            tournament.participants.add(user)
+            participant_count = tournament.participants.count()
+            logger.info(f"User {user.user_name} joined tournament {tournament_id}, now {participant_count} participants")
+            
+            if participant_count == 4:
+                tournament.status = 'in_progress'
+                tournament.current_round = 'semifinals'
+                tournament.save()
+                logger.info(f"Tournament {tournament_id} reached 4 participants, preparing to start")
+                return {'start': True, 'tournament': tournament}
+            tournament.save()
+            return {'success': True}
+        except GameInvites.DoesNotExist:
+            logger.error(f"Invalid or non-pending tournament invite {invite_id}")
+            return {'error': 'Invalid or non-pending tournament invite'}
+        except Tournament.DoesNotExist:
+            logger.error(f"Tournament {tournament_id} not found")
+            return {'error': 'Tournament not found'}
+
+    async def handle_accept_tournament_invite(self, data):
+        invite_id = data.get('invite_id')
+        tournament_id = data.get('tournament_id')
+        if not invite_id or not tournament_id:
+            logger.error(f"Missing data: invite_id={invite_id}, tournament_id={tournament_id}")
+            await self.send(text_data=json.dumps({'type': 'tournament_error', 'error': 'Missing invite_id or tournament_id'}))
+            return
+        
+        result = await self.accept_tournament_invite(invite_id, self.user, tournament_id)
+        logger.info(f"Accept tournament invite result: {result}")
+        if 'error' in result:
+            await self.send(text_data=json.dumps({'type': 'tournament_error', 'error': result['error']}))
+            return
+        
+        tournament = await database_sync_to_async(Tournament.objects.get)(id=tournament_id)
+        participants = await database_sync_to_async(lambda: list(tournament.participants.all()))()
+        participant_count = len(participants)
+        logger.info(f"Tournament {tournament_id} updated, now has {participant_count} participants: {[p.user_name for p in participants]}")
+        
+        for participant in participants:
+            await self.channel_layer.group_send(
+                f"friendship_group_{participant.id}",
+                {'type': 'tournament_invite_accepted', 'tournament_id': tournament_id, 'invite_id': invite_id}
+            )
+        
+        if result.get('start') and participant_count == 4:
+            logger.info(f"Calling start_tournament for {tournament_id} with 4 participants")
+            await self.start_tournament(tournament)
+        elif participant_count < 4:
+            logger.info(f"Tournament {tournament_id} waiting for more participants, currently {participant_count}/4")
+            for participant in participants:
+                await self.channel_layer.group_send(
+                    f"friendship_group_{participant.id}",
+                    {'type': 'tournament_waiting', 'tournament_id': tournament_id, 'participant_count': participant_count}
+                )
+
+    async def start_tournament(self, tournament):
+        participants = await database_sync_to_async(lambda: list(tournament.participants.all()))()
+        participant_count = len(participants)
+        logger.info(f"Attempting to start tournament {tournament.id} with {participant_count} participants: {[p.user_name for p in participants]}")
+        
+        if participant_count != 4 or tournament.status != 'in_progress':
+            logger.error(f"Blocked tournament {tournament.id} start: participant_count={participant_count}, status={tournament.status}")
+            for participant in participants:
+                await self.channel_layer.group_send(
+                    f"friendship_group_{participant.id}",
+                    {'type': 'tournament_error', 'error': f'Tournament blocked: {participant_count}/4 participants, status={tournament.status}', 'tournament_id': tournament.id}
+                )
+            return
+
+        logger.info(f"Pairing semifinals for tournament {tournament.id}: {participants[0].user_name} vs {participants[1].user_name}, {participants[2].user_name} vs {participants[3].user_name}")
+        semi1 = await self.create_match(participants[0], participants[1], 'online', tournament)
+        semi2 = await self.create_match(participants[2], participants[3], 'online', tournament)
+        tournament.semifinal_1 = semi1
+        tournament.semifinal_2 = semi2
+        await database_sync_to_async(tournament.save)()
+
+        async with games_lock:
+            games[str(semi1.id)] = create_new_game(participants[0].user_name, participants[1].user_name, 'online')
+            games[str(semi2.id)] = create_new_game(participants[2].user_name, participants[3].user_name, 'online')
+
+        logger.info(f"Tournament {tournament.id} started: Semi1 {semi1.id} ({participants[0].user_name} vs {participants[1].user_name}), Semi2 {semi2.id} ({participants[2].user_name} vs {participants[3].user_name})")
+        for participant in participants:
+            match_id = str(semi1.id) if participant in [participants[0], participants[1]] else str(semi2.id)
+            player_1 = participants[0].user_name if participant in [participants[0], participants[1]] else participants[2].user_name
+            player_2 = participants[1].user_name if participant in [participants[0], participants[1]] else participants[3].user_name
+            await self.channel_layer.group_send(
+                f"friendship_group_{participant.id}",
+                {
+                    'type': 'tournament_match_start',
+                    'tournament_id': tournament.id,
+                    'game_id': match_id,
+                    'player_1': player_1,
+                    'player_2': player_2
+                }
+            )
+
+    @database_sync_to_async
+    def create_match(self, player_1, player_2, game_opponent, tournament):
+        match = Match.objects.create(
+            match_name=f"{player_1.user_name} vs {player_2.user_name}",
+            player_1=player_1,
+            player_2=player_2,
+            game_opponent=game_opponent
+        )
+        logger.info(f"Created match {match.id} for {player_1.user_name} vs {player_2.user_name} in tournament {tournament.id}")
+        return match
+
+    @database_sync_to_async
+    def process_match_result(self, game_id, winner_username):
+        match = Match.objects.get(id=game_id)
+        winner = Users.objects.get(user_name=winner_username)
+        match.match_status = 'done'
+        match.match_winner = winner
+        match.save()
+        
+        tournament = Tournament.objects.filter(Q(semifinal_1=match) | Q(semifinal_2=match) | Q(final=match)).first()
+        if not tournament:
+            logger.error(f"No tournament found for match {game_id}")
+            return None
+        
+        if tournament.current_round == 'semifinals' and tournament.semifinal_1.match_status == 'done' and tournament.semifinal_2.match_status == 'done':
+            tournament.current_round = 'final'
+            final_match = Match.objects.create(
+                match_name=f"{tournament.semifinal_1.match_winner.user_name} vs {tournament.semifinal_2.match_winner.user_name}",
+                player_1=tournament.semifinal_1.match_winner,
+                player_2=tournament.semifinal_2.match_winner,
+                game_opponent='online'
+            )
+            tournament.final = final_match
+            tournament.save()
+            logger.info(f"Tournament {tournament.id} advanced to final: {final_match.id}")
+            return {'next_match': final_match.id}
+        elif tournament.current_round == 'final' and match == tournament.final:
+            tournament.status = 'completed'
+            tournament.champion = winner
+            tournament.completion_date = datetime.now()
+            tournament.save()
+            logger.info(f"Tournament {tournament.id} completed, champion: {winner.user_name}")
+            return {'completed': True, 'champion': winner.user_name}
+        logger.info(f"Tournament {tournament.id} waiting for other semifinal results")
+        return {'waiting': True}
+
+    async def handle_match_result(self, data):
+        game_id = data.get('game_id')
+        winner_username = data.get('winner')
+        result = await self.process_match_result(game_id, winner_username)
+        
+        if not result:
+            return
+        
+        tournament = await database_sync_to_async(Tournament.objects.get)(id=data.get('tournament_id'))
+        participants = await database_sync_to_async(lambda: list(tournament.participants.all()))()
+        
+        if result.get('next_match'):
+            final_match_id = result['next_match']
+            final_match = await database_sync_to_async(Match.objects.get)(id=final_match_id)
+            async with games_lock:
+                games[str(final_match_id)] = create_new_game(
+                    final_match.player_1.user_name,
+                    final_match.player_2.user_name,
+                    'online'
+                )
+            for participant in participants:
+                await self.channel_layer.group_send(
+                    f"friendship_group_{participant.id}",
+                    {
+                        'type': 'tournament_match_start',
+                        'tournament_id': tournament.id,
+                        'game_id': str(final_match_id),
+                        'player_1': final_match.player_1.user_name,
+                        'player_2': final_match.player_2.user_name
+                    }
+                )
+        elif result.get('completed'):
+            for participant in participants:
+                await self.channel_layer.group_send(
+                    f"friendship_group_{participant.id}",
+                    {
+                        'type': 'tournament_completed',
+                        'tournament_id': tournament.id,
+                        'champion': result['champion']
+                    }
+                )
 
     async def friend_request_accepted_notification(self, event):
         await self.send(text_data=json.dumps({
@@ -576,7 +844,8 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
             'invite_id': event['invite_id'],
             'from_user_id': event['from_user_id'],
             'from_username': event['from_username'],
-            'game_mode': event['game_mode']
+            'game_mode': event['game_mode'],
+            'tournament_id': event.get('tournament_id')
         }))
 
     async def game_invite_accepted_notification(self, event):
@@ -592,4 +861,20 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
             'type': 'game_invite_rejected_notification',
             'invite_id': event['invite_id'],
             'from_username': event['from_username']
+        }))
+
+    async def tournament_invite_accepted(self, event):
+        await self.send(text_data=json.dumps(event))
+
+    async def tournament_match_start(self, event):
+        await self.send(text_data=json.dumps(event))
+
+    async def tournament_completed(self, event):
+        await self.send(text_data=json.dumps(event))
+
+    async def tournament_waiting(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'tournament_waiting',
+            'tournament_id': event['tournament_id'],
+            'participant_count': event['participant_count']
         }))
