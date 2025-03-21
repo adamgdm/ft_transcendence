@@ -253,7 +253,7 @@ export function settings() {
         const promises = [];
         
         const emailInput = document.getElementById('change-email');
-        const isEmailChanged = emailInput.value !== emailInput.getAttribute('data-original-email');
+        const isEmailChanged = emailInput.value !== '' && emailInput.value !== emailInput.getAttribute('data-original-email');
         
         // Check if email is verified if it was changed
         if (isEmailChanged && !emailVerified) { // Only check verification at form submission

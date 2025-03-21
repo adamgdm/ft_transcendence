@@ -199,11 +199,19 @@ window.onload = function () {
             console.log('Login successful:', data);
         
             localStorage.setItem('isAuthenticated', 'true');
+            initializeWebSocket();
+            setTimeout(() => {
+                if (isConnected()) {
+                    window.location.hash = 'home';
+                } else {
+                    console.error('WebSocket not initialized, navigation aborted');
+                    alert('Failed to initialize connection, please try again');
+                }
+            }, 1000);
             window.isAuthenticated = true;
-            // generate_jwt_token fix
             window.location.hash = 'home';
             const currentUrl = new URL(window.location);
-            currentUrl.searchParams.delete('code'); // Delete the 'code' parameter
+            currentUrl.searchParams.delete('code');
             window.history.replaceState({}, '', currentUrl.toString());
             return ;
         })
