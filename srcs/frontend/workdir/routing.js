@@ -174,7 +174,53 @@ window.routeToPage = function (path) {
 
 window.onload = function () {
     const fragId = window.location.hash.substring(1) || 'story';
-    console.log('onload: Initial fragment:', fragId);
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');  // Get the 'code' query parameter from the URL
+
+    if (code) {
+        console.log(code)
+        // Now send the 'code' back to the backend for exchanging it for the user data
+        fetch('/api/oauth2/login/redirect/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ code: code }), // Send the code as JSON
+            credentials: 'include',
+        })
+        .then(response => {
+            console.log('Response status:', response.status);
+            if (response.status !== 200) {
+                throw new Error('Network response was not ok' + response.text());
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Login successful:', data);
+        
+            localStorage.setItem('isAuthenticated', 'true');
+            initializeWebSocket();
+            setTimeout(() => {
+                if (isConnected()) {
+                    window.location.hash = 'home';
+                } else {
+                    console.error('WebSocket not initialized, navigation aborted');
+                    alert('Failed to initialize connection, please try again');
+                }
+            }, 1000);
+            window.isAuthenticated = true;
+            window.location.hash = 'home';
+            const currentUrl = new URL(window.location);
+            currentUrl.searchParams.delete('code');
+            window.history.replaceState({}, '', currentUrl.toString());
+            return ;
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Login failed: ' + error.message);
+        });
+    }
+
 
     if (fragId === 'story') {
         localStorage.setItem('isAuthenticated', 'false');

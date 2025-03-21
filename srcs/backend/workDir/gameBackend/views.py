@@ -67,6 +67,13 @@ def create_game(request):
                 player_2=player,
                 game_opponent=game_opponent
             )
+            user_id.matches_played += 1
+            user_id.save()
+            if game_opponent != 'local':
+                player.matches_played += 1
+                user_id.matches_played += 1
+                player.save()
+                user_id.save()
             game_id = str(game.id) 
             games[game_id] = create_new_game(user_id.user_name, player.user_name, game_opponent)
             return JsonResponse({'message': 'Game created successfully', 'game_id': game_id, 'user': player.user_name}, status=201)
@@ -532,11 +539,29 @@ async def game_update(game_id):
 
     if game_info['score1'] == 7 or game_info['score2'] == 7:
         if game_info['score1'] == 7:
-            pongMatch.match_winner = await sync_to_async(lambda: pongMatch.player_1)()
-            pongMatch.match_loser = await sync_to_async(lambda: pongMatch.player_2)()
+            game_opponent = await sync_to_async(lambda: pongMatch.game_opponent)()
+            player1 = await sync_to_async(lambda: pongMatch.player_1)()
+            player2 = await sync_to_async(lambda: pongMatch.player_2)()
+            pongMatch.match_winner = player1
+            pongMatch.match_loser = player2
+            if game_opponent != 'local':
+                player1.matches_won += 1
+                player1.win_ratio = round((player1.matches_won / player1.matches_played) * 100)
+                update_ppp_ratings(player1, player2, result=1)
+                await sync_to_async(player1.save)()
+                await sync_to_async(player2.save)()
         elif game_info['score2'] == 7:
-            pongMatch.match_winner = await sync_to_async(lambda: pongMatch.player_2)()
-            pongMatch.match_loser = await sync_to_async(lambda: pongMatch.player_1)()
+            game_opponent = await sync_to_async(lambda: pongMatch.game_opponent)()
+            player1 = await sync_to_async(lambda: pongMatch.player_1)()
+            player2 = await sync_to_async(lambda: pongMatch.player_2)()
+            pongMatch.match_winner = player2
+            pongMatch.match_loser = player1
+            if game_opponent != 'local':
+                player2.matches_won += 1
+                player2.win_ratio = round((player2.matches_won / player2.matches_played) * 100)
+                update_ppp_ratings(player2, player1, result=1)
+                await sync_to_async(player1.save)()
+                await sync_to_async(player2.save)()
         pongMatch.score_player_1 = game_info['score1']
         pongMatch.score_player_2 = game_info['score2']
         pongMatch.match_status = Match.MatchStatusChoices.DONE

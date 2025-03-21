@@ -79,7 +79,7 @@ def send_otp_pass(request):
         except json.JSONDecodeError:
             return JsonResponse({'error': 'could not fetch data'}, status=400)
 
-        email = data.get('email', '').strip()
+        email = data.get('email')
         if not email:
             return JsonResponse({'error': 'Missing fields'}, status=400)
 
@@ -366,12 +366,55 @@ def profile(request):
             'email': user.email,
             'bio_description': user.bio_description,
             'profile_picture_url': user.profile_picture_url.url if user.profile_picture_url else None,
+            'profile_pic_42': user.profile_pic_42,
+            'has_profile_pic': bool(user.has_profile_pic),
+            'has_42_image': bool(user.has_42_image),
             'account_status': user.account_status,
             'two_factor_enabled': user.two_factor_enabled,
             'registration_date': user.registration_date,
             'online_status': user.online_status,
             'last_login': user.last_login,
-            'last_password_change': user.last_password_change
+            'last_password_change': user.last_password_change,
+            'ppp_rating': user.ppp_rating,
+            'title': user.title,
+            'win_ratio': user.win_ratio,
+            'matches_played': user.matches_played
+        }, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
+# const username = 'myUsername';  // The username to be sent
+# const url = `/api/endpoint?username=${encodeURIComponent(username)}`;
+@check_auth
+def another_user_profile(request):
+    if request.method == 'GET':
+        username = request.GET.get('username')
+        user = Users.objects.get(user_name=username)
+        return JsonResponse({
+            'user_name': user.user_name,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'email': user.email,
+            'bio_description': user.bio_description,
+            'profile_picture_url': user.profile_picture_url.url if user.profile_picture_url else None,
+            'profile_pic_42': user.profile_pic_42,
+            'has_profile_pic': bool(user.has_profile_pic),
+            'has_42_image': bool(user.has_42_image),
+            'account_status': user.account_status,
+            'two_factor_enabled': user.two_factor_enabled,
+            # has_42_image has_profile_pic
+            #      0              0           ==>  blank
+            #      0              1           ==>  (image) profile_pic_url     
+            #      1              0           ==>  (url) profile_pic_42
+            #      1              1           ==> 
+            'registration_date': user.registration_date,
+            'online_status': user.online_status,
+            'last_login': user.last_login,
+            'last_password_change': user.last_password_change,
+            'ppp_rating': user.ppp_rating,
+            'title': user.title,
+            'win_ratio': user.win_ratio,
+            'matches_played': user.matches_played
         }, status=200)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
@@ -385,6 +428,8 @@ def add_profile_picture(request):
 
         user = Users.objects.get(id=request.user_id)
         user.profile_picture_url = profile_pic
+        user.has_profile_pic = True
+        user.has_42_image = False
         user.save()
 
         return JsonResponse({'message': 'Profile picture updated successfully'}, status=200)
@@ -875,26 +920,44 @@ def bulk_friend_status(request):
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 #need to hide data in env
-auth_url_discord = "https://api.intra.42.fr/oauth/authorize?client_id=u-s4t2ud-729aed93b28338bae314686c66e3342c44503b544a2906dcb18c0cfc4080570e&redirect_uri=http%3A%2F%2F127.0.0.1%3A8000%2Foauth2%2Flogin%2Fredirect%2F&response_type=code"
 @csrf_exempt
 def oauth2(request):
     return JsonResponse({"mssg": "hello"})
 
 @csrf_exempt
 def oauth2_login(request):
-    return redirect(auth_url_discord)
+    if request.method == 'POST':
+        auth_url_42 = "https://api.intra.42.fr/oauth/authorize?client_id=u-s4t2ud-729aed93b28338bae314686c66e3342c44503b544a2906dcb18c0cfc4080570e&redirect_uri=https%3A%2F%2F10.11.2.4%3A8443%2F&response_type=code"
+        return JsonResponse({'auth_url': auth_url_42}, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 @csrf_exempt
 def oauth2_login_redirect(request):
-    code = request.GET.get("code")
-    if not code:
-        return JsonResponse({"error": "No authorization code provided"}, status=400)
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        code = data.get('code')
+        if not code:
+            return JsonResponse({"error": "No authorization code provided"}, status=400)
 
-    try:
-        user_data = exchange_code(code)
-        return JsonResponse(user_data)
-    except Exception as e:
-        return JsonResponse({"error EXCHANGECODE": f"Authentication failed: {str(e)}"}, status=400)
+        try:
+            user_data = exchange_code(code)
+            user = Users.objects.get(user_name=user_data.get('login'))
+            jwt_token = generate_jwt_token(user)
+            response = JsonResponse({
+                'message': 'Login successful'
+                }, status=200)
+            response.set_cookie(
+                'token',
+                jwt_token,
+                httponly=True,
+                secure=getattr(settings, 'SESSION_COOKIE_SECURE', False),
+                samesite='None',
+                max_age=601
+            )
+            return response
+        except Exception as e:
+            return JsonResponse({"error": f"Authentication failed: {str(e)}"}, status=500)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 @csrf_exempt
 def exchange_code(code):
@@ -903,7 +966,7 @@ def exchange_code(code):
         "client_id": "u-s4t2ud-729aed93b28338bae314686c66e3342c44503b544a2906dcb18c0cfc4080570e",
         "client_secret": "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",
         "code": code,
-        "redirect_uri" : "http://127.0.0.1:8000/oauth2/login/redirect/",#actual domain name
+        "redirect_uri" : "https://10.11.2.4:8443/",#actual domain name
         # "scope": "public"
     }
     headers = {
@@ -945,7 +1008,10 @@ def exchange_code(code):
                     'last_name': user_data.get('last_name'),
                     'profile_pic_42': user_data.get('image').get("link"),
                     'intra_url': user_data.get('url'),
-                    'oauth2_authentified': True
+                    'oauth2_authentified': True,
+                    'has_42_image': True,
+                    'has_profile_pic': False,
+                    'last_login': timezone.now(),
                     # Add any other fields you want to store
                 }
             )

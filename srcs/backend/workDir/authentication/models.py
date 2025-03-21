@@ -1,12 +1,15 @@
 from django.db import models
 from django.db import IntegrityError
 from django.contrib.auth.hashers import check_password
+from django.db import IntegrityError
 import random
 
 def user_directory_path(instance, filename):
     # file will be uploaded to MEDIA_ROOT/user_<id>/<filename>
     return f'user_{instance.id}/{filename}'
 
+def generate_unique_ppp():
+    return(random.randint(1000, 1400))
 
 class Users(models.Model):
     class AccountStatusChoices(models.TextChoices):
@@ -30,16 +33,27 @@ class Users(models.Model):
     account_status = models.CharField(max_length=15, choices=AccountStatusChoices.choices, default=AccountStatusChoices.ACTIVE)
     two_factor_enabled = models.BooleanField(default=False)
     two_factor_info = models.OneToOneField('TwoFactorData', on_delete=models.CASCADE, null=True, blank=True)
-    oauth2_authentified = models.BooleanField(default=False) #just added
     oauth2_data = models.OneToOneField('Oauth2AuthenticationData', on_delete=models.CASCADE, null=True, blank=True)
-
+    has_profile_pic = models.BooleanField(default=False, blank=False)
+    has_42_image = models.BooleanField(default=False, blank=False)
+    oauth2_authentified = models.BooleanField(default=False, blank=False) #just added
     is_Email_Verified = models.BooleanField(default=False)
     registration_date = models.DateTimeField(auto_now_add=True)
     online_status = models.DateTimeField(auto_now_add=True)
     last_login = models.DateTimeField(null=True, blank=True)
     last_password_change = models.DateTimeField(null=True, blank=True)
-    ppp_rating = models.IntegerField(unique=True, default=1200, db_index=True)
+    ppp_rating = models.IntegerField(unique=True, db_index=True)
     title = models.CharField(default="NEWBIE") #first is called a leader
+    matches_played = models.IntegerField(default=0, null=False, blank=False)
+    matches_won = models.IntegerField(default=0, null=False, blank=False)
+    win_ratio = models.IntegerField(default=0, null=False, blank=False)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Only set initial PPP if not provided and object is new
+        if not self.pk and not self.ppp_rating:
+            self.ppp_rating = generate_unique_ppp()
+
     def save(self, *args, **kwargs):
         # Ensure the ppp rating is unique
         while True:
@@ -48,7 +62,7 @@ class Users(models.Model):
                 super().save(*args, **kwargs)
                 break
             except IntegrityError:
-                luck_factor = random.randint(1, 10)
+                luck_factor = random.randint(1, 50)
                 if(luck_factor % 2 == 0):
                     self.ppp_rating += luck_factor
                 else:
@@ -57,10 +71,11 @@ class Users(models.Model):
                 
     def update_ppp_ratings(self):
         user_with_highest_ppp = Users.objects.order_by('-ppp_rating').first()
-        if(self == user_with_highest_ppp and self.title == "CHALLENGER"):
-            self.title = "LEADER"
-        elif(self.ppp_rating >= 2000):
-            self.title = "CHALLENGER"
+        if(self.ppp_rating >= 2000):
+            if(self == user_with_highest_ppp):
+                self.title = "LEADER"
+            else:
+                self.title = "CHALLENGER"
         else:
             self.title = "NEWBIE"
 
