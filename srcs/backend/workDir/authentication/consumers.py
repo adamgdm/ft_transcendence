@@ -110,8 +110,9 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def update_user_online_status(self):
-        self.user.online_status = datetime.utcnow()
-        self.user.save()
+        # self.user.online_status = datetime.utcnow()
+        # self.user.save()
+        return 
 
     async def receive(self, text_data):
         try:
