@@ -69,6 +69,13 @@ def create_game(request):
                 player_2=player,
                 game_opponent=game_opponent
             )
+            user_id.matches_played += 1
+            user_id.save()
+            if game_opponent != 'local':
+                player.matches_played += 1
+                user_id.matches_played += 1
+                player.save()
+                user_id.save()
             game_id = str(game.id) 
             games[game_id] = create_new_game(user_id.user_name, player.user_name, game_opponent)
             return JsonResponse({'message': 'Game created successfully', 'game_id': game_id, 'user': player.user_name}, status=201)

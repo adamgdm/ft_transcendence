@@ -384,6 +384,38 @@
     cursor: pointer;
 }
 
+#errorModal {
+    opacity: 0;
+    visibility: hidden;
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    width: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    text-align: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+#errorModal p {
+    margin: 0;
+}
+
+
+/* Success state */
+#errorModal.success {
+    background-color: #4CAF50; /* Green */
+}
+
+/* Failure state */
+#errorModal.failure {
+    background-color: #F44336; /* Red */
+}
+
+
 
 /******************************************************************************/
 /* SIGNUP MODAL */
