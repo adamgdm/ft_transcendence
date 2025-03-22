@@ -9,6 +9,7 @@ from authentication.models import BlacklistedTokens, LoggedOutTokens, Users
 from gameBackend.models import GameInvites, Match, Tournament
 from django.db.models import Q
 from .models import Friendship
+from channels.db import database_sync_to_async
 import logging
 
 logger = logging.getLogger(__name__)
@@ -686,20 +687,27 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
                     {'type': 'tournament_waiting', 'tournament_id': tournament_id, 'participant_count': participant_count}
                 )
 
+
     async def start_tournament(self, tournament):
+        """Start a tournament by creating semifinals and waiting for them to finish before starting the final."""
         participants = await database_sync_to_async(lambda: list(tournament.participants.all()))()
         participant_count = len(participants)
         logger.info(f"Attempting to start tournament {tournament.id} with {participant_count} participants: {[p.user_name for p in participants]}")
-        
+
         if participant_count != 4 or tournament.status != 'in_progress':
             logger.error(f"Blocked tournament {tournament.id} start: participant_count={participant_count}, status={tournament.status}")
             for participant in participants:
                 await self.channel_layer.group_send(
                     f"friendship_group_{participant.id}",
-                    {'type': 'tournament_error', 'error': f'Tournament blocked: {participant_count}/4 participants, status={tournament.status}', 'tournament_id': tournament.id}
+                    {
+                        'type': 'tournament_error',
+                        'error': f'Tournament blocked: {participant_count}/4 participants, status={tournament.status}',
+                        'tournament_id': tournament.id
+                    }
                 )
             return
 
+        # Create semifinal matches
         logger.info(f"Pairing semifinals for tournament {tournament.id}: {participants[0].user_name} vs {participants[1].user_name}, {participants[2].user_name} vs {participants[3].user_name}")
         semi1 = await self.create_match(participants[0], participants[1], 'online', tournament)
         semi2 = await self.create_match(participants[2], participants[3], 'online', tournament)
@@ -707,10 +715,12 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
         tournament.semifinal_2 = semi2
         await database_sync_to_async(tournament.save)()
 
+        # Initialize game states
         async with games_lock:
             games[str(semi1.id)] = create_new_game(participants[0].user_name, participants[1].user_name, 'online')
             games[str(semi2.id)] = create_new_game(participants[2].user_name, participants[3].user_name, 'online')
 
+        # Notify participants to start semifinals
         logger.info(f"Tournament {tournament.id} started: Semi1 {semi1.id} ({participants[0].user_name} vs {participants[1].user_name}), Semi2 {semi2.id} ({participants[2].user_name} vs {participants[3].user_name})")
         for participant in participants:
             match_id = str(semi1.id) if participant in [participants[0], participants[1]] else str(semi2.id)
@@ -727,6 +737,90 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
                 }
             )
 
+        # Start a background task to wait for semifinals to complete
+        asyncio.create_task(self.wait_for_semifinals(tournament))
+
+    async def wait_for_semifinals(self, tournament):
+        """Wait for both semifinal matches to be done with a reasonable delay, then create and start the final match."""
+        semi1_id = str(tournament.semifinal_1.id)
+        semi2_id = str(tournament.semifinal_2.id)
+        logger.info(f"Waiting for semifinals {semi1_id} and {semi2_id} to complete in tournament {tournament.id}")
+
+        while True:
+            # Check semifinal statuses using database_sync_to_async
+            semi1_done = await database_sync_to_async(lambda: Match.objects.get(id=semi1_id).match_status == 'done')()
+            semi2_done = await database_sync_to_async(lambda: Match.objects.get(id=semi2_id).match_status == 'done')()
+
+            if semi1_done and semi2_done:
+                logger.info(f"Both semifinals {semi1_id} and {semi2_id} are done for tournament {tournament.id}")
+                break
+
+            # Wait a reasonable amount of time (15 seconds) before the next check
+            logger.debug(f"Semifinals status: semi1_done={semi1_done}, semi2_done={semi2_done}, waiting 15 seconds before next check")
+            await asyncio.sleep(10)
+
+        # Fetch semifinal objects and their winners with proper async wrapping
+        semi1 = await database_sync_to_async(Match.objects.get)(id=semi1_id)
+        semi2 = await database_sync_to_async(Match.objects.get)(id=semi2_id)
+        
+        # Use a helper to safely get winners
+        winner1 = await self.get_match_winner(semi1)
+        winner2 = await self.get_match_winner(semi2)
+
+        if not winner1 or not winner2:
+            logger.error(f"Missing winners for semifinals in tournament {tournament.id}: semi1_winner={winner1}, semi2_winner={winner2}")
+            participants = await database_sync_to_async(lambda: list(tournament.participants.all()))()
+            for participant in participants:
+                await self.channel_layer.group_send(
+                    f"friendship_group_{participant.id}",
+                    {
+                        'type': 'tournament_error',
+                        'error': 'Failed to determine semifinal winners',
+                        'tournament_id': tournament.id
+                    }
+                )
+            return
+
+        # Create the final match
+        logger.info(f"Creating final match for tournament {tournament.id}: {winner1.user_name} vs {winner2.user_name}")
+        final_match = await self.create_match(winner1, winner2, 'online', tournament)
+        tournament.current_round = 'final'
+        tournament.final = final_match
+        await database_sync_to_async(tournament.save)()
+
+        # Initialize the final game state
+        async with games_lock:
+            games[str(final_match.id)] = create_new_game(winner1.user_name, winner2.user_name, 'online')
+
+        # Notify participants to start the final
+        participants = await database_sync_to_async(lambda: list(tournament.participants.all()))()
+        logger.info(f"Tournament {tournament.id} final started: {final_match.id} ({winner1.user_name} vs {winner2.user_name})")
+        for participant in participants:
+            await self.channel_layer.group_send(
+                f"friendship_group_{participant.id}",
+                {
+                    'type': 'tournament_match_start',
+                    'tournament_id': tournament.id,
+                    'game_id': str(final_match.id),
+                    'player_1': winner1.user_name,
+                    'player_2': winner2.user_name
+                }
+            )
+
+    @database_sync_to_async
+    def get_match_winner(self, match):
+        """Safely retrieve the match winner, handling potential missing or uncached values."""
+        try:
+            return match.match_winner
+        except AttributeError:
+            logger.error(f"Match {match.id} has no winner set")
+            return None
+        except Exception as e:
+            logger.error(f"Error retrieving winner for match {match.id}: {e}")
+            return None
+
+
+
     @database_sync_to_async
     def create_match(self, player_1, player_2, game_opponent, tournament):
         match = Match.objects.create(
@@ -738,82 +832,71 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
         logger.info(f"Created match {match.id} for {player_1.user_name} vs {player_2.user_name} in tournament {tournament.id}")
         return match
 
-    @database_sync_to_async
-    def process_match_result(self, game_id, winner_username):
-        match = Match.objects.get(id=game_id)
-        winner = Users.objects.get(user_name=winner_username)
-        match.match_status = 'done'
-        match.match_winner = winner
-        match.save()
-        
-        tournament = Tournament.objects.filter(Q(semifinal_1=match) | Q(semifinal_2=match) | Q(final=match)).first()
-        if not tournament:
-            logger.error(f"No tournament found for match {game_id}")
-            return None
-        
-        if tournament.current_round == 'semifinals' and tournament.semifinal_1.match_status == 'done' and tournament.semifinal_2.match_status == 'done':
-            tournament.current_round = 'final'
-            final_match = Match.objects.create(
-                match_name=f"{tournament.semifinal_1.match_winner.user_name} vs {tournament.semifinal_2.match_winner.user_name}",
-                player_1=tournament.semifinal_1.match_winner,
-                player_2=tournament.semifinal_2.match_winner,
-                game_opponent='online'
-            )
-            tournament.final = final_match
-            tournament.save()
-            logger.info(f"Tournament {tournament.id} advanced to final: {final_match.id}")
-            return {'next_match': final_match.id}
-        elif tournament.current_round == 'final' and match == tournament.final:
-            tournament.status = 'completed'
-            tournament.champion = winner
-            tournament.completion_date = datetime.now()
-            tournament.save()
-            logger.info(f"Tournament {tournament.id} completed, champion: {winner.user_name}")
-            return {'completed': True, 'champion': winner.user_name}
-        logger.info(f"Tournament {tournament.id} waiting for other semifinal results")
-        return {'waiting': True}
 
     async def handle_match_result(self, data):
+        """Process match results and complete the tournament if final is done."""
         game_id = data.get('game_id')
         winner_username = data.get('winner')
-        result = await self.process_match_result(game_id, winner_username)
-        
-        if not result:
+        tournament_id = data.get('tournament_id')
+        if not all([game_id, winner_username, tournament_id]):
+            logger.error(f"Missing data in report_match_result: game_id={game_id}, winner={winner_username}, tournament_id={tournament_id}")
+            await self.send_error('match_result_error', 'Missing game_id, winner, or tournament_id')
             return
-        
-        tournament = await database_sync_to_async(Tournament.objects.get)(id=data.get('tournament_id'))
+
+        logger.info(f"Received report_match_result: game_id={game_id}, winner={winner_username}, tournament_id={tournament_id}")
+        result = await self.process_match_result(game_id, winner_username, tournament_id)
+
+        if not result:
+            logger.error(f"Failed to process match result for game {game_id}")
+            return
+
+        tournament = await database_sync_to_async(Tournament.objects.get)(id=tournament_id)
         participants = await database_sync_to_async(lambda: list(tournament.participants.all()))()
-        
-        if result.get('next_match'):
-            final_match_id = result['next_match']
-            final_match = await database_sync_to_async(Match.objects.get)(id=final_match_id)
-            async with games_lock:
-                games[str(final_match_id)] = create_new_game(
-                    final_match.player_1.user_name,
-                    final_match.player_2.user_name,
-                    'online'
-                )
-            for participant in participants:
-                await self.channel_layer.group_send(
-                    f"friendship_group_{participant.id}",
-                    {
-                        'type': 'tournament_match_start',
-                        'tournament_id': tournament.id,
-                        'game_id': str(final_match_id),
-                        'player_1': final_match.player_1.user_name,
-                        'player_2': final_match.player_2.user_name
-                    }
-                )
-        elif result.get('completed'):
+
+        if result.get('completed'):
             for participant in participants:
                 await self.channel_layer.group_send(
                     f"friendship_group_{participant.id}",
                     {
                         'type': 'tournament_completed',
-                        'tournament_id': tournament.id,
+                        'tournament_id': tournament_id,
                         'champion': result['champion']
                     }
                 )
+        # No 'next_match' case since wait_for_semifinals handles the final creation
+
+    @database_sync_to_async
+    def process_match_result(self, game_id, winner_username, tournament_id):
+        """Process match result, only completing the tournament if it’s the final."""
+        try:
+            match = Match.objects.get(id=game_id)
+            winner = Users.objects.get(user_name=winner_username)
+            match.match_winner = winner
+            match.save()
+
+            tournament = Tournament.objects.get(id=tournament_id)
+            logger.info(f"Processing match {game_id} in tournament {tournament.id}, round={tournament.current_round}")
+
+            if tournament.current_round == 'final' and match == tournament.final:
+                tournament.status = 'completed'
+                tournament.champion = winner
+                tournament.completion_date = datetime.utcnow()
+                tournament.save()
+                logger.info(f"Tournament {tournament.id} completed, champion: {winner.user_name}")
+                return {'completed': True, 'champion': winner.user_name}
+            elif tournament.current_round == 'semifinals':
+                logger.info(f"Semifinal {game_id} completed, waiting for other semifinal in tournament {tournament.id}")
+                return {'waiting': True}
+            return {'waiting': True}
+        except Match.DoesNotExist:
+            logger.error(f"Match {game_id} not found")
+            return None
+        except Users.DoesNotExist:
+            logger.error(f"Winner {winner_username} not found")
+            return None
+        except Tournament.DoesNotExist:
+            logger.error(f"Tournament {tournament_id} not found")
+            return None
 
     async def friend_request_accepted_notification(self, event):
         await self.send(text_data=json.dumps({

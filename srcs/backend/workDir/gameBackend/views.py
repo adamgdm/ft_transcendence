@@ -577,8 +577,6 @@ async def game_update(game_id):
 
     return game_info
 
-    return game_info
-
 def game_reset(game_id):
     global games
     game_id = str(game_id)

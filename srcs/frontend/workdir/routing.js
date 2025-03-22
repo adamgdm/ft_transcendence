@@ -364,6 +364,7 @@ function syncStateWithWebSocket() {
                         game_mode: 'online',
                         tournament_id: data.tournament_id
                     };
+                    console.log(`Starting tournament match ${data.game_id} for ${currentUsername}`);
                     history.pushState(state, "", `#game/${data.game_id}`);
                     window.routeToPage('game', { gameId: data.game_id });
                 }
