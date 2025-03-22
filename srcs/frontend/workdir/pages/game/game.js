@@ -394,17 +394,17 @@ export async function game() {
 
             if (game_state.score1 > score_1) {
                 score_1 = game_state.score1;
-                if (score_1 === 7) {
-                    const winner = "1";
-                    cleanup(winner === player ? player : "Opponent");
-                }
+                // if (score_1 === 7) {
+                //     const winner = "1";
+                //     cleanup(winner === player ? player : "Opponent");
+                // }
             }
             if (game_state.score2 > score_2) {
                 score_2 = game_state.score2;
-                if (score_2 === 7) {
-                    const winner = "2";
-                    cleanup(winner === player ? player : "Opponent");
-                }
+                // if (score_2 === 7) {
+                //     const winner = "2";
+                //     cleanup(winner === player ? player : "Opponent");
+                // }
             }
 
             updateAndDrawGame({

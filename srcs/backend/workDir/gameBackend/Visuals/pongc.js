@@ -58,17 +58,9 @@ websocket.onmessage = function (event) {
 
     if (game_state.score1 > score_1) {
         score_1 = game_state.score1;
-        if (score_1 === 7) {
-            console.log('Player 1 wins');
-            websocket.close();
-        }
     }
     if (game_state.score2 > score_2) {
         score_2 = game_state.score2;
-        if (score_2 === 7) {
-            console.log('Player 2 wins');
-            websocket.close();
-        }
     }
 
     update_game_state(game_state);

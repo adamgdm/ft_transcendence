@@ -284,6 +284,20 @@ class PongConsumer(AsyncWebsocketConsumer):
                         self.room_group_name,
                         {'type': 'game_state', 'game_state': game}
                     )
+                    # Report tournament result if applicable
+                    if game.get('report_result') and game.get('tournament_id'):
+                        tournament = await database_sync_to_async(Tournament.objects.get)(id=game['tournament_id'])
+                        participants = await database_sync_to_async(lambda: list(tournament.participants.all()))()
+                        for participant in participants:
+                            await self.channel_layer.group_send(
+                                f"friendship_group_{participant.id}",
+                                {
+                                    'type': 'report_match_result',
+                                    'game_id': self.game_id,
+                                    'winner': game['winner'],
+                                    'tournament_id': game['tournament_id']
+                                }
+                            )
                     del games[self.game_id]
                     break
 

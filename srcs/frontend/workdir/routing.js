@@ -1,4 +1,4 @@
-import { initializeWebSocket, sendFriendRequest, acceptFriendRequest, rejectFriendRequest, cancelFriendRequest, isConnected, closeConnection } from "./globalWebsocket.js";
+import { initializeWebSocket, sendFriendRequest, acceptFriendRequest, rejectFriendRequest, cancelFriendRequest, isConnected, closeConnection, friendshipSocket } from "./globalWebsocket.js";
 import { game } from "./pages/game/game.js";
 import { home } from "./pages/home/home.js";
 import { flip } from "./pages/play/play.js";
@@ -11,9 +11,18 @@ const authenticatedPages = ['home', 'settings', 'shop', 'play', 'game'];
 window.isAuthenticated = localStorage.getItem('isAuthenticated') === 'true' || false;
 console.log('Initial isAuthenticated:', window.isAuthenticated);
 
+// Friend-related state
 let pendingSentRequests = new Set();
 let pendingReceivedRequests = new Set();
 let friendsList = new Set();
+
+// Game-related state
+let allFriends = [];
+let sentInvites = [];
+let receivedInvites = [];
+let tournamentId = null;
+let invitedFriends = new Set();
+let participantCount = 1;
 
 try {
     const savedSentRequests = localStorage.getItem('pendingFriendRequests');
@@ -28,7 +37,6 @@ try {
 }
 
 function savePendingRequests() {
-    console.log('savePendingRequests');
     try {
         localStorage.setItem('pendingFriendRequests', JSON.stringify([...pendingSentRequests]));
         localStorage.setItem('pendingReceivedRequests', JSON.stringify([...pendingReceivedRequests]));
@@ -38,7 +46,6 @@ function savePendingRequests() {
 }
 
 function saveFriendsList() {
-    console.log('saveFriendsList');
     try {
         localStorage.setItem('friendsList', JSON.stringify([...friendsList]));
     } catch (error) {
@@ -47,7 +54,6 @@ function saveFriendsList() {
 }
 
 async function fetchUsers(query) {
-    console.log('fetchUsers:', query);
     try {
         const response = await fetch(`api/search_users/?query=${encodeURIComponent(query)}`, {
             method: 'GET',
@@ -64,7 +70,6 @@ async function fetchUsers(query) {
 }
 
 async function fetchPendingReceivedRequests() {
-    console.log('fetchPendingReceivedRequests');
     try {
         const response = await fetch('api/get_friend_requests/', {
             method: 'GET',
@@ -81,7 +86,6 @@ async function fetchPendingReceivedRequests() {
 }
 
 async function fetchPendingSentRequests() {
-    console.log('fetchPendingSentRequests');
     try {
         const response = await fetch('api/get_sent_friend_requests/', {
             method: 'GET',
@@ -98,7 +102,6 @@ async function fetchPendingSentRequests() {
 }
 
 async function fetchFriendsList() {
-    console.log('fetchFriendsList');
     try {
         const response = await fetch('api/get_friends/', {
             method: 'GET',
@@ -107,15 +110,30 @@ async function fetchFriendsList() {
         });
         if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
         const data = await response.json();
-        return data.friends || [];
+        allFriends = data.friends || [];
+        return allFriends;
     } catch (error) {
         console.error('Error fetching friends list:', error);
         return [];
     }
 }
 
+async function fetchLogin() {
+    try {
+        const response = await fetch('api/profile/', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+        });
+        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+        return (await response.json()).user_name;
+    } catch (error) {
+        console.error('Error fetching username:', error);
+        return null;
+    }
+}
+
 async function removeFriend(username) {
-    console.log('removeFriend:', username);
     try {
         const response = await fetch('api/remove_friend/', {
             method: 'POST',
@@ -135,7 +153,6 @@ function handleAuthStateChange() {
     window.isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
     console.log('handleAuthStateChange: isAuthenticated=', window.isAuthenticated);
     if (window.isAuthenticated) {
-        console.log('handleAuthStateChange: Initializing WebSocket');
         initializeWebSocket();
         syncStateWithWebSocket();
     } else {
@@ -143,8 +160,7 @@ function handleAuthStateChange() {
     }
 }
 
-window.routeToPage = function (path) {
-    console.log('routeToPage:', path);
+window.routeToPage = function (path, options = {}) {
     if (!isValidRoute(path)) {
         console.log('routeToPage: Invalid route, loading 404');
         loadPage('404');
@@ -163,7 +179,6 @@ window.routeToPage = function (path) {
         return;
     }
 
-    console.log('routeToPage: Proceeding to load:', path);
     if (authenticatedPages.includes(path)) {
         loadAuthenticatedLayout(path);
     } else {
@@ -178,7 +193,6 @@ window.onload = function () {
     if (fragId === 'story') {
         localStorage.setItem('isAuthenticated', 'false');
         window.isAuthenticated = false;
-        console.log('onload: Reset isAuthenticated for story');
     }
 
     handleAuthStateChange();
@@ -186,15 +200,17 @@ window.onload = function () {
 
     window.addEventListener('hashchange', () => {
         const path = window.location.hash.substring(1) || 'story';
-        console.log('hashchange:', path);
         routeToPage(path);
     });
 };
 
 function syncStateWithWebSocket() {
     console.log('syncStateWithWebSocket: Setting up listener');
-    window.addEventListener('websocketMessage', (event) => {
-        const data = event.detail;
+    friendshipSocket.addEventListener('message', async (event) => {
+        const data = JSON.parse(event.data);
+        console.log('Received WebSocket message:', data);
+        const currentUsername = await fetchLogin();
+
         switch (data.type) {
             case 'friend_request_sent':
                 pendingSentRequests.add(data.friend_username);
@@ -212,11 +228,121 @@ function syncStateWithWebSocket() {
                 savePendingRequests();
                 break;
             case 'game_invite_sent':
-                // Optionally track sent invites if needed
+                sentInvites.push({
+                    to_username: data.to_username,
+                    invite_id: data.invite_id,
+                    status: 'pending',
+                    tournament_id: data.tournament_id || null,
+                    game_mode: data.game_mode || 'online'
+                });
                 break;
-            default:
+            case 'new_game_invite_notification':
+                receivedInvites.push({
+                    invite_id: data.invite_id,
+                    from_username: data.from_username,
+                    status: 'pending',
+                    tournament_id: data.tournament_id || null,
+                    game_mode: data.game_mode || 'online'
+                });
+                break;
+            case 'game_invite_accepted':
+                const sentInvite = sentInvites.find(i => i.invite_id === data.invite_id);
+                if (sentInvite) {
+                    sentInvite.status = 'accepted';
+                    sentInvite.game_id = data.game_id;
+                    if (sentInvite.game_mode !== 'tournament') {
+                        const state = { game_id: data.game_id, user: currentUsername };
+                        history.pushState(state, "", "#game");
+                        window.routeToPage('game');
+                    }
+                }
+                break;
+            case 'game_invite_accepted_notification':
+                const receivedInvite = receivedInvites.find(i => i.invite_id === data.invite_id);
+                if (receivedInvite && receivedInvite.game_mode !== 'tournament') {
+                    receivedInvite.status = 'accepted';
+                    receivedInvite.game_id = data.game_id;
+                    const state = {
+                        game_id: data.game_id,
+                        user: currentUsername,
+                        from_username: receivedInvite.from_username,
+                        to_username: data.to_username
+                    };
+                    history.pushState(state, "", "#game");
+                    window.routeToPage('game');
+                }
+                break;
+            case 'game_invite_rejected':
+                sentInvites = sentInvites.filter(i => i.invite_id !== data.invite_id);
+                break;
+            case 'local_game_created':
+                if (data.user === currentUsername) {
+                    const state = {
+                        game_id: data.game_id,
+                        user: currentUsername,
+                        from_username: currentUsername,
+                        to_username: null,
+                        game_mode: 'local'
+                    };
+                    history.pushState(state, "", "#game");
+                    window.routeToPage('game');
+                }
+                break;
+            case 'tournament_created':
+                tournamentId = data.tournament_id;
+                invitedFriends = new Set(data.invited_usernames);
+                participantCount = 1;
+                break;
+            case 'tournament_invite_accepted':
+                if (data.tournament_id === tournamentId) {
+                    participantCount++;
+                }
+                const acceptedInvite = receivedInvites.find(i => i.invite_id === data.invite_id);
+                if (acceptedInvite) {
+                    acceptedInvite.status = 'accepted';
+                }
+                break;
+            case 'tournament_waiting':
+                if (data.tournament_id === tournamentId) {
+                    participantCount = data.participant_count;
+                    alert(`Waiting for more players: ${participantCount}/4 participants joined`);
+                }
+                break;
+            case 'tournament_match_start':
+                if (currentUsername === data.player_1 || currentUsername === data.player_2) {
+                    const state = {
+                        game_id: data.game_id,
+                        user: currentUsername,
+                        from_username: data.player_1,
+                        to_username: data.player_2,
+                        game_mode: 'online',
+                        tournament_id: data.tournament_id
+                    };
+                    history.pushState(state, "", `#game/${data.game_id}`);
+                    window.routeToPage('game', { gameId: data.game_id });
+                }
+                break;
+            case 'tournament_completed':
+                alert(`Tournament ${data.tournament_id} completed! Champion: ${data.champion}`);
+                resetTournamentState();
+                break;
+            case 'tournament_error':
+                console.error(`Tournament error: ${data.error} for tournament ${data.tournament_id}`);
+                alert(`Tournament error: ${data.error}`);
+                if (data.tournament_id === tournamentId) {
+                    resetTournamentState();
+                }
+                break;
         }
+        // Dispatch an event to notify pages of state changes
+        window.dispatchEvent(new CustomEvent('gameStateUpdate', { detail: { sentInvites, receivedInvites, tournamentId, participantCount, invitedFriends } }));
     });
+}
+
+function resetTournamentState() {
+    tournamentId = null;
+    invitedFriends.clear();
+    participantCount = 1;
 }
 
 function isValidRoute(path) {
@@ -563,8 +689,9 @@ function executePageScripts(path) {
             break;
         case "game":
             game();
+            // flip()
             break;
     }
 }
 
-export { handleAuthStateChange };
+export { handleAuthStateChange, fetchFriendsList, fetchLogin, sentInvites, receivedInvites, tournamentId, invitedFriends, participantCount};

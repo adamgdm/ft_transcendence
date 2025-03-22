@@ -5,6 +5,7 @@ from authentication.decorators import check_auth
 from authentication.models import Users
 from django.views.decorators.csrf import csrf_exempt
 from asgiref.sync import sync_to_async
+from channels.db import database_sync_to_async
 import asyncio
 import random
 import json
@@ -464,25 +465,10 @@ def accept_game_invite_from_user(request):
 # ///////////////////////////////////////////////////////////////////////////////////////////////////
 # ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-def game_reset(game_id):
-    global games
-    game_id = str(game_id) 
-    if game_id not in games:
-        return
-    game_info = games[game_id]
-    if game_info:
-        game_info['ball_x'] = 0.5 
-        game_info['ball_y'] = 0.5 
-        game_info['ball_speed_x'] = random.choice([-0.011, 0.011]) 
-        game_info['ball_speed_y'] = random.choice([-0.007, 0.007])
-        game_info['paddle1_y'] = 0.5 
-        game_info['paddle2_y'] = 0.5 
-
 async def game_update(game_id):
     global games
-    # Retrieve the game state (called from async function)
-    pongMatch = await sync_to_async(Match.objects.get)(id=game_id)
-    game_id = str(game_id) 
+    pongMatch = await database_sync_to_async(Match.objects.get)(id=game_id)
+    game_id = str(game_id)
     if game_id not in games:
         return {'game_id': game_id, 'error': 'Game not found'}
 
@@ -490,60 +476,112 @@ async def game_update(game_id):
     if not game_info:
         return {'error': 'Game not found'}
 
+    # Update ball position
     game_info['ball_x'] += game_info['ball_speed_x']
     game_info['ball_y'] += game_info['ball_speed_y']
 
-    # If ball hits top or bottom wall
-    if game_info['ball_y'] < game_info['ball_bounds'] or game_info['ball_y'] > 1 - game_info['ball_bounds']:
+    # Ball hits top or bottom wall
+    min_y = game_info['ball_bounds']
+    max_y = 1 - game_info['ball_bounds']
+    if game_info['ball_y'] < min_y:
+        game_info['ball_y'] = min_y
         game_info['ball_speed_y'] = -game_info['ball_speed_y']
+        if abs(game_info['ball_speed_y']) < 0.005:
+            game_info['ball_speed_y'] = 0.007 if game_info['ball_speed_y'] > 0 else -0.007
+    elif game_info['ball_y'] > max_y:
+        game_info['ball_y'] = max_y
+        game_info['ball_speed_y'] = -game_info['ball_speed_y']
+        if abs(game_info['ball_speed_y']) < 0.005:
+            game_info['ball_speed_y'] = 0.007 if game_info['ball_speed_y'] > 0 else -0.007
 
-    # If ball hits paddle1 (left paddle)
-    if game_info['ball_x'] < game_info['paddle1_x'] + game_info['paddle_bounds_x']:
-        # Only bounce if the ball hasn’t passed behind paddle1
-        if game_info['ball_x'] >= game_info['paddle1_x']:  # Ball must be at or in front of paddle1
-            if game_info['paddle1_y'] - game_info['paddle_bounds_y'] < game_info['ball_y'] < game_info['paddle1_y'] + game_info['paddle_bounds_y']:
-                game_info['ball_speed_x'] = -game_info['ball_speed_x']
-                game_info['ball_speed_y'] = (game_info['ball_y'] - game_info['paddle1_y']) * 0.2
+    # Ball hits paddle1 (left paddle)
+    if (game_info['ball_x'] >= game_info['paddle1_x'] and 
+        game_info['ball_x'] < game_info['paddle1_x'] + game_info['paddle_bounds_x'] and 
+        game_info['paddle1_y'] - game_info['paddle_bounds_y'] < game_info['ball_y'] < game_info['paddle1_y'] + game_info['paddle_bounds_y']):
+        game_info['ball_speed_x'] = -game_info['ball_speed_x']
+        game_info['ball_speed_y'] = (game_info['ball_y'] - game_info['paddle1_y']) * 0.2
 
-    # If ball hits paddle2 (right paddle)
-    if game_info['ball_x'] > game_info['paddle2_x'] - game_info['paddle_bounds_x']:
-        # Only bounce if the ball hasn’t passed behind paddle2
-        if game_info['ball_x'] <= game_info['paddle2_x']:  # Ball must be at or behind paddle2
-            if game_info['paddle2_y'] - game_info['paddle_bounds_y'] < game_info['ball_y'] < game_info['paddle2_y'] + game_info['paddle_bounds_y']:
-                game_info['ball_speed_x'] = -game_info['ball_speed_x']
-                game_info['ball_speed_y'] = (game_info['ball_y'] - game_info['paddle2_y']) * 0.2
-    
-    # If ball goes out of bounds (before bounce check)
-    if game_info['ball_x'] < game_info['paddle1_x'] - game_info['paddle_bounds_x']:  
-        game_info['score2'] += 1  # Player 2 scores
-        print(f"Score updated: Player 2 scored. New score: {game_info['score2']}")
+    # Ball hits paddle2 (right paddle)
+    if (game_info['ball_x'] <= game_info['paddle2_x'] and 
+        game_info['ball_x'] > game_info['paddle2_x'] - game_info['paddle_bounds_x'] and 
+        game_info['paddle2_y'] - game_info['paddle_bounds_y'] < game_info['ball_y'] < game_info['paddle2_y'] + game_info['paddle_bounds_y']):
+        game_info['ball_speed_x'] = -game_info['ball_speed_x']
+        game_info['ball_speed_y'] = (game_info['ball_y'] - game_info['paddle2_y']) * 0.2
+
+    # Check for scoring
+    scored = False
+    async def update_score(player_score_key, opponent_score_key, scoring_player):
+        nonlocal scored
+        game_info[player_score_key] += 1
+        print(f"Score updated: {scoring_player} scored. New score: {game_info['score1']} - {game_info['score2']}")
+        setattr(pongMatch, opponent_score_key, game_info[player_score_key])
+        await database_sync_to_async(pongMatch.save)()
+        scored = True
+
+    if game_info['ball_x'] < game_info['paddle1_x'] - game_info['paddle_bounds_x']:
+        await update_score('score2', 'score_player_2', 'Player 2')
+    elif game_info['ball_x'] > game_info['paddle2_x'] + game_info['paddle_bounds_x']:
+        await update_score('score1', 'score_player_1', 'Player 1')
+
+    if scored:
         game_reset(game_id)
         await asyncio.sleep(2)
-        return game_info  # Return early to avoid further processing
 
-    if game_info['ball_x'] > game_info['paddle2_x'] + game_info['paddle_bounds_x']:  
-        game_info['score1'] += 1  # Player 1 scores
-        print(f"Score updated: Player 1 scored. New score: {game_info['score1']}")
-        game_reset(game_id)
-        await asyncio.sleep(2)
-        return game_info  # Return early to avoid further processing
+    # Check for match completion
+    if game_info['score1'] >= 7 or game_info['score2'] >= 7:
+        player1 = await database_sync_to_async(lambda: pongMatch.player_1)()
+        player2 = await database_sync_to_async(lambda: pongMatch.player_2)()
+        game_opponent = await database_sync_to_async(lambda: pongMatch.game_opponent)()
 
+        if game_info['score1'] >= 7:
+            pongMatch.match_winner = player1
+            pongMatch.match_loser = player2
+            winner = player1
+            loser = player2
+        else:
+            pongMatch.match_winner = player2
+            pongMatch.match_loser = player1
+            winner = player2
+            loser = player1
 
-
-
-    if game_info['score1'] == 7 or game_info['score2'] == 7:
-        if game_info['score1'] == 7:
-            pongMatch.match_winner = await sync_to_async(lambda: pongMatch.player_1)()
-            pongMatch.match_loser = await sync_to_async(lambda: pongMatch.player_2)()
-        elif game_info['score2'] == 7:
-            pongMatch.match_winner = await sync_to_async(lambda: pongMatch.player_2)()
-            pongMatch.match_loser = await sync_to_async(lambda: pongMatch.player_1)()
         pongMatch.score_player_1 = game_info['score1']
         pongMatch.score_player_2 = game_info['score2']
         pongMatch.match_status = Match.MatchStatusChoices.DONE
-        await sync_to_async(pongMatch.save)()
-        print(f"Match completed: Player 2 won. Final score: {game_info['score1']} - {game_info['score2']}")
+        await database_sync_to_async(pongMatch.save)()
+
+        if game_opponent != 'local':
+            winner.matches_won += 1
+            winner.win_ratio = round((winner.matches_won / winner.matches_played) * 100)
+            update_ppp_ratings(winner, loser, result=1)
+            await database_sync_to_async(winner.save)()
+            await database_sync_to_async(loser.save)()
+
+        print(f"Match completed: {pongMatch.match_winner.user_name} won. Final score: {game_info['score1']} - {game_info['score2']}")
         game_info['status'] = 'Done'
+        game_info['winner'] = winner.user_name
+
+        # Check if this is a tournament match
+        tournament = await database_sync_to_async(Tournament.objects.filter(
+            Q(semifinal_1=pongMatch) | Q(semifinal_2=pongMatch) | Q(final=pongMatch)
+        ).first)()
+        if tournament:
+            game_info['tournament_id'] = str(tournament.id)
+            game_info['report_result'] = True  # Signal PongConsumer to report result
 
     return game_info
 
+    return game_info
+
+def game_reset(game_id):
+    global games
+    game_id = str(game_id)
+    if game_id not in games:
+        return
+    game_info = games[game_id]
+    if game_info:
+        game_info['ball_x'] = 0.5
+        game_info['ball_y'] = 0.5
+        game_info['ball_speed_x'] = random.choice([-0.011, 0.011])
+        game_info['ball_speed_y'] = random.choice([-0.007, 0.007])
+        game_info['paddle1_y'] = 0.5
+        game_info['paddle2_y'] = 0.5
