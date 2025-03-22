@@ -24,6 +24,9 @@ let tournamentId = null;
 let invitedFriends = new Set();
 let participantCount = 1;
 
+// Store cleanup functions for each page
+const pageCleanups = new Map();
+
 try {
     const savedSentRequests = localStorage.getItem('pendingFriendRequests');
     if (savedSentRequests) pendingSentRequests = new Set(JSON.parse(savedSentRequests));
@@ -118,15 +121,18 @@ async function fetchFriendsList() {
     }
 }
 
+let cachedUsername = null;
 async function fetchLogin() {
+    if (cachedUsername) return cachedUsername;
     try {
         const response = await fetch('api/profile/', {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include'
         });
-        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-        return (await response.json()).user_name;
+        if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+        cachedUsername = (await response.json()).user_name;
+        return cachedUsername;
     } catch (error) {
         console.error('Error fetching username:', error);
         return null;
@@ -161,6 +167,7 @@ function handleAuthStateChange() {
 }
 
 window.routeToPage = function (path, options = {}) {
+    console.log(`Routing to ${path}`);
     if (!isValidRoute(path)) {
         console.log('routeToPage: Invalid route, loading 404');
         loadPage('404');
@@ -179,6 +186,9 @@ window.routeToPage = function (path, options = {}) {
         return;
     }
 
+    // Clean up previous page
+    cleanupPreviousPage();
+
     if (authenticatedPages.includes(path)) {
         loadAuthenticatedLayout(path);
     } else {
@@ -189,60 +199,44 @@ window.routeToPage = function (path, options = {}) {
 window.onload = function () {
     const fragId = window.location.hash.substring(1) || 'story';
     const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');  // Get the 'code' query parameter from the URL
+    const code = params.get('code');
 
     if (code) {
-        console.log(code)
-        // Now send the 'code' back to the backend for exchanging it for the user data
         fetch('/api/oauth2/login/redirect/', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ code: code }), // Send the code as JSON
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code }),
             credentials: 'include',
         })
         .then(response => {
-            console.log('Response status:', response.status);
-            if (response.status !== 200) {
-                throw new Error('Network response was not ok' + response.text());
-            }
+            if (!response.ok) throw new Error(`Login failed: ${response.status}`);
             return response.json();
         })
         .then(data => {
             console.log('Login successful:', data);
-        
             localStorage.setItem('isAuthenticated', 'true');
+            window.isAuthenticated = true;
             initializeWebSocket();
             setTimeout(() => {
                 if (isConnected()) {
                     window.location.hash = 'home';
+                    const currentUrl = new URL(window.location);
+                    currentUrl.searchParams.delete('code');
+                    window.history.replaceState({}, '', currentUrl.toString());
                 } else {
-                    console.error('WebSocket not initialized, navigation aborted');
-                    alert('Failed to initialize connection, please try again');
+                    console.error('WebSocket not connected after login');
+                    alert('Connection failed, please refresh');
                 }
-            }, 1000);
-            window.isAuthenticated = true;
-            window.location.hash = 'home';
-            const currentUrl = new URL(window.location);
-            currentUrl.searchParams.delete('code');
-            window.history.replaceState({}, '', currentUrl.toString());
-            return ;
+            }, 500);
         })
         .catch(error => {
-            console.error('Error:', error);
+            console.error('Login error:', error);
             alert('Login failed: ' + error.message);
         });
+    } else {
+        handleAuthStateChange();
+        routeToPage(fragId);
     }
-
-
-    if (fragId === 'story') {
-        localStorage.setItem('isAuthenticated', 'false');
-        window.isAuthenticated = false;
-    }
-
-    handleAuthStateChange();
-    routeToPage(fragId);
 
     window.addEventListener('hashchange', () => {
         const path = window.location.hash.substring(1) || 'story';
@@ -254,8 +248,11 @@ function syncStateWithWebSocket() {
     console.log('syncStateWithWebSocket: Setting up listener');
     friendshipSocket.addEventListener('message', async (event) => {
         const data = JSON.parse(event.data);
-        console.log('Received WebSocket message:', data);
+        console.log('Received:', data);
+        if (data.type === 'ping') return;
+
         const currentUsername = await fetchLogin();
+        const updateEvent = new CustomEvent('gameStateUpdate', { detail: { sentInvites, receivedInvites, tournamentId, participantCount, invitedFriends } });
 
         switch (data.type) {
             case 'friend_request_sent':
@@ -274,22 +271,10 @@ function syncStateWithWebSocket() {
                 savePendingRequests();
                 break;
             case 'game_invite_sent':
-                sentInvites.push({
-                    to_username: data.to_username,
-                    invite_id: data.invite_id,
-                    status: 'pending',
-                    tournament_id: data.tournament_id || null,
-                    game_mode: data.game_mode || 'online'
-                });
+                sentInvites.push({ to_username: data.to_username, invite_id: data.invite_id, status: 'pending', tournament_id: data.tournament_id || null, game_mode: data.game_mode || 'online' });
                 break;
             case 'new_game_invite_notification':
-                receivedInvites.push({
-                    invite_id: data.invite_id,
-                    from_username: data.from_username,
-                    status: 'pending',
-                    tournament_id: data.tournament_id || null,
-                    game_mode: data.game_mode || 'online'
-                });
+                receivedInvites.push({ invite_id: data.invite_id, from_username: data.from_username, status: 'pending', tournament_id: data.tournament_id || null, game_mode: data.game_mode || 'online' });
                 break;
             case 'game_invite_accepted':
                 const sentInvite = sentInvites.find(i => i.invite_id === data.invite_id);
@@ -297,8 +282,7 @@ function syncStateWithWebSocket() {
                     sentInvite.status = 'accepted';
                     sentInvite.game_id = data.game_id;
                     if (sentInvite.game_mode !== 'tournament') {
-                        const state = { game_id: data.game_id, user: currentUsername };
-                        history.pushState(state, "", "#game");
+                        history.pushState({ game_id: data.game_id, user: currentUsername }, "", "#game");
                         window.routeToPage('game');
                     }
                 }
@@ -308,13 +292,7 @@ function syncStateWithWebSocket() {
                 if (receivedInvite && receivedInvite.game_mode !== 'tournament') {
                     receivedInvite.status = 'accepted';
                     receivedInvite.game_id = data.game_id;
-                    const state = {
-                        game_id: data.game_id,
-                        user: currentUsername,
-                        from_username: receivedInvite.from_username,
-                        to_username: data.to_username
-                    };
-                    history.pushState(state, "", "#game");
+                    history.pushState({ game_id: data.game_id, user: currentUsername, from_username: receivedInvite.from_username, to_username: data.to_username }, "", "#game");
                     window.routeToPage('game');
                 }
                 break;
@@ -323,14 +301,7 @@ function syncStateWithWebSocket() {
                 break;
             case 'local_game_created':
                 if (data.user === currentUsername) {
-                    const state = {
-                        game_id: data.game_id,
-                        user: currentUsername,
-                        from_username: currentUsername,
-                        to_username: null,
-                        game_mode: 'local'
-                    };
-                    history.pushState(state, "", "#game");
+                    history.pushState({ game_id: data.game_id, user: currentUsername, from_username: currentUsername, to_username: null, game_mode: 'local' }, "", "#game");
                     window.routeToPage('game');
                 }
                 break;
@@ -340,31 +311,19 @@ function syncStateWithWebSocket() {
                 participantCount = 1;
                 break;
             case 'tournament_invite_accepted':
-                if (data.tournament_id === tournamentId) {
-                    participantCount++;
-                }
+                if (data.tournament_id === tournamentId) participantCount++;
                 const acceptedInvite = receivedInvites.find(i => i.invite_id === data.invite_id);
-                if (acceptedInvite) {
-                    acceptedInvite.status = 'accepted';
-                }
+                if (acceptedInvite) acceptedInvite.status = 'accepted';
                 break;
             case 'tournament_waiting':
                 if (data.tournament_id === tournamentId) {
                     participantCount = data.participant_count;
-                    alert(`Waiting for more players: ${participantCount}/4 participants joined`);
+                    alert(`Waiting for more players: ${participantCount}/4`);
                 }
                 break;
             case 'tournament_match_start':
                 if (currentUsername === data.player_1 || currentUsername === data.player_2) {
-                    const state = {
-                        game_id: data.game_id,
-                        user: currentUsername,
-                        from_username: data.player_1,
-                        to_username: data.player_2,
-                        game_mode: 'online',
-                        tournament_id: data.tournament_id
-                    };
-                    console.log(`Starting tournament match ${data.game_id} for ${currentUsername}`);
+                    const state = { game_id: data.game_id, user: currentUsername, from_username: data.player_1, to_username: data.player_2, game_mode: 'online', tournament_id: data.tournament_id };
                     history.pushState(state, "", `#game/${data.game_id}`);
                     window.routeToPage('game', { gameId: data.game_id });
                 }
@@ -374,15 +333,12 @@ function syncStateWithWebSocket() {
                 resetTournamentState();
                 break;
             case 'tournament_error':
-                console.error(`Tournament error: ${data.error} for tournament ${data.tournament_id}`);
+                console.error(`Tournament error: ${data.error}`);
                 alert(`Tournament error: ${data.error}`);
-                if (data.tournament_id === tournamentId) {
-                    resetTournamentState();
-                }
+                if (data.tournament_id === tournamentId) resetTournamentState();
                 break;
         }
-        // Dispatch an event to notify pages of state changes
-        window.dispatchEvent(new CustomEvent('gameStateUpdate', { detail: { sentInvites, receivedInvites, tournamentId, participantCount, invitedFriends } }));
+        window.dispatchEvent(updateEvent);
     });
 }
 
@@ -395,6 +351,16 @@ function resetTournamentState() {
 function isValidRoute(path) {
     const validRoutes = ['story', 'home', 'play', 'shop', 'settings', '404', 'game'];
     return validRoutes.includes(path);
+}
+
+function cleanupPreviousPage() {
+    const currentPath = window.location.hash.substring(1) || 'story';
+    const cleanup = pageCleanups.get(currentPath);
+    if (cleanup) {
+        console.log(`Cleaning up previous page: ${currentPath}`);
+        cleanup();
+        pageCleanups.delete(currentPath);
+    }
 }
 
 function loadAuthenticatedLayout(contentPath) {
@@ -453,30 +419,42 @@ function loadContentIntoLayout(path) {
 }
 
 function setupSidebarNavigation() {
-    document.querySelectorAll('.sidebar-menu div, .sidebar-actions div').forEach(item => {
-        item.addEventListener('click', () => {
-            handleNotifBtn(item);
-            const target = item.getAttribute('data-target');
-            if (target) {
-                if (target === '#story') {
-                    localStorage.setItem('isAuthenticated', 'false');
-                    window.isAuthenticated = false;
-                    handleAuthStateChange();
-                }
-                document.querySelectorAll('.sidebar-menu div, .sidebar-actions div').forEach(button => button.classList.remove('clicked'));
-                item.classList.add('clicked');
-                window.location.hash = target;
+    const items = document.querySelectorAll('.sidebar-menu div, .sidebar-actions div');
+    items.forEach(item => {
+        item.removeEventListener('click', handleSidebarClick); // Remove old listeners
+        item.addEventListener('click', handleSidebarClick);
+    });
+
+    function handleSidebarClick() {
+        handleNotifBtn(this);
+        const target = this.getAttribute('data-target');
+        if (target) {
+            if (target === '#story') {
+                localStorage.setItem('isAuthenticated', 'false');
+                window.isAuthenticated = false;
+                handleAuthStateChange();
             }
-        });
+            items.forEach(button => button.classList.remove('clicked'));
+            this.classList.add('clicked');
+            window.location.hash = target;
+        }
+    }
+
+    pageCleanups.set('sidebar', () => {
+        items.forEach(item => item.removeEventListener('click', handleSidebarClick));
     });
 }
 
 function setupFriendsModal() {
+    let cleanup = () => {};
     const waitForButton = setInterval(() => {
         const seeFriendsBtn = document.querySelector(".see-friends-btn");
         if (seeFriendsBtn) {
             clearInterval(waitForButton);
-            seeFriendsBtn.addEventListener("click", async () => {
+            seeFriendsBtn.removeEventListener('click', handleFriendsClick); // Clean old listener
+            seeFriendsBtn.addEventListener('click', handleFriendsClick);
+
+            async function handleFriendsClick() {
                 let friendsModal = document.getElementById("friends-modal");
                 if (!friendsModal) {
                     friendsModal = document.createElement("div");
@@ -504,19 +482,32 @@ function setupFriendsModal() {
                 saveFriendsList();
                 renderFriends([...friendsList], friendsListContainer);
 
-                closeBtn.addEventListener("click", () => {
+                closeBtn.removeEventListener('click', handleCloseClick);
+                closeBtn.addEventListener('click', handleCloseClick);
+                function handleCloseClick() {
                     friendsModal.style.opacity = "0";
                     friendsModal.style.visibility = "hidden";
                     searchBar.value = '';
                     renderFriends([...friendsList], friendsListContainer);
-                });
+                }
 
-                searchBar.addEventListener('input', () => {
+                searchBar.removeEventListener('input', handleSearchInput);
+                searchBar.addEventListener('input', handleSearchInput);
+                function handleSearchInput() {
                     const query = searchBar.value.trim().toLowerCase();
                     const filteredFriends = [...friendsList].filter(friend => friend.toLowerCase().startsWith(query));
                     renderFriends(filteredFriends, friendsListContainer);
-                });
-            });
+                }
+
+                cleanup = () => {
+                    closeBtn.removeEventListener('click', handleCloseClick);
+                    searchBar.removeEventListener('input', handleSearchInput);
+                    if (friendsModal) {
+                        friendsModal.style.opacity = "0";
+                        friendsModal.style.visibility = "hidden";
+                    }
+                };
+            }
         }
     }, 100);
 
@@ -540,137 +531,119 @@ function setupFriendsModal() {
                 <p>${username}</p>
                 <button class="remove-friend">Remove Friend</button>
             `;
-            friendItem.querySelector('.remove-friend').addEventListener('click', async (e) => {
+            const removeBtn = friendItem.querySelector('.remove-friend');
+            removeBtn.removeEventListener('click', handleRemoveClick); // Clean old listener
+            removeBtn.addEventListener('click', handleRemoveClick);
+            async function handleRemoveClick(e) {
                 e.stopPropagation();
                 const result = await removeFriend(username);
                 if (!result.error) {
                     friendsList.delete(username);
                     saveFriendsList();
-                    renderFriends([...friendsList].filter(f => f.toLowerCase().startsWith(searchBar.value.trim().toLowerCase())), container);
+                    renderFriends([...friendsList].filter(f => f.toLowerCase().startsWith(container.parentElement.querySelector('.search-bar').value.trim().toLowerCase())), container);
                 }
-            });
+            }
             container.appendChild(friendItem);
         });
     }
+
+    pageCleanups.set('play', cleanup); // Assuming this is tied to 'play' page
 }
 
 document.addEventListener("DOMContentLoaded", setupFriendsModal);
 
 function setupSearchBar() {
     const searchInput = document.getElementById('search-bar');
+    if (!searchInput) return; // Skip if not present
     const userSuggestionsBox = document.createElement('div');
     userSuggestionsBox.classList.add('user-suggestions');
     const navbarSearch = document.querySelector('.navbar-search');
     navbarSearch.appendChild(userSuggestionsBox);
 
-    function debounce(func, wait) {
+    const debounce = (func, wait) => {
         let timeout;
-        return function (...args) {
+        return (...args) => {
             clearTimeout(timeout);
             timeout = setTimeout(() => func.apply(this, args), wait);
         };
-    }
+    };
 
     const handleSearchInput = debounce(async () => {
         const query = searchInput.value.trim().toLowerCase();
         userSuggestionsBox.innerHTML = '';
-
-        if (query.length > 0) {
-            const [users, receivedRequests, sentRequests, friends] = await Promise.all([
-                fetchUsers(query),
-                fetchPendingReceivedRequests(),
-                fetchPendingSentRequests(),
-                fetchFriendsList()
-            ]);
-
-            pendingReceivedRequests = new Set(receivedRequests.map(req => req.from_username));
-            pendingSentRequests = new Set(sentRequests.map(req => req.to_username));
-            friendsList = new Set(friends.map(f => f.username));
-            savePendingRequests();
-            saveFriendsList();
-
-            users.slice(0, 3).forEach(user => {
-                const suggestionDiv = document.createElement('div');
-                suggestionDiv.classList.add('suggestion-item');
-                suggestionDiv.innerHTML = `<span>${user.username}</span>`;
-                suggestionDiv.querySelector('span').addEventListener('click', () => {
-                    searchInput.value = user.username;
-                    userSuggestionsBox.style.display = 'none';
-                });
-
-                if (friendsList.has(user.username)) {
-                    suggestionDiv.innerHTML += `<button class="remove-btn">Remove</button>`;
-                    suggestionDiv.querySelector('.remove-btn').onclick = async (e) => {
-                        e.stopPropagation();
-                        const result = await removeFriend(user.username);
-                        if (!result.error) {
-                            friendsList.delete(user.username);
-                            saveFriendsList();
-                            handleSearchInput();
-                        }
-                    };
-                } else if (pendingReceivedRequests.has(user.username)) {
-                    suggestionDiv.innerHTML += `
-                        <button class="accept-btn">Accept</button>
-                        <button class="ignore-btn">Ignore</button>
-                    `;
-                    suggestionDiv.querySelector('.accept-btn').onclick = async (e) => {
-                        e.stopPropagation();
-                        const result = await acceptFriendRequest(user.username);
-                        if (!result.error) {
-                            pendingReceivedRequests.delete(user.username);
-                            friendsList.add(user.username);
-                            savePendingRequests();
-                            saveFriendsList();
-                            handleSearchInput();
-                        }
-                    };
-                    suggestionDiv.querySelector('.ignore-btn').onclick = async (e) => {
-                        e.stopPropagation();
-                        const result = await rejectFriendRequest(user.username);
-                        if (!result.error) {
-                            pendingReceivedRequests.delete(user.username);
-                            savePendingRequests();
-                            handleSearchInput();
-                        }
-                    };
-                } else if (pendingSentRequests.has(user.username)) {
-                    suggestionDiv.innerHTML += `<button class="cancel-btn">Cancel</button>`;
-                    suggestionDiv.querySelector('.cancel-btn').onclick = async (e) => {
-                        e.stopPropagation();
-                        const result = await cancelFriendRequest(user.username);
-                        if (!result.error) {
-                            pendingSentRequests.delete(user.username);
-                            savePendingRequests();
-                            handleSearchInput();
-                        }
-                    };
-                } else {
-                    suggestionDiv.innerHTML += `<button class="add-btn">Add</button>`;
-                    suggestionDiv.querySelector('.add-btn').onclick = async (e) => {
-                        e.stopPropagation();
-                        const result = await sendFriendRequest(user.username);
-                        if (!result.error) {
-                            pendingSentRequests.add(user.username);
-                            savePendingRequests();
-                            handleSearchInput();
-                        }
-                    };
-                }
-
-                userSuggestionsBox.appendChild(suggestionDiv);
-            });
-            userSuggestionsBox.style.display = 'block';
-        } else {
+        if (query.length === 0) {
             userSuggestionsBox.style.display = 'none';
+            return;
         }
+
+        const users = await fetchUsers(query);
+        users.slice(0, 3).forEach(user => {
+            const suggestionDiv = document.createElement('div');
+            suggestionDiv.classList.add('suggestion-item');
+            suggestionDiv.innerHTML = `<span>${user.username}</span>`;
+            const span = suggestionDiv.querySelector('span');
+            span.addEventListener('click', () => {
+                searchInput.value = user.username;
+                userSuggestionsBox.style.display = 'none';
+            });
+
+            if (friendsList.has(user.username)) {
+                suggestionDiv.innerHTML += `<button class="remove-btn">Remove</button>`;
+                suggestionDiv.querySelector('.remove-btn').onclick = async (e) => {
+                    e.stopPropagation();
+                    const result = await removeFriend(user.username);
+                    if (!result.error) {
+                        friendsList.delete(user.username);
+                        saveFriendsList();
+                        handleSearchInput();
+                    }
+                };
+            } else if (pendingReceivedRequests.has(user.username)) {
+                suggestionDiv.innerHTML += `<button class="accept-btn">Accept</button><button class="ignore-btn">Ignore</button>`;
+                suggestionDiv.querySelector('.accept-btn').onclick = async (e) => {
+                    e.stopPropagation();
+                    await acceptFriendRequest(user.username);
+                    handleSearchInput();
+                };
+                suggestionDiv.querySelector('.ignore-btn').onclick = async (e) => {
+                    e.stopPropagation();
+                    await rejectFriendRequest(user.username);
+                    handleSearchInput();
+                };
+            } else if (pendingSentRequests.has(user.username)) {
+                suggestionDiv.innerHTML += `<button class="cancel-btn">Cancel</button>`;
+                suggestionDiv.querySelector('.cancel-btn').onclick = async (e) => {
+                    e.stopPropagation();
+                    await cancelFriendRequest(user.username);
+                    handleSearchInput();
+                };
+            } else {
+                suggestionDiv.innerHTML += `<button class="add-btn">Add</button>`;
+                suggestionDiv.querySelector('.add-btn').onclick = async (e) => {
+                    e.stopPropagation();
+                    await sendFriendRequest(user.username);
+                    handleSearchInput();
+                };
+            }
+            userSuggestionsBox.appendChild(suggestionDiv);
+        });
+        userSuggestionsBox.style.display = users.length ? 'block' : 'none';
     }, 300);
 
+    searchInput.removeEventListener('input', handleSearchInput);
     searchInput.addEventListener('input', handleSearchInput);
-    document.addEventListener('click', (event) => {
+    document.removeEventListener('click', handleOutsideClick);
+    document.addEventListener('click', handleOutsideClick);
+    function handleOutsideClick(event) {
         if (!navbarSearch.contains(event.target)) {
             userSuggestionsBox.style.display = 'none';
         }
+    }
+
+    pageCleanups.set('search', () => {
+        searchInput.removeEventListener('input', handleSearchInput);
+        document.removeEventListener('click', handleOutsideClick);
+        userSuggestionsBox.remove();
     });
 }
 
@@ -718,27 +691,45 @@ function updateStylesheet(href) {
 }
 
 function executePageScripts(path) {
-    console.log('executePageScripts:', path);
+    console.log('Executing scripts for:', path);
+    let cleanup;
     switch (path) {
         case "story":
             storyActions();
             scrollAction();
+            cleanup = () => {
+                // Add cleanup logic if storyActions/scrollAction attach listeners
+                console.log('Cleaned up story page');
+            };
             break;
         case "play":
             flip();
             setupFriendsModal();
+            cleanup = pageCleanups.get('play');
             break;
         case "home":
             home();
+            cleanup = () => {
+                // Add cleanup logic if home.js attaches listeners
+                console.log('Cleaned up home page');
+            };
             break;
         case "settings":
             settings();
+            cleanup = () => {
+                // Add cleanup logic if settings.js attaches listeners
+                console.log('Cleaned up settings page');
+            };
             break;
         case "game":
             game();
-            // flip()
+            cleanup = () => {
+                // Add cleanup logic if game.js attaches listeners
+                console.log('Cleaned up game page');
+            };
             break;
     }
+    if (cleanup) pageCleanups.set(path, cleanup);
 }
 
-export { handleAuthStateChange, fetchFriendsList, fetchLogin, sentInvites, receivedInvites, tournamentId, invitedFriends, participantCount};
+export { handleAuthStateChange, fetchFriendsList, fetchLogin, sentInvites, receivedInvites, tournamentId, invitedFriends, participantCount };
