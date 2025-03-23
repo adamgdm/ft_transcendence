@@ -49,6 +49,41 @@ body.open-modal {
     right: 2%;
 }
 
+#errorContainer {
+    opacity: 0;
+    visibility: hidden;
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    width: 20%;
+    height: 60px;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    text-align: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#errorContainer p {
+    margin: 0;
+}
+
+
+/* Success state */
+#errorContainer.success {
+    background-color: #4CAF50; /* Green */
+}
+
+/* Failure state */
+#errorContainer.failure {
+    background-color: #F44336; /* Red */
+}
+
 /******************************************************************************/
 /* SIDE-BAR */
 /******************************************************************************/

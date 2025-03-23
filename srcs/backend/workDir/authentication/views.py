@@ -384,12 +384,15 @@ def profile(request):
 
 
 # const username = 'myUsername';  // The username to be sent
-# const url = `/api/endpoint?username=${encodeURIComponent(username)}`;
+# const url = `/api/another_user_profile/?username=${encodeURIComponent(username)}`;
 @check_auth
 def another_user_profile(request):
     if request.method == 'GET':
         username = request.GET.get('username')
-        user = Users.objects.get(user_name=username)
+        try:
+            user = Users.objects.get(user_name=username)
+        except Users.DoesNotExist:
+            return JsonResponse({'error': 'User not found'}, status=404)
         return JsonResponse({
             'user_name': user.user_name,
             'first_name': user.first_name,
@@ -927,7 +930,7 @@ def oauth2(request):
 @csrf_exempt
 def oauth2_login(request):
     if request.method == 'POST':
-        auth_url_42 = "https://api.intra.42.fr/oauth/authorize?client_id=u-s4t2ud-729aed93b28338bae314686c66e3342c44503b544a2906dcb18c0cfc4080570e&redirect_uri=https%3A%2F%2F10.11.2.4%3A8443%2F&response_type=code"
+        auth_url_42 = "https://api.intra.42.fr/oauth/authorize?client_id=u-s4t2ud-14a08d221686bb5fc4916f1850f8982013ede90dd74c6affcc63689854e322f7&redirect_uri=https%3A%2F%2F10.11.1.3%3A8443%2F&response_type=code"
         return JsonResponse({'auth_url': auth_url_42}, status=200)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
@@ -963,10 +966,10 @@ def oauth2_login_redirect(request):
 def exchange_code(code):
     data = {
         "grant_type": "authorization_code",
-        "client_id": "u-s4t2ud-729aed93b28338bae314686c66e3342c44503b544a2906dcb18c0cfc4080570e",
-        "client_secret": "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",
+        "client_id": "u-s4t2ud-14a08d221686bb5fc4916f1850f8982013ede90dd74c6affcc63689854e322f7",
+        "client_secret": "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",
         "code": code,
-        "redirect_uri" : "https://10.11.2.4:8443/",#actual domain name
+        "redirect_uri" : "https://10.11.1.3:8443/",#actual domain name
         # "scope": "public"
     }
     headers = {

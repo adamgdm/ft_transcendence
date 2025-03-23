@@ -5,8 +5,9 @@ import { flip } from "./pages/play/play.js";
 import { settings } from "./pages/settings/settings.js";
 import { storyActions } from "./pages/story/index.js";
 import { scrollAction } from "./pages/story/scroll.js";
+import { users } from "./pages/users/users.js";
 
-const authenticatedPages = ['home', 'settings', 'shop', 'play', 'game'];
+const authenticatedPages = ['home', 'settings', 'shop', 'users', 'play', 'game'];
 
 window.isAuthenticated = localStorage.getItem('isAuthenticated') === 'true' || false;
 console.log('Initial isAuthenticated:', window.isAuthenticated);
@@ -22,13 +23,13 @@ try {
     if (savedReceivedRequests) pendingReceivedRequests = new Set(JSON.parse(savedReceivedRequests));
     const savedFriends = localStorage.getItem('friendsList');
     if (savedFriends) friendsList = new Set(JSON.parse(savedFriends));
-    console.log('Loaded state:', { pendingSentRequests: [...pendingSentRequests], pendingReceivedRequests: [...pendingReceivedRequests], friendsList: [...friendsList] });
+    // console.log('Loaded state:', { pendingSentRequests: [...pendingSentRequests], pendingReceivedRequests: [...pendingReceivedRequests], friendsList: [...friendsList] });
 } catch (error) {
-    console.error('Error loading from localStorage:', error);
+    // console.error('Error loading from localStorage:', error);
 }
 
 function savePendingRequests() {
-    console.log('savePendingRequests');
+    // console.log('savePendingRequests');
     try {
         localStorage.setItem('pendingFriendRequests', JSON.stringify([...pendingSentRequests]));
         localStorage.setItem('pendingReceivedRequests', JSON.stringify([...pendingReceivedRequests]));
@@ -38,7 +39,7 @@ function savePendingRequests() {
 }
 
 function saveFriendsList() {
-    console.log('saveFriendsList');
+    // console.log('saveFriendsList');
     try {
         localStorage.setItem('friendsList', JSON.stringify([...friendsList]));
     } catch (error) {
@@ -47,7 +48,7 @@ function saveFriendsList() {
 }
 
 async function fetchUsers(query) {
-    console.log('fetchUsers:', query);
+    // console.log('fetchUsers:', query);
     try {
         const response = await fetch(`api/search_users/?query=${encodeURIComponent(query)}`, {
             method: 'GET',
@@ -64,7 +65,7 @@ async function fetchUsers(query) {
 }
 
 async function fetchPendingReceivedRequests() {
-    console.log('fetchPendingReceivedRequests');
+    // console.log('fetchPendingReceivedRequests');
     try {
         const response = await fetch('api/get_friend_requests/', {
             method: 'GET',
@@ -81,7 +82,7 @@ async function fetchPendingReceivedRequests() {
 }
 
 async function fetchPendingSentRequests() {
-    console.log('fetchPendingSentRequests');
+    // console.log('fetchPendingSentRequests');
     try {
         const response = await fetch('api/get_sent_friend_requests/', {
             method: 'GET',
@@ -98,7 +99,7 @@ async function fetchPendingSentRequests() {
 }
 
 async function fetchFriendsList() {
-    console.log('fetchFriendsList');
+    // console.log('fetchFriendsList');
     try {
         const response = await fetch('api/get_friends/', {
             method: 'GET',
@@ -115,7 +116,7 @@ async function fetchFriendsList() {
 }
 
 async function removeFriend(username) {
-    console.log('removeFriend:', username);
+    // console.log('removeFriend:', username);
     try {
         const response = await fetch('api/remove_friend/', {
             method: 'POST',
@@ -174,6 +175,7 @@ window.routeToPage = function (path) {
 
 window.onload = function () {
     const fragId = window.location.hash.substring(1) || 'story';
+    console.log('the fragId:', fragId)
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');  // Get the 'code' query parameter from the URL
 
@@ -229,14 +231,40 @@ window.onload = function () {
     }
 
     handleAuthStateChange();
-    routeToPage(fragId);
+    // routeToPage(fragId);
 
+    handleHashChange(fragId);
+
+    // Listen for hash changes
     window.addEventListener('hashchange', () => {
         const path = window.location.hash.substring(1) || 'story';
         console.log('hashchange:', path);
-        routeToPage(path);
+        handleHashChange(path);
     });
 };
+
+async function handleHashChange(fragId) {
+    if (fragId.startsWith('users=')) {
+        const username = fragId.split('=')[1];
+        const userProfile = await fetchUserProfile(username);
+
+        if (userProfile.error) {
+            window.location.hash = 'home'
+            routeToPage('home')
+            layoutShowError(userProfile.error, false);
+        } else {
+            routeToPage('users');
+        }
+    }
+    else if (fragId === 'users') {
+        window.location.hash = 'home'
+        routeToPage('home')
+        layoutShowError('no user found', false);
+    }
+    else {
+        routeToPage(fragId);
+    }
+}
 
 function syncStateWithWebSocket() {
     console.log('syncStateWithWebSocket: Setting up listener');
@@ -267,7 +295,7 @@ function syncStateWithWebSocket() {
 }
 
 function isValidRoute(path) {
-    const validRoutes = ['story', 'home', 'play', 'shop', 'settings', '404', 'game'];
+    const validRoutes = ['story', 'home', 'play', 'shop', 'settings', 'users', '404', 'game'];
     return validRoutes.includes(path);
 }
 
@@ -428,6 +456,60 @@ function setupFriendsModal() {
     }
 }
 
+// Function to fetch user data from the backend
+export async function fetchUserProfile(username) {
+    const url = `/api/another_user_profile/?username=${encodeURIComponent(username)}`;
+    const response = await fetch(url, {
+        method: "GET",
+        credentials: "include" // Includes cookies/session data for authentication
+    });
+
+    if (!response.ok) {
+        // Handle 404 or other errors
+        if (response.status === 404) {
+            console.log('mamamamamamamam')
+            return { error: 'User not found' }; // Return a user-friendly error message
+        } else {
+            throw new Error(`Failed to fetch user profile: ${response.statusText}`);
+        }
+    }
+
+    const userData = await response.json();
+    return userData;
+}
+
+export function layoutShowError(message, isSuccess = false) {
+    const errorModal = document.querySelector("#errorContainer");
+    const errorMessage = document.querySelector("#errorMessage");
+
+    if (!errorModal || !errorMessage) {
+        console.log("Error Modal or Message not found!");
+        routeToPage('404')
+        window.location.hash = '404'
+        return;
+    }
+
+    errorMessage.textContent = message;
+
+    errorModal.classList.remove("success", "failure");
+
+    if (isSuccess) {
+        errorModal.classList.add("success");
+    } else {
+        errorModal.classList.add("failure");
+    }
+
+    errorModal.style.opacity = "1";
+    errorModal.style.visibility = 'visible'
+
+    setTimeout(() => {
+        errorModal.style.opacity = "0";
+        errorModal.style.visibility = 'hidden'
+        errorModal.style.transition = "opacity 0.3s ease-in-out, visibility 0.3s ease-in-out";
+    }, 3000);
+}
+
+
 document.addEventListener("DOMContentLoaded", setupFriendsModal);
 
 function setupSearchBar() {
@@ -470,6 +552,23 @@ function setupSearchBar() {
                 suggestionDiv.querySelector('span').addEventListener('click', () => {
                     searchInput.value = user.username;
                     userSuggestionsBox.style.display = 'none';
+                });            
+                suggestionDiv.addEventListener('click', async (e) => {
+                    e.preventDefault();
+
+                    try {
+                        const userData = await fetchUserProfile(user.username);
+
+                        if (!userData.error) {
+                            window.location.hash = `#users=${user.username}`;
+                            userSuggestionsBox.style.display = 'none';
+                        } else {
+                            layoutShowError('User not found', false);
+                        }
+                    } catch (error) {
+                        console.error('Error fetching user profile:', error);
+                        layoutShowError('Error checking user existence', false);
+                    }
                 });
 
                 if (friendsList.has(user.username)) {
@@ -592,7 +691,6 @@ function updateStylesheet(href) {
 }
 
 function executePageScripts(path) {
-    console.log('executePageScripts:', path);
     switch (path) {
         case "story":
             storyActions();
@@ -610,6 +708,9 @@ function executePageScripts(path) {
             break;
         case "game":
             game();
+            break;
+        case "users":
+            users();
             break;
     }
 }

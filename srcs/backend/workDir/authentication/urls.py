@@ -9,6 +9,7 @@ urlpatterns = [
     path('delete_account/', views.delete_account, name='delete_account'),
     path('verify_email/', views.verify_email, name='verify_email'),
     path('login/', views.login, name='login'),
+    path('another_user_profile/', views.another_user_profile, name='another_user_profile'),
     path('login_otp/', views.login_otp, name='login_otp'),
     path('oauth42/', views.oauth2, name='oauth2'),
     path('oauth2/login/', views.oauth2_login, name='oauth2_login'),
