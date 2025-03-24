@@ -1,607 +1,735 @@
-import { initializeWebSocket } from "./globalWebsocket.js";
+import { initializeWebSocket, sendFriendRequest, acceptFriendRequest, rejectFriendRequest, cancelFriendRequest, isConnected, closeConnection, friendshipSocket } from "./globalWebsocket.js";
 import { game } from "./pages/game/game.js";
 import { home } from "./pages/home/home.js";
-import { flip } from "./pages/play/play.js"
+import { flip } from "./pages/play/play.js";
 import { settings } from "./pages/settings/settings.js";
-import { storyActions } from "./pages/story/index.js"
-import { scrollAction } from "./pages/story/scroll.js"
-
+import { storyActions } from "./pages/story/index.js";
+import { scrollAction } from "./pages/story/scroll.js";
 
 const authenticatedPages = ['home', 'settings', 'shop', 'play', 'game'];
 
-// Initialize isAuthenticated from localStorage or default to false
 window.isAuthenticated = localStorage.getItem('isAuthenticated') === 'true' || false;
-console.log('Initial auth status:', window.isAuthenticated);
+console.log('Initial isAuthenticated:', window.isAuthenticated);
 
-// Function to handle routing based on authentication status
-window.routeToPage = function (path) {
-    // Check if the route is valid
+// Friend-related state
+let pendingSentRequests = new Set();
+let pendingReceivedRequests = new Set();
+let friendsList = new Set();
+
+// Game-related state
+let allFriends = [];
+let sentInvites = [];
+let receivedInvites = [];
+let tournamentId = null;
+let invitedFriends = new Set();
+let participantCount = 1;
+
+// Store cleanup functions for each page
+const pageCleanups = new Map();
+
+try {
+    const savedSentRequests = localStorage.getItem('pendingFriendRequests');
+    if (savedSentRequests) pendingSentRequests = new Set(JSON.parse(savedSentRequests));
+    const savedReceivedRequests = localStorage.getItem('pendingReceivedRequests');
+    if (savedReceivedRequests) pendingReceivedRequests = new Set(JSON.parse(savedReceivedRequests));
+    const savedFriends = localStorage.getItem('friendsList');
+    if (savedFriends) friendsList = new Set(JSON.parse(savedFriends));
+    console.log('Loaded state:', { pendingSentRequests: [...pendingSentRequests], pendingReceivedRequests: [...pendingReceivedRequests], friendsList: [...friendsList] });
+} catch (error) {
+    console.error('Error loading from localStorage:', error);
+}
+
+function savePendingRequests() {
+    try {
+        localStorage.setItem('pendingFriendRequests', JSON.stringify([...pendingSentRequests]));
+        localStorage.setItem('pendingReceivedRequests', JSON.stringify([...pendingReceivedRequests]));
+    } catch (error) {
+        console.error('Error saving pending requests:', error);
+    }
+}
+
+function saveFriendsList() {
+    try {
+        localStorage.setItem('friendsList', JSON.stringify([...friendsList]));
+    } catch (error) {
+        console.error('Error saving friends list:', error);
+    }
+}
+
+async function fetchUsers(query) {
+    try {
+        const response = await fetch(`api/search_users/?query=${encodeURIComponent(query)}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+        });
+        if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+        const data = await response.json();
+        return data.users || [];
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        return [];
+    }
+}
+
+async function fetchPendingReceivedRequests() {
+    try {
+        const response = await fetch('api/get_friend_requests/', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+        });
+        if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+        const data = await response.json();
+        return data.requests || [];
+    } catch (error) {
+        console.error('Error fetching received requests:', error);
+        return [];
+    }
+}
+
+async function fetchPendingSentRequests() {
+    try {
+        const response = await fetch('api/get_sent_friend_requests/', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+        });
+        if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+        const data = await response.json();
+        return data.sent_requests || [];
+    } catch (error) {
+        console.error('Error fetching sent requests:', error);
+        return [];
+    }
+}
+
+async function fetchFriendsList() {
+    try {
+        const response = await fetch('api/get_friends/', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+        });
+        if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+        const data = await response.json();
+        allFriends = data.friends || [];
+        return allFriends;
+    } catch (error) {
+        console.error('Error fetching friends list:', error);
+        return [];
+    }
+}
+
+let cachedUsername = null;
+async function fetchLogin() {
+    if (cachedUsername) return cachedUsername;
+    try {
+        const response = await fetch('api/profile/', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+        });
+        if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+        cachedUsername = (await response.json()).user_name;
+        return cachedUsername;
+    } catch (error) {
+        console.error('Error fetching username:', error);
+        return null;
+    }
+}
+
+async function removeFriend(username) {
+    try {
+        const response = await fetch('api/remove_friend/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ friend_username: username })
+        });
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Error removing friend:', error);
+        return { error: 'Network error' };
+    }
+}
+
+function handleAuthStateChange() {
+    window.isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+    console.log('handleAuthStateChange: isAuthenticated=', window.isAuthenticated);
+    if (window.isAuthenticated) {
+        initializeWebSocket();
+        syncStateWithWebSocket();
+    } else {
+        closeConnection();
+    }
+}
+
+window.routeToPage = function (path, options = {}) {
+    console.log(`Routing to ${path}`);
     if (!isValidRoute(path)) {
-        loadPage('404'); // Load a 404 page for invalid routes
+        console.log('routeToPage: Invalid route, loading 404');
+        loadPage('404');
         return;
     }
 
-    // Redirect to story if the user is not authenticated and tries to access authenticated pages
     if (authenticatedPages.includes(path) && !window.isAuthenticated) {
-        console.log('Unauthorized access. Redirecting to story.');
+        console.log('routeToPage: Unauthorized, redirecting to #story');
         window.location.hash = 'story';
         return;
     }
 
-    // Redirect away from story if the user is authenticated
     if (path === 'story' && window.isAuthenticated) {
-        console.log('Authenticated user trying to access story. Redirecting to home.');
+        console.log('routeToPage: Authenticated user on story, redirecting to #home');
         window.location.hash = 'home';
         return;
     }
 
-    // Load the appropriate layout based on authentication
+    // Clean up previous page
+    cleanupPreviousPage();
+
     if (authenticatedPages.includes(path)) {
-        loadAuthenticatedLayout(path); // Load authenticated pages
+        loadAuthenticatedLayout(path);
     } else {
-        loadPage(path); // Load non-authenticated pages (e.g., story)
+        loadPage(path);
     }
 };
 
-// Handle page load and hash changes
 window.onload = function () {
     const fragId = window.location.hash.substring(1) || 'story';
     const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');  // Get the 'code' query parameter from the URL
+    const code = params.get('code');
 
     if (code) {
-        console.log(code)
-        // Now send the 'code' back to the backend for exchanging it for the user data
         fetch('/api/oauth2/login/redirect/', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ code: code }), // Send the code as JSON
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code }),
             credentials: 'include',
         })
         .then(response => {
-            console.log('Response status:', response.status);
-            if (response.status !== 200) {
-                throw new Error('Network response was not ok' + response.text());
-            }
+            if (!response.ok) throw new Error(`Login failed: ${response.status}`);
             return response.json();
         })
         .then(data => {
             console.log('Login successful:', data);
-        
             localStorage.setItem('isAuthenticated', 'true');
             window.isAuthenticated = true;
-            // generate_jwt_token fix
-            window.location.hash = 'home';
-            const currentUrl = new URL(window.location);
-            currentUrl.searchParams.delete('code'); // Delete the 'code' parameter
-            window.history.replaceState({}, '', currentUrl.toString());
-            return ;
+            initializeWebSocket();
+            setTimeout(() => {
+                if (isConnected()) {
+                    window.location.hash = 'home';
+                    const currentUrl = new URL(window.location);
+                    currentUrl.searchParams.delete('code');
+                    window.history.replaceState({}, '', currentUrl.toString());
+                } else {
+                    console.error('WebSocket not connected after login');
+                    alert('Connection failed, please refresh');
+                }
+            }, 500);
         })
         .catch(error => {
-            console.error('Error:', error);
+            console.error('Login error:', error);
             alert('Login failed: ' + error.message);
         });
+    } else {
+        handleAuthStateChange();
+        routeToPage(fragId);
     }
 
-
-    // Reset isAuthenticated to false if loading the story page
-    if (fragId === 'story') {
-        localStorage.setItem('isAuthenticated', 'false');
-        window.isAuthenticated = false;
-    }
-
-    console.log('Initial page:', fragId);
-    routeToPage(fragId);
-
-    // Listen for hash changes (e.g., user navigating to a new page)
     window.addEventListener('hashchange', () => {
-        console.log('Hash changed:', window.location.hash);
-        window.isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
-        console.log('Current auth status:', window.isAuthenticated);
-
         const path = window.location.hash.substring(1) || 'story';
         routeToPage(path);
     });
 };
 
+function syncStateWithWebSocket() {
+    console.log('syncStateWithWebSocket: Setting up listener');
+    friendshipSocket.addEventListener('message', async (event) => {
+        const data = JSON.parse(event.data);
+        console.log('Received:', data);
+        if (data.type === 'ping') return;
+
+        const currentUsername = await fetchLogin();
+        const updateEvent = new CustomEvent('gameStateUpdate', { detail: { sentInvites, receivedInvites, tournamentId, participantCount, invitedFriends } });
+
+        switch (data.type) {
+            case 'friend_request_sent':
+                pendingSentRequests.add(data.friend_username);
+                savePendingRequests();
+                break;
+            case 'friend_request_accepted':
+                pendingReceivedRequests.delete(data.friend_username);
+                friendsList.add(data.friend_username);
+                savePendingRequests();
+                saveFriendsList();
+                break;
+            case 'friend_request_rejected':
+            case 'friend_request_cancelled':
+                pendingSentRequests.delete(data.friend_username);
+                savePendingRequests();
+                break;
+            case 'game_invite_sent':
+                sentInvites.push({ to_username: data.to_username, invite_id: data.invite_id, status: 'pending', tournament_id: data.tournament_id || null, game_mode: data.game_mode || 'online' });
+                break;
+            case 'new_game_invite_notification':
+                receivedInvites.push({ invite_id: data.invite_id, from_username: data.from_username, status: 'pending', tournament_id: data.tournament_id || null, game_mode: data.game_mode || 'online' });
+                break;
+            case 'game_invite_accepted':
+                const sentInvite = sentInvites.find(i => i.invite_id === data.invite_id);
+                if (sentInvite) {
+                    sentInvite.status = 'accepted';
+                    sentInvite.game_id = data.game_id;
+                    if (sentInvite.game_mode !== 'tournament') {
+                        history.pushState({ game_id: data.game_id, user: currentUsername }, "", "#game");
+                        window.routeToPage('game');
+                    }
+                }
+                break;
+            case 'game_invite_accepted_notification':
+                const receivedInvite = receivedInvites.find(i => i.invite_id === data.invite_id);
+                if (receivedInvite && receivedInvite.game_mode !== 'tournament') {
+                    receivedInvite.status = 'accepted';
+                    receivedInvite.game_id = data.game_id;
+                    history.pushState({ game_id: data.game_id, user: currentUsername, from_username: receivedInvite.from_username, to_username: data.to_username }, "", "#game");
+                    window.routeToPage('game');
+                }
+                break;
+            case 'game_invite_rejected':
+                sentInvites = sentInvites.filter(i => i.invite_id !== data.invite_id);
+                break;
+            case 'local_game_created':
+                if (data.user === currentUsername) {
+                    history.pushState({ game_id: data.game_id, user: currentUsername, from_username: currentUsername, to_username: null, game_mode: 'local' }, "", "#game");
+                    window.routeToPage('game');
+                }
+                break;
+            case 'tournament_created':
+                tournamentId = data.tournament_id;
+                invitedFriends = new Set(data.invited_usernames);
+                participantCount = 1;
+                break;
+            case 'tournament_invite_accepted':
+                if (data.tournament_id === tournamentId) participantCount++;
+                const acceptedInvite = receivedInvites.find(i => i.invite_id === data.invite_id);
+                if (acceptedInvite) acceptedInvite.status = 'accepted';
+                break;
+            case 'tournament_waiting':
+                if (data.tournament_id === tournamentId) {
+                    participantCount = data.participant_count;
+                    alert(`Waiting for more players: ${participantCount}/4`);
+                }
+                break;
+            case 'tournament_match_start':
+                if (currentUsername === data.player_1 || currentUsername === data.player_2) {
+                    const state = { game_id: data.game_id, user: currentUsername, from_username: data.player_1, to_username: data.player_2, game_mode: 'online', tournament_id: data.tournament_id };
+                    history.pushState(state, "", `#game/${data.game_id}`);
+                    window.routeToPage('game', { gameId: data.game_id });
+                }
+                break;
+            case 'tournament_completed':
+                alert(`Tournament ${data.tournament_id} completed! Champion: ${data.champion}`);
+                resetTournamentState();
+                break;
+            case 'tournament_error':
+                console.error(`Tournament error: ${data.error}`);
+                alert(`Tournament error: ${data.error}`);
+                if (data.tournament_id === tournamentId) resetTournamentState();
+                break;
+        }
+        window.dispatchEvent(updateEvent);
+    });
+}
+
+function resetTournamentState() {
+    tournamentId = null;
+    invitedFriends.clear();
+    participantCount = 1;
+}
 
 function isValidRoute(path) {
-    const validRoutes = ['story', 'home','play', 'shop', 'settings', '404', 'game']
-    return validRoutes.includes(path)
+    const validRoutes = ['story', 'home', 'play', 'shop', 'settings', '404', 'game'];
+    return validRoutes.includes(path);
+}
+
+function cleanupPreviousPage() {
+    const currentPath = window.location.hash.substring(1) || 'story';
+    const cleanup = pageCleanups.get(currentPath);
+    if (cleanup) {
+        console.log(`Cleaning up previous page: ${currentPath}`);
+        cleanup();
+        pageCleanups.delete(currentPath);
+    }
 }
 
 function loadAuthenticatedLayout(contentPath) {
     const content = document.getElementById('content');
+    if (!content) {
+        console.error('loadAuthenticatedLayout: Content element missing');
+        return;
+    }
 
     if (!document.querySelector('.layout-container')) {
         const layoutRequest = new XMLHttpRequest();
-        layoutRequest.open('GET', 'layout/authenticated-layout.html');
+        layoutRequest.open('GET', 'layout/authenticated-layout.html', true);
         layoutRequest.onload = function () {
             if (layoutRequest.status === 200) {
                 content.innerHTML = layoutRequest.responseText;
                 loadContentIntoLayout(contentPath);
-
                 setupSidebarNavigation();
                 setupSearchBar();
-            }
-            else {
+            } else {
                 loadPage('404');
             }
         };
-        layoutRequest.onerror = function() {
+        layoutRequest.onerror = function () {
             loadPage('404');
         };
         layoutRequest.send();
-    }
-    else {
+    } else {
         loadContentIntoLayout(contentPath);
     }
 }
 
 function loadContentIntoLayout(path) {
     const contentContainer = document.querySelector('.content-wrapper');
-    const loader = document.querySelector('.loading-div');
+    if (!contentContainer) {
+        console.error('loadContentIntoLayout: Content wrapper missing');
+        return;
+    }
 
-    if (!contentContainer || !loader) return;
-
-    // Show the loader
-    loader.classList.remove('fade-out');
-    contentContainer.style.opacity = "0";
-
+    contentContainer.style.opacity = '0';
     const request = new XMLHttpRequest();
-    request.open('GET', `pages/${path}/${path}.html`);
+    request.open('GET', `pages/${path}/${path}.html`, true);
     request.onload = function () {
         if (request.status === 200) {
             contentContainer.innerHTML = request.responseText;
             updateStylesheet(`pages/${path}/${path}.css`);
             executePageScripts(path);
-
-            setTimeout(() => {
-                loader.classList.add('fade-out');
-                contentContainer.style.opacity = "1";
-            }, 1000);
+            contentContainer.style.opacity = '1';
         } else {
             contentContainer.innerHTML = '<p>Error loading content</p>';
-            loader.classList.add('fade-out');
         }
     };
-
     request.onerror = function () {
         contentContainer.innerHTML = '<p>Error loading content</p>';
-        loader.classList.add('fade-out');
     };
-
     request.send();
 }
 
-
 function setupSidebarNavigation() {
-    document.querySelectorAll('.sidebar-menu div, .sidebar-actions div').forEach(item => {
-        item.addEventListener('click', () => {
-            handleNotifBtn(item);
-            const target = item.getAttribute('data-target');
+    const items = document.querySelectorAll('.sidebar-menu div, .sidebar-actions div');
+    items.forEach(item => {
+        item.removeEventListener('click', handleSidebarClick); // Remove old listeners
+        item.addEventListener('click', handleSidebarClick);
+    });
 
-            if (target) {
-                if (target === '#story') {
-                    // Set isAuthenticated to false
-                    localStorage.setItem('isAuthenticated', 'false');
-                    window.isAuthenticated = false;
-                    console.log('User logged out. isAuthenticated set to false.');
-                }
-
-                // Remove 'clicked' class from all buttons
-                document.querySelectorAll('.sidebar-menu div, .sidebar-actions div')
-                    .forEach(button => button.classList.remove('clicked'));
-
-                // Add 'clicked' class to the clicked button
-                item.classList.add('clicked');
-
-                // Change the window location hash to the target
-                window.location.hash = target;
+    function handleSidebarClick() {
+        handleNotifBtn(this);
+        const target = this.getAttribute('data-target');
+        if (target) {
+            if (target === '#story') {
+                localStorage.setItem('isAuthenticated', 'false');
+                window.isAuthenticated = false;
+                handleAuthStateChange();
             }
-        });
+            items.forEach(button => button.classList.remove('clicked'));
+            this.classList.add('clicked');
+            window.location.hash = target;
+        }
+    }
+
+    pageCleanups.set('sidebar', () => {
+        items.forEach(item => item.removeEventListener('click', handleSidebarClick));
     });
 }
 
+function setupFriendsModal() {
+    let cleanup = () => {};
+    const waitForButton = setInterval(() => {
+        const seeFriendsBtn = document.querySelector(".see-friends-btn");
+        if (seeFriendsBtn) {
+            clearInterval(waitForButton);
+            seeFriendsBtn.removeEventListener('click', handleFriendsClick); // Clean old listener
+            seeFriendsBtn.addEventListener('click', handleFriendsClick);
+
+            async function handleFriendsClick() {
+                let friendsModal = document.getElementById("friends-modal");
+                if (!friendsModal) {
+                    friendsModal = document.createElement("div");
+                    friendsModal.id = "friends-modal";
+                    friendsModal.classList.add("friends-modal");
+                    friendsModal.innerHTML = `
+                        <button class="close-btn">×</button>
+                        <div class="search-bar-container">
+                            <input type="text" class="search-bar" placeholder="Search friends...">
+                        </div>
+                        <div class="friends-list"></div>
+                    `;
+                    document.body.appendChild(friendsModal);
+                }
+
+                const closeBtn = friendsModal.querySelector(".close-btn");
+                const friendsListContainer = friendsModal.querySelector(".friends-list");
+                const searchBar = friendsModal.querySelector(".search-bar");
+
+                friendsModal.style.opacity = "1";
+                friendsModal.style.visibility = "visible";
+
+                const friends = await fetchFriendsList();
+                friendsList = new Set(friends.map(f => f.username));
+                saveFriendsList();
+                renderFriends([...friendsList], friendsListContainer);
+
+                closeBtn.removeEventListener('click', handleCloseClick);
+                closeBtn.addEventListener('click', handleCloseClick);
+                function handleCloseClick() {
+                    friendsModal.style.opacity = "0";
+                    friendsModal.style.visibility = "hidden";
+                    searchBar.value = '';
+                    renderFriends([...friendsList], friendsListContainer);
+                }
+
+                searchBar.removeEventListener('input', handleSearchInput);
+                searchBar.addEventListener('input', handleSearchInput);
+                function handleSearchInput() {
+                    const query = searchBar.value.trim().toLowerCase();
+                    const filteredFriends = [...friendsList].filter(friend => friend.toLowerCase().startsWith(query));
+                    renderFriends(filteredFriends, friendsListContainer);
+                }
+
+                cleanup = () => {
+                    closeBtn.removeEventListener('click', handleCloseClick);
+                    searchBar.removeEventListener('input', handleSearchInput);
+                    if (friendsModal) {
+                        friendsModal.style.opacity = "0";
+                        friendsModal.style.visibility = "hidden";
+                    }
+                };
+            }
+        }
+    }, 100);
+
+    setTimeout(() => {
+        clearInterval(waitForButton);
+        console.error('setupFriendsModal: Timed out waiting for .see-friends-btn');
+    }, 5000);
+
+    function renderFriends(friends, container) {
+        container.innerHTML = '';
+        if (!Array.isArray(friends) || friends.length === 0) {
+            container.innerHTML = '<p>No friends found.</p>';
+            return;
+        }
+        friends.forEach((friend) => {
+            const username = typeof friend === 'string' ? friend : friend.username;
+            const friendItem = document.createElement('div');
+            friendItem.classList.add('friend-item');
+            friendItem.innerHTML = `
+                <img src="https://cdn-icons-png.flaticon.com/512/147/147144.png" alt="${username} image">
+                <p>${username}</p>
+                <button class="remove-friend">Remove Friend</button>
+            `;
+            const removeBtn = friendItem.querySelector('.remove-friend');
+            removeBtn.removeEventListener('click', handleRemoveClick); // Clean old listener
+            removeBtn.addEventListener('click', handleRemoveClick);
+            async function handleRemoveClick(e) {
+                e.stopPropagation();
+                const result = await removeFriend(username);
+                if (!result.error) {
+                    friendsList.delete(username);
+                    saveFriendsList();
+                    renderFriends([...friendsList].filter(f => f.toLowerCase().startsWith(container.parentElement.querySelector('.search-bar').value.trim().toLowerCase())), container);
+                }
+            }
+            container.appendChild(friendItem);
+        });
+    }
+
+    pageCleanups.set('play', cleanup); // Assuming this is tied to 'play' page
+}
+
+document.addEventListener("DOMContentLoaded", setupFriendsModal);
+
 function setupSearchBar() {
     const searchInput = document.getElementById('search-bar');
+    if (!searchInput) return; // Skip if not present
     const userSuggestionsBox = document.createElement('div');
     userSuggestionsBox.classList.add('user-suggestions');
-    
     const navbarSearch = document.querySelector('.navbar-search');
     navbarSearch.appendChild(userSuggestionsBox);
-    
-    let pendingSentRequests = new Set();  // Requests I sent
-    let pendingReceivedRequests = new Set();  // Requests sent to me
-    let friendsList = new Set();  // Current friends
 
-    try {
-        const savedSentRequests = localStorage.getItem('pendingFriendRequests');
-        if (savedSentRequests) pendingSentRequests = new Set(JSON.parse(savedSentRequests));
-        
-        const savedFriends = localStorage.getItem('friendsList');
-        if (savedFriends) friendsList = new Set(JSON.parse(savedFriends));
-    } catch (error) {
-        console.error('Error loading data from localStorage:', error);
-    }
-    
-    // Save data to localStorage
-    function savePendingRequests() {
-        try {
-            localStorage.setItem('pendingFriendRequests', JSON.stringify([...pendingSentRequests]));
-        } catch (error) {
-            console.error('Error saving pending requests:', error);
-        }
-    }
-
-    function saveFriendsList() {
-        try {
-            localStorage.setItem('friendsList', JSON.stringify([...friendsList]));
-        } catch (error) {
-            console.error('Error saving friends list:', error);
-        }
-    }
-    
-    // Debounce function
-    function debounce(func, wait) {
+    const debounce = (func, wait) => {
         let timeout;
-        return function (...args) {
+        return (...args) => {
             clearTimeout(timeout);
             timeout = setTimeout(() => func.apply(this, args), wait);
         };
-    }
+    };
 
-    // API Functions
-    async function fetchUsers(query) {
-        try {
-            const url = `/api/search_users/?query=${encodeURIComponent(query)}`;
-            const response = await fetch(url, { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
-            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-            return (await response.json()).users || [];
-        } catch (error) {
-            console.error('Error fetching users:', error);
-            return [];
-        }
-    }
-
-    async function fetchPendingReceivedRequests() {
-        try {
-            const response = await fetch('/api/get_friend_requests/', { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
-            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-            return (await response.json()).requests || [];
-        } catch (error) {
-            console.error('Error fetching received requests:', error);
-            return [];
-        }
-    }
-
-    async function fetchPendingSentRequests() {
-        try {
-            const response = await fetch('/api/get_sent_friend_requests/', { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
-            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-            return (await response.json()).sent_requests || [];
-        } catch (error) {
-            console.error('Error fetching sent requests:', error);
-            return [];
-        }
-    }
-
-    async function fetchFriendsList() {
-        try {
-            const response = await fetch('/api/get_friends/', { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
-            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-            return (await response.json()).friends || [];
-        } catch (error) {
-            console.error('Error fetching friends list:', error);
-            return [];
-        }
-    }
-
-    async function addFriendRequest(username) {
-        try {
-            const response = await fetch('/api/add_friend/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ friend_username: username })
-            });
-            const data = await response.json();
-            console.log(data.message || data.error);
-            return data;
-        } catch (error) {
-            console.error('Error adding friend:', error);
-            return { error: 'Network error' };
-        }
-    }
-
-    async function cancelFriendRequest(username) {
-        try {
-            const response = await fetch('/api/cancel_invite/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ friend_username: username })
-            });
-            const data = await response.json();
-            console.log(data.message || data.error);
-            return data;
-        } catch (error) {
-            console.error('Error canceling friend request:', error);
-            return { error: 'Network error' };
-        }
-    }
-
-    async function acceptFriendRequest(username) {
-        try {
-            const response = await fetch('/api/accept_friend/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ friend_username: username })
-            });
-            const data = await response.json();
-            console.log(data.message || data.error);
-            return data;
-        } catch (error) {
-            console.error('Error accepting friend request:', error);
-            return { error: 'Network error' };
-        }
-    }
-
-    async function rejectFriendRequest(username) {
-        try {
-            const response = await fetch('/api/reject_friend/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ friend_username: username })
-            });
-            const data = await response.json();
-            console.log(data.message || data.error);
-            return data;
-        } catch (error) {
-            console.error('Error rejecting friend request:', error);
-            return { error: 'Network error' };
-        }
-    }
-
-    async function removeFriend(username) {
-        try {
-            const response = await fetch('/api/remove_friend/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ friend_username: username })
-            });
-            const data = await response.json();
-            console.log(data.message || data.error);
-            return data;
-        } catch (error) {
-            console.error('Error removing friend:', error);
-            return { error: 'Network error' };
-        }
-    }
-
-    const handleSearchInput = debounce(async function () {
+    const handleSearchInput = debounce(async () => {
         const query = searchInput.value.trim().toLowerCase();
-        userSuggestionsBox.innerHTML = ''; // Clear previous suggestions
-        
-        if (query.length > 0) {
-            const [users, receivedRequests, sentRequests, friends] = await Promise.all([
-                fetchUsers(query),
-                fetchPendingReceivedRequests(),
-                fetchPendingSentRequests(),
-                fetchFriendsList()
-            ]);
-
-            // Update state with server data
-            pendingReceivedRequests = new Set(receivedRequests.map(req => req.from_username));
-            pendingSentRequests = new Set(sentRequests.map(req => req.to_username));
-            friendsList = new Set(friends.map(f => f.username));
-
-            // Sync localStorage
-            savePendingRequests();
-            saveFriendsList();
-
-            users.slice(0, 3).forEach(user => {
-                const suggestionDiv = document.createElement('div');
-                suggestionDiv.classList.add('suggestion-item');
-                
-                const usernameText = document.createElement('span');
-                usernameText.textContent = user.username;
-                usernameText.addEventListener('click', () => {
-                    searchInput.value = user.username;
-                    userSuggestionsBox.style.display = 'none';
-                });
-                
-                suggestionDiv.appendChild(usernameText);
-
-                // Determine relationship status and configure buttons
-                if (friendsList.has(user.username)) {
-                    const removeButton = document.createElement('button');
-                    removeButton.classList.add('remove-btn');
-                    removeButton.textContent = 'Remove';
-                    removeButton.onclick = async (e) => {
-                        e.stopPropagation();
-                        const result = await removeFriend(user.username);
-                        if (!result.error) {
-                            friendsList.delete(user.username);
-                            saveFriendsList();
-                            handleSearchInput();
-                        }
-                    };
-                    suggestionDiv.appendChild(removeButton);
-                } else if (pendingReceivedRequests.has(user.username)) {
-                    const acceptButton = document.createElement('button');
-                    acceptButton.classList.add('accept-btn');
-                    acceptButton.textContent = 'Accept';
-                    acceptButton.onclick = async (e) => {
-                        e.stopPropagation();
-                        const result = await acceptFriendRequest(user.username);
-                        if (!result.error) {
-                            pendingReceivedRequests.delete(user.username);
-                            friendsList.add(user.username);
-                            saveFriendsList();
-                            handleSearchInput();
-                        }
-                    };
-
-                    const ignoreButton = document.createElement('button');
-                    ignoreButton.classList.add('ignore-btn');
-                    ignoreButton.textContent = 'Ignore';
-                    ignoreButton.onclick = async (e) => {
-                        e.stopPropagation();
-                        const result = await rejectFriendRequest(user.username);
-                        if (!result.error) {
-                            pendingReceivedRequests.delete(user.username);
-                            handleSearchInput();
-                        }
-                    };
-
-                    suggestionDiv.appendChild(acceptButton);
-                    suggestionDiv.appendChild(ignoreButton);
-                } else if (pendingSentRequests.has(user.username)) {
-                    const cancelButton = document.createElement('button');
-                    cancelButton.classList.add('cancel-btn');
-                    cancelButton.textContent = 'Cancel';
-                    cancelButton.onclick = async (e) => {
-                        e.stopPropagation();
-                        const result = await cancelFriendRequest(user.username);
-                        if (!result.error) {
-                            pendingSentRequests.delete(user.username);
-                            savePendingRequests();
-                            handleSearchInput();
-                        }
-                    };
-                    suggestionDiv.appendChild(cancelButton);
-                } else {
-                    const addButton = document.createElement('button');
-                    addButton.classList.add('add-btn');
-                    addButton.textContent = 'Add';
-                    addButton.onclick = async (e) => {
-                        e.stopPropagation();
-                        const result = await addFriendRequest(user.username);
-                        if (!result.error) {
-                            pendingSentRequests.add(user.username);
-                            savePendingRequests();
-                            handleSearchInput();
-                        }
-                    };
-                    suggestionDiv.appendChild(addButton);
-                }
-
-                userSuggestionsBox.appendChild(suggestionDiv);
-            });
+        userSuggestionsBox.innerHTML = '';
+        if (query.length === 0) {
+            userSuggestionsBox.style.display = 'none';
+            return;
         }
 
-        userSuggestionsBox.style.display = userSuggestionsBox.children.length > 0 ? 'block' : 'none';
+        const users = await fetchUsers(query);
+        users.slice(0, 3).forEach(user => {
+            const suggestionDiv = document.createElement('div');
+            suggestionDiv.classList.add('suggestion-item');
+            suggestionDiv.innerHTML = `<span>${user.username}</span>`;
+            const span = suggestionDiv.querySelector('span');
+            span.addEventListener('click', () => {
+                searchInput.value = user.username;
+                userSuggestionsBox.style.display = 'none';
+            });
+
+            if (friendsList.has(user.username)) {
+                suggestionDiv.innerHTML += `<button class="remove-btn">Remove</button>`;
+                suggestionDiv.querySelector('.remove-btn').onclick = async (e) => {
+                    e.stopPropagation();
+                    const result = await removeFriend(user.username);
+                    if (!result.error) {
+                        friendsList.delete(user.username);
+                        saveFriendsList();
+                        handleSearchInput();
+                    }
+                };
+            } else if (pendingReceivedRequests.has(user.username)) {
+                suggestionDiv.innerHTML += `<button class="accept-btn">Accept</button><button class="ignore-btn">Ignore</button>`;
+                suggestionDiv.querySelector('.accept-btn').onclick = async (e) => {
+                    e.stopPropagation();
+                    await acceptFriendRequest(user.username);
+                    handleSearchInput();
+                };
+                suggestionDiv.querySelector('.ignore-btn').onclick = async (e) => {
+                    e.stopPropagation();
+                    await rejectFriendRequest(user.username);
+                    handleSearchInput();
+                };
+            } else if (pendingSentRequests.has(user.username)) {
+                suggestionDiv.innerHTML += `<button class="cancel-btn">Cancel</button>`;
+                suggestionDiv.querySelector('.cancel-btn').onclick = async (e) => {
+                    e.stopPropagation();
+                    await cancelFriendRequest(user.username);
+                    handleSearchInput();
+                };
+            } else {
+                suggestionDiv.innerHTML += `<button class="add-btn">Add</button>`;
+                suggestionDiv.querySelector('.add-btn').onclick = async (e) => {
+                    e.stopPropagation();
+                    await sendFriendRequest(user.username);
+                    handleSearchInput();
+                };
+            }
+            userSuggestionsBox.appendChild(suggestionDiv);
+        });
+        userSuggestionsBox.style.display = users.length ? 'block' : 'none';
     }, 300);
 
-    // Event listeners
+    searchInput.removeEventListener('input', handleSearchInput);
     searchInput.addEventListener('input', handleSearchInput);
-    document.addEventListener('click', (event) => {
+    document.removeEventListener('click', handleOutsideClick);
+    document.addEventListener('click', handleOutsideClick);
+    function handleOutsideClick(event) {
         if (!navbarSearch.contains(event.target)) {
             userSuggestionsBox.style.display = 'none';
         }
+    }
+
+    pageCleanups.set('search', () => {
+        searchInput.removeEventListener('input', handleSearchInput);
+        document.removeEventListener('click', handleOutsideClick);
+        userSuggestionsBox.remove();
     });
 }
 
 function handleNotifBtn(item) {
     const notifBar = document.querySelector('[layout="notifbar"]');
-
     if (item.classList.contains('notif')) {
         notifBar.classList.toggle('active');
-
-        // Only remove clicked if the notification bar becomes inactive
         if (!notifBar.classList.contains('active')) {
             item.classList.remove('clicked');
         }
     } else {
-        hideNotifBar(notifBar);
+        notifBar.classList.remove('active');
         item.classList.remove('clicked');
     }
 }
 
-function hideNotifBar(bar) {
-    bar.classList.remove('active');
-}
-
-// Add event listeners for Accept and Decline buttons
-document.querySelectorAll('.notif-item').forEach(item => {
-    const acceptBtn = item.querySelector('.accept-btn');
-    const declineBtn = item.querySelector('.decline-btn');
-
-    acceptBtn.addEventListener('click', () => {
-        const userName = item.querySelector('.notif-text').textContent.split(' ')[0];
-        alert(`You accepted ${userName}'s friend request!`);
-        item.remove(); // Remove the notification item after accepting
-    });
-
-    declineBtn.addEventListener('click', () => {
-        const userName = item.querySelector('.notif-text').textContent.split(' ')[0];
-        alert(`You declined ${userName}'s friend request!`);
-        item.remove(); // Remove the notification item after declining
-    });
-});
-
-
 function loadPage(path) {
-    const content = document.getElementById('content')
-    
-    try {
-        const request = new XMLHttpRequest()
-        request.open('GET', `pages/${path}/${path}.html`)
-        request.onload = function() {
-            if (request.status === 200) {
-                content.innerHTML = request.responseText
-                updateStylesheet(`pages/${path}/${path}.css`)
-                executePageScripts(path)
-            } else {
-                loadPage('404')
-            }
+    const content = document.getElementById('content');
+    const request = new XMLHttpRequest();
+    request.open('GET', `pages/${path}/${path}.html`, true);
+    request.onload = function () {
+        if (request.status === 200) {
+            content.innerHTML = request.responseText;
+            updateStylesheet(`pages/${path}/${path}.css`);
+            executePageScripts(path);
+        } else {
+            loadPage('404');
         }
-        request.onerror = function() {
-            loadPage('404')
-        }
-        request.send()
-    } catch (error) {
-        console.log("Error loading page:", error)
-        loadPage('404')
-    }
+    };
+    request.onerror = function () {
+        loadPage('404');
+    };
+    request.send();
 }
 
 function updateStylesheet(href) {
-    let linkTag = document.querySelector("link[data-section-style]")
+    let linkTag = document.querySelector("link[data-section-style]");
     if (!linkTag) {
-        linkTag = document.createElement("link")
-        linkTag.rel = "stylesheet"
-        linkTag.dataset.sectionStyle = "true"
-        document.head.appendChild(linkTag)
+        linkTag = document.createElement("link");
+        linkTag.rel = "stylesheet";
+        linkTag.dataset.sectionStyle = "true";
+        document.head.appendChild(linkTag);
     }
-    linkTag.href = href
+    linkTag.href = href;
 }
 
 function executePageScripts(path) {
+    console.log('Executing scripts for:', path);
+    let cleanup;
     switch (path) {
         case "story":
-            storyActions()
-            scrollAction()
-            break
+            storyActions();
+            scrollAction();
+            cleanup = () => {
+                // Add cleanup logic if storyActions/scrollAction attach listeners
+                console.log('Cleaned up story page');
+            };
+            break;
         case "play":
-            flip()
-            break
+            flip();
+            setupFriendsModal();
+            cleanup = pageCleanups.get('play');
+            break;
         case "home":
-            home()
-            break
+            home();
+            cleanup = () => {
+                // Add cleanup logic if home.js attaches listeners
+                console.log('Cleaned up home page');
+            };
+            break;
         case "settings":
-            settings()
-            break
+            settings();
+            cleanup = () => {
+                // Add cleanup logic if settings.js attaches listeners
+                console.log('Cleaned up settings page');
+            };
+            break;
         case "game":
-            game()
-            break
-        default:
-            break
+            game();
+            cleanup = () => {
+                // Add cleanup logic if game.js attaches listeners
+                console.log('Cleaned up game page');
+            };
+            break;
     }
+    if (cleanup) pageCleanups.set(path, cleanup);
 }
+
+export { handleAuthStateChange, fetchFriendsList, fetchLogin, sentInvites, receivedInvites, tournamentId, invitedFriends, participantCount };

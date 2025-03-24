@@ -1,4 +1,5 @@
 from django.db import models
+from django.db import IntegrityError
 from django.contrib.auth.hashers import check_password
 from django.db import IntegrityError
 import random
@@ -116,3 +117,4 @@ class Friendship(models.Model):
     
     class Meta:
         unique_together = ('from_user', 'to_user')
+

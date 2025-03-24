@@ -300,7 +300,7 @@
     border: 2px solid var(--stars-color);
 }
 
-.playLocally-button {
+.playLocally-button, .play-online-button, .accept-invite-button {
     height: 10%;
     width: 90%;
     background-color: var(--space-color);

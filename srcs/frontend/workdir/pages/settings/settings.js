@@ -1,4 +1,41 @@
 export function settings() {
+
+    let currentUserEmail = null
+
+    fetch('/api/profile/', {
+        method: "GET",
+        credentials: "include"
+    })
+    .then(response => {
+        if (response.status != 200) {
+            throw new Error('Network response was not ok: ' + response.status);
+        }
+        return response.json(); 
+    })
+    .then(userData => {
+        console.log('User Data:', userData);
+
+        console.log(userData)
+        // Populate personal information
+        document.getElementById('change-lastName').placeholder = userData.last_name || '';
+        document.getElementById('change-firstName').placeholder = userData.first_name || '';
+        document.getElementById('change-userName').placeholder = userData.user_name || '';
+        document.getElementById('change-email').placeholder = userData.email || '';
+        currentUserEmail = userData.email
+
+        // Set the OTP checkbox state
+        const otpCheckbox = document.getElementById('change-otpLogin');
+        if (userData.two_factor_enabled) {
+            otpCheckbox.checked = true;
+        } else {
+            otpCheckbox.checked = false;
+        }
+
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+
     /*************************
     * Profile Picture change *
     *************************/
@@ -38,51 +75,60 @@ export function settings() {
     const emailInput = document.getElementById('change-email');
     const codeInput = document.getElementById('verification-code');
     const verificationMessage = document.getElementById('verification-message');
-    
-    let emailVerified = false; // Track email verification status
-    
-    // Initialize the original email attribute
-    emailInput.setAttribute('data-original-email', '');
-    
-// When verify button is clicked
-verifyEmailBtn.addEventListener('click', function(event) {
-    // Prevent any form submission that might be triggered
-    event.preventDefault();
-    event.stopPropagation();
-    
-    const email = emailInput.value.trim();
-    if (!email || !isValidEmail(email)) {
-        alert('Please enter a valid email address');
-        return;
-    }
-    
-    if (verificationBox.style.display === 'block') {
-        sendVerificationCode(email);
-        verificationMessage.textContent = 'Verification code resent';
-        verificationMessage.className = 'success-message';
-    } else {
-        verificationBox.style.display = 'block';
-        sendVerificationCode(email);
-    }
-    
-    verifyEmailBtn.textContent = 'Resend';
-});
 
-// When submit code button is clicked
-submitCodeBtn.addEventListener('click', function(event) {
-    // Prevent any form submission that might be triggered
-    event.preventDefault();
-    event.stopPropagation();
-    
-    const code = codeInput.value.trim();
-    if (!code) {
-        verificationMessage.textContent = 'Please enter the verification code';
-        verificationMessage.className = 'error-message';
-        return;
-    }
-    verifyCode(code);
-});
-    
+    let emailVerified = false; // Track email verification status
+
+    // Initialize with current user email (you'll need to set this when page loads)
+    // For example: currentUserEmail = 'ddos@gmail.com';
+    emailInput.setAttribute('data-original-email', currentUserEmail);
+
+    // When verify button is clicked
+    verifyEmailBtn.addEventListener('click', function(event) {
+        // Prevent any form submission that might be triggered
+        event.preventDefault();
+        event.stopPropagation();
+        
+        const email = emailInput.value.trim();
+        if (!email || !isValidEmail(email)) {
+            alert('Please enter a valid email address');
+            return;
+        }
+        
+        // Check if the user is trying to verify their current email
+        if (email === currentUserEmail) {
+            alert('This email your Email and is already verified')
+            return;
+        }
+        
+        if (verificationBox.style.display === 'block') {
+            sendVerificationCodeRequest(email);
+            verificationMessage.textContent = 'Verification code resent';
+            verificationMessage.className = 'success-message';
+        } else {
+            verificationBox.style.display = 'block';
+            sendVerificationCodeRequest(email);
+        }
+        
+        verifyEmailBtn.textContent = 'Resend';
+    });
+
+    // When submit code button is clicked
+    submitCodeBtn.addEventListener('click', function(event) {
+        // Prevent any form submission that might be triggered
+        event.preventDefault();
+        event.stopPropagation();
+        
+        const code = codeInput.value.trim();
+        const email = emailInput.value.trim();
+        
+        if (!code) {
+            verificationMessage.textContent = 'Please enter the verification code';
+            verificationMessage.className = 'error-message';
+            return;
+        }
+        verifyCodeWithBackend(currentUserEmail, code);
+    });
+
     // Hide verification box when clicking outside
     document.addEventListener('click', function(event) {
         const isClickInside = verificationBox.contains(event.target) || verifyEmailBtn.contains(event.target);
@@ -91,34 +137,104 @@ submitCodeBtn.addEventListener('click', function(event) {
             verifyEmailBtn.textContent = 'Verify';
         }
     });
-    
+
     function isValidEmail(email) {
         const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return re.test(email);
     }
-    
-    function sendVerificationCode(email) {
-        console.log('Sending verification code to: ' + email);
-        verificationMessage.textContent = 'Verification code sent to your email';
-        verificationMessage.className = 'success-message';
-    }
-    
-    function verifyCode(code) {
-        if (code === '123456') {
-            verificationMessage.textContent = 'Email verified successfully!';
-            verificationMessage.className = 'success-message';
-            emailInput.setAttribute('readonly', true);
-            emailInput.classList.add('verified-email');
-            verifyEmailBtn.textContent = 'Verified';
-            verifyEmailBtn.style.backgroundColor = '#4CAF50';
-            verifyEmailBtn.disabled = true;
-            emailVerified = true; // Set emailVerified to true
-            setTimeout(() => verificationBox.style.display = 'none', 2000);
-            console.log('Email verification successful - update backend');
-        } else {
-            verificationMessage.textContent = 'Invalid code. Please try again.';
+
+    // Request a verification code from the backend
+    function sendVerificationCodeRequest(email) {
+        // Show loading state
+        verificationMessage.textContent = 'Sending verification code...';
+        verificationMessage.className = 'info-message';
+        
+        // Make API call to request verification code
+        // NOTE: Replace '/api/send_verification_code/' with your actual endpoint that generates and sends OTP
+        fetch('/api/send_otp_email_change/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 'email': email })
+        })
+        .then(response => {
+            if (response.status != 200) {
+                console.log('hello111')
+                throw new Error('Network response was not ok: ' + response.error);
+            }
+            return response.json(); 
+        })
+        .then(data => {
+            if (data.error) {
+                console.log(data.error)
+                verificationMessage.textContent = data.error;
+                verificationMessage.className = 'error-message';
+            } else {
+                verificationMessage.textContent = 'Verification code sent to your email';
+                verificationMessage.className = 'success-message';
+            }
+        })
+        .catch(error => {
+            console.log('hello222')
+            console.error('Error:', error);
+            verificationMessage.textContent = 'Failed to send verification code. Please try again.';
             verificationMessage.className = 'error-message';
-        }
+        });
+    }
+
+    // Verify the code with the backend
+    function verifyCodeWithBackend(email, code) {
+        // Show loading state
+        verificationMessage.textContent = 'Verifying...';
+        verificationMessage.className = 'info-message';
+        
+        console.log('data sent to the backend:', email, code)
+        // Make API call to verify the code
+        fetch('/api/verify_email/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+                email: email,
+                code: code 
+            })
+        })
+        .then(response => {
+            if (response.status != 200) {
+                throw new Error('Network response was not ok: ' + response.error);
+            }
+            return response.json(); 
+        })
+        .then(data => {
+            if (data.error) {
+                verificationMessage.textContent = data.error;
+                verificationMessage.className = 'error-message';
+            } else {
+                // Success case
+                verificationMessage.textContent = 'Email verified successfully!';
+                verificationMessage.className = 'success-message';
+                emailInput.setAttribute('readonly', true);
+                emailInput.classList.add('verified-email');
+                verifyEmailBtn.textContent = 'Verified';
+                verifyEmailBtn.style.backgroundColor = '#4CAF50';
+                verifyEmailBtn.disabled = true;
+                emailVerified = true;
+                
+                // Update the current email
+                currentUserEmail = email;
+                emailInput.setAttribute('data-original-email', email);
+                
+                // Hide the verification box after a delay
+                setTimeout(() => verificationBox.style.display = 'none', 2000);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            verificationMessage.textContent = 'Verification failed. Please try again.';
+            verificationMessage.className = 'error-message';
+        });
     }
     
     /**********************
@@ -137,7 +253,7 @@ submitCodeBtn.addEventListener('click', function(event) {
         const promises = [];
         
         const emailInput = document.getElementById('change-email');
-        const isEmailChanged = emailInput.value !== emailInput.getAttribute('data-original-email');
+        const isEmailChanged = emailInput.value !== '' && emailInput.value !== emailInput.getAttribute('data-original-email');
         
         // Check if email is verified if it was changed
         if (isEmailChanged && !emailVerified) { // Only check verification at form submission
@@ -148,26 +264,45 @@ submitCodeBtn.addEventListener('click', function(event) {
             return; // Stop form submission entirely if email is not verified
         }
         
-        // If we get here, the email is either unchanged or verified
-        const personalInfoPromise = updatePersonalInfo();
-        if (personalInfoPromise) promises.push(personalInfoPromise);
+
         
-        // If password was entered, update password
-        if (document.getElementById('currentPassword').value) {
-            const passwordPromise = updatePassword();
-            if (passwordPromise) promises.push(passwordPromise);
-        }
-        
-        const otpPromise = updateOTPSetting();
-        if (otpPromise) promises.push(otpPromise);
-        
-        Promise.all(promises)
-            .then(() => {
-                // Only reset the form if all promises resolve successfully
-                form.reset();
-                showNotification('Settings updated successfully', 'success');
-                
-                // Reset email verification state after successful submission
+        let personalResult, passwordResult, otpResult; // Store results for later use
+
+        // Chain promises sequentially
+        updatePersonalInfo()
+            .then(result => {
+                personalResult = result; // Save the result
+                console.log('Personal info result:', personalResult);
+                if (document.getElementById('currentPassword').value) {
+                    return updatePassword()
+                            .then(passwordResult => {
+                                // Check if password update was successful
+                                if (!passwordResult || passwordResult.error) {
+                                    throw new Error(passwordResult.error || 'Password update failed');
+                                }
+                                return passwordResult;
+                            });;
+                }
+                return Promise.resolve({ skipped: true }); // Skip password if no input
+            })
+            .then(result => {
+                passwordResult = result; // Save the result
+                console.log('Password result:', passwordResult);
+                return updateOTPSetting(); // Always call OTP update (no conditional skip here)
+            })
+            .then(result => {
+                otpResult = result; // Save the result
+                console.log('OTP result:', otpResult);
+                // Only show success if at least one update occurred
+                if (
+                    (personalResult && !personalResult.skipped) ||
+                    (passwordResult && !passwordResult.skipped) ||
+                    (otpResult && !otpResult.skipped)
+                ) {
+                    showNotification('Settings updated successfully', 'success');
+                } else {
+                    showNotification('No changes were made', 'info');
+                }
                 emailInput.setAttribute('data-original-email', emailInput.value);
                 emailInput.classList.remove('verified-email');
                 emailInput.removeAttribute('readonly');
@@ -176,14 +311,15 @@ submitCodeBtn.addEventListener('click', function(event) {
                 verifyEmailBtn.disabled = false;
             })
             .catch(error => {
-                showNotification('An error occurred', 'error');
+                console.error('Error in updates:', error);
+                showNotification('An error occurred: ' + error.message, 'error');
             })
             .finally(() => {
                 isSubmitting = false;
                 submitBtn.disabled = false;
                 submitBtn.textContent = originalBtnText;
             });
-    });
+});
     
     /**********************
      * Profile Updates *
@@ -200,7 +336,10 @@ submitCodeBtn.addEventListener('click', function(event) {
         Object.keys(formData).forEach(key => { if (!formData[key]) delete formData[key]; });
         
         // If no form data, return without doing anything
-        if (Object.keys(formData).length === 0) return;
+        if (Object.keys(formData).length === 0) {
+            console.log('Empty fields in settings form')
+            return Promise.resolve({ skipped: true})
+        }
         
         console.log("Form data being sent to backend:", JSON.stringify(formData, null, 2));
 
@@ -215,6 +354,7 @@ submitCodeBtn.addEventListener('click', function(event) {
             .then(response => {
                 if (!response.ok) {
                     // Check if the response is not OK (status code other than 2xx)
+                    console.log('request faileed')
                     return response.json().then(errorData => {
                         // Handle the error based on the response status and message
                         if (response.status === 400 && errorData.error) {
@@ -223,15 +363,20 @@ submitCodeBtn.addEventListener('click', function(event) {
                         throw new Error(errorData.error || 'Something went wrong');
                     });
                 }
+                console.log('request successed')
                 return response.json(); // Return the response data if no error
             })
             .then(data => {
                 // Handle success response
-                showNotification('Settings updated successfully', 'success');
+                if (!data.success) {
+                    alert('Error: ', data.error)
+                    throw new Error(data.error);
+                }
+                return data
             })
             .catch(error => {
-                // Handle any other errors (including the ones thrown above)
-                showNotification(error.message, 'error');
+                showNotification(error.message, 'error'); // Show specific error message
+                return Promise.reject(error); // Propagate the error to the chain
             });
 
     }
@@ -247,21 +392,63 @@ submitCodeBtn.addEventListener('click', function(event) {
         const currentPassword = document.getElementById('currentPassword').value;
         const newPassword = document.getElementById('change-newPassword').value;
         const confirmPassword = document.getElementById('change-confirmPassword').value;
-        
+    
         if (!currentPassword || !newPassword || newPassword !== confirmPassword) {
             alert('Check your password inputs');
-            return;
+            return Promise.reject(new Error('Check your password inputs'));
         }
-        
-        return fetch('/api/modify_password/', {
-            method: 'POST', 
-            credentials: 'include', 
+
+        console.log('currentPass:' + currentPassword)
+        console.log('newPass:' + newPassword)
+    
+        // First, check the current password
+        return fetch('/api/check_settings_password/', {
+            method: 'POST',
+            credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ currentPassword, new_password: confirmPassword })
+            body: JSON.stringify({ 'password': currentPassword })
         })
-        .then(response => response.json())
-        .then(data => showNotification(data.success ? 'Password updated successfully' : 'Error: ' + data.error, data.success ? 'success' : 'error'))
-        .catch(error => showNotification('An error occurred', 'error'));
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(errorData => {
+                        throw new Error(errorData.error || 'Password check failed');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (!data.success) {
+                    alert('Current password incorrect')
+                    throw new Error(data.error || 'Current password incorrect');
+                }
+                // If we get here, the current password is correct
+                console.log("New password: ", confirmPassword);
+                return fetch('/api/modify_password/', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ currentPassword, new_password: confirmPassword })
+                });
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(errorData => {
+                        throw new Error(errorData.error || 'Password update failed');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (!data.success) {
+                    throw new Error(data.error || 'Password update failed');
+                }
+                // Let the main chain handle the notification for consistency
+                return data; // e.g., { success: true }
+            })
+            .catch(error => {
+                showNotification(error.message, 'error'); // Show specific error message
+                return Promise.reject(error); // Propagate the error to the chain
+            });
     }
     
     function updateOTPSetting() {
@@ -270,13 +457,31 @@ submitCodeBtn.addEventListener('click', function(event) {
         .then(response => response.json())
         .then(data => {
             if (data.two_factor_enabled !== enableOTP) {
+                if (enableOTP) {
+                    console.log('OTP enabled'); // Log when OTP is enabled
+                } else {
+                    console.log('OTP disabled'); // Log when OTP is disabled
+                }
                 return fetch(enableOTP ? '/api/enable_2fa/' : '/api/disable_2fa/', { 
                     method: 'POST', 
-                    credentials: 'include' 
+                    credentials: 'include'
                 })
                 .then(response => response.json())
-                .then(data => showNotification(data.success ? '2FA settings updated' : 'Error: ' + data.error, data.success ? 'success' : 'error'));
+                .then(data => {
+                    showNotification(data.success ? '2FA settings updated' : 'Error: ' + data.error, data.success ? 'success' : 'error')
+                    return data
+                }); 
             }
+            else {
+                // Log the current state of OTP if no change is made
+                if (enableOTP) {
+                    console.log('OTP is already enabled');
+                } else {
+                    console.log('OTP is already disabled');
+                }    
+            }
+
+            return Promise.resolve({ skipped: true });
         })
         .catch(error => console.error('Fetch error:', error.message));
     }

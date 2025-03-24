@@ -3,6 +3,9 @@ from . import views
 
 urlpatterns = [
     path('register/', views.register, name='register'),
+    path('send_otp_pass/', views.send_otp_pass, name='send_otp_pass'),
+    path('send_otp_email_change/', views.send_otp_email_change, name='send_otp_email_change'),
+    path('forgot_password/', views.forgot_password, name='forgot_password'),
     path('delete_account/', views.delete_account, name='delete_account'),
     path('verify_email/', views.verify_email, name='verify_email'),
     path('login/', views.login, name='login'),
@@ -22,6 +25,7 @@ urlpatterns = [
     path('modify_password/', views.modify_password, name='modify_password'),
     path('logout/', views.logout, name='logout'),
     path('update_profile/', views.update_profile, name='update_profile'),
+    path('check_settings_password/', views.check_settings_password, name='check_settings_password'),
     # Friendships
     path('add_friend/', views.add_friend, name='add_friend'),
     path('cancel_invite/', views.cancel_invite, name='cancel_invite'),

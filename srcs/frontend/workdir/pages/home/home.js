@@ -20,6 +20,7 @@ export function home() {
     .then(userData => {
         console.log('User Data:', userData);
 
+
         if (fullName) {
             fullName.textContent = `${userData.first_name} ${userData.last_name}`;
         }
@@ -55,5 +56,4 @@ export function home() {
     .catch(error => {
         console.error('Error:', error);
     });
-
 }

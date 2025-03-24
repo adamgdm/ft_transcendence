@@ -57,17 +57,26 @@ def verify_jwt_token(token):
 
 logger = logging.getLogger(__name__)
 
-def send_2fa_email(mail, otp):
-    subject = '2FA - Verify It\'s you!'
-    body = (
-        f'<h1>Hello there!</h1><br>'
-        f'<p>Your OTP is: {otp}</p><br>'
-        f'<p>This OTP will expire in 5 minutes.</p><br>'
-        f'<p>If you did not request this OTP, please ignore this email.</p>'
-    )
+def send_2fa_email(mail, otp, choices):
+    if (choices == 1):
+        subject = '2FA - Verify It\'s you!'
+        body = (
+            f'<h1>Hello there!</h1><br>'
+            f'<p>Your OTP is: {otp}</p><br>'
+            f'<p>This OTP will expire in 5 minutes.</p><br>'
+            f'<p>If you did not request this OTP, please ignore this email.</p>'
+        )
+    else:
+        subject = 'Verify It\'s your email!'
+        body = (
+            f'<h1>Hello there!</h1><br>'
+            f'<p>Your Verification number is: {otp}</p><br>'
+            f'<p>This Verification number will expire in 15 minutes.</p><br>'
+            f'<p>If you did not request this, please ignore this email.</p>'
+        )
+
     from_email = settings.EMAIL_HOST_USER
     recipient_list = [mail]
-    
     
     email = EmailMessage(subject=subject, body=body, from_email=from_email, to=recipient_list)
     email.content_subtype = 'html'
