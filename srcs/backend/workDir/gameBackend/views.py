@@ -511,6 +511,7 @@ async def game_update(game_id):
     # Check for game completion and update database
     if game_info['score1'] >= 7 or game_info['score2'] >= 7:
         def sync_save_match_completion():
+            ## update score blockchain ###
             pongMatch = Match.objects.select_related('player_1', 'player_2', 'match_winner', 'match_loser').get(id=game_id)
             pongMatch.score_player_1 = game_info['score1']
             pongMatch.score_player_2 = game_info['score2']
@@ -528,6 +529,9 @@ async def game_update(game_id):
                 Q(semifinal_1=pongMatch) | Q(semifinal_2=pongMatch) | Q(final=pongMatch)
             ).first()
             if tournament:
+                # tournament.id_blockchain #
+                # pongMatch.id_blockchain #
+                # update #
                 game_info['tournament_id'] = str(tournament.id)
                 game_info['report_result'] = True
 

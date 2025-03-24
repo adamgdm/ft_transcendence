@@ -52,6 +52,7 @@ def register(request):
         if (not NameValidator(first_name) or not NameValidator(last_name)):
             return JsonResponse({'error': 'Invalid Name'}, status=400)
         hash_pass = make_password(password)
+        # Add wallet blockchain #
         try:
             user = Users.objects.create(
                 user_name=user_name,

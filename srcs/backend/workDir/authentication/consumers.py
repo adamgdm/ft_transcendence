@@ -564,8 +564,12 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def create_tournament(self, creator, tournament_name):
+        ###########################################
+        ####         create tournament         ####
+        ###########################################
         tournament = Tournament.objects.create(
             tournament_name=tournament_name,
+            ###   blockchain id   ###
             creator=creator,
             status='pending'
         )
@@ -715,7 +719,7 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
                 )
             return
 
-        # Create semifinal matches
+        # Create semifinal matches -- blockchain
         logger.info(f"Pairing semifinals for tournament {tournament.id}: {participants[0].user_name} vs {participants[1].user_name}, {participants[2].user_name} vs {participants[3].user_name}")
         semi1 = await self.create_match(participants[0], participants[1], 'online', tournament)
         semi2 = await self.create_match(participants[2], participants[3], 'online', tournament)
