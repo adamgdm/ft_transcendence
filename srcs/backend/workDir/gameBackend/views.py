@@ -137,14 +137,12 @@ async def game_update(game_id):
         print(f"Score updated: Player 2 scored. New score: {game_info['score2']}")
         game_reset(game_id)
         await asyncio.sleep(2)
-        return game_info  # Return early to avoid further processing
 
     if game_info['ball_x'] > game_info['paddle2_x'] + game_info['paddle_bounds_x']:  
         game_info['score1'] += 1  # Player 1 scores
         print(f"Score updated: Player 1 scored. New score: {game_info['score1']}")
         game_reset(game_id)
         await asyncio.sleep(2)
-        return game_info  # Return early to avoid further processing
 
 
 

@@ -139,7 +139,7 @@ class PongConsumer(AsyncWebsocketConsumer):
             from .views import games
         except ImportError as e:
             await self.send(text_data=json.dumps({'error': 'Internal server error'}))
-            return
+            returnsc
 
         text_data_json = json.loads(text_data)
         action = text_data_json['action']

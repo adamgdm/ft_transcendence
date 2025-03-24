@@ -108,18 +108,34 @@ export function storyActions() {
             return response.json();
         })
         .then(data => {
-            console.log('Received auth URL', data);
-            if (data.auth_url){
-                window.location.href = data.auth_url;
-                console.log('holaaaa')
-            } else {
-                throw new Error('URL was not received')
-            }
-            // localStorage.setItem('isAuthenticated', 'true');
-            // window.isAuthenticated = true;
-
-            // window.location.hash = 'home';
-        })
+                if (!data.auth_url) throw new Error('URL was not received');
+        
+                // Open popup window
+                const width = 500;
+                const height = 600;
+                const left = (window.screen.width - width) / 2;
+                const top = (window.screen.height - height) / 2;
+                
+                const popup = window.open(
+                    data.auth_url,
+                    'OAuthPopup',
+                    `width=${width},height=${height},left=${left},top=${top}`
+                );
+        
+                // Listen for messages from popup
+                const messageHandler = (event) => {
+                    if (event.origin !== window.location.origin) return;
+        
+                    if (event.data.type === 'OAUTH_COMPLETE') {
+                        // Handle successful auth
+                        popup.close();
+                        window.location.hash = 'home';
+                        window.location.reload();
+                    }
+                };
+        
+                window.addEventListener('message', messageHandler);
+            })
         .catch(error => {
             console.error('Error:', error);
             alert('Login failed: ' + error.message);
