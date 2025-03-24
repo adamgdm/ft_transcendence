@@ -12,10 +12,12 @@ import time
 
 logger = logging.getLogger(__name__)
 
-# Global lock for thread-safe access to games dict
-games_lock = asyncio.Lock()
+game_locks = {}
 
 class PongConsumer(AsyncWebsocketConsumer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.game_locks = game_locks
     """
     WebSocket consumer for managing Pong games, including player connections,
     game state updates, and tournament result reporting.
@@ -93,7 +95,8 @@ class PongConsumer(AsyncWebsocketConsumer):
             return
 
         # Update player status
-        async with games_lock:
+        lock = self.game_locks.setdefault(self.game_id, asyncio.Lock())
+        async with lock:
             if self.client_id == game['player_1']:
                 game['player1_status'] = 'online'
                 game['player1_disconnect_time'] = None
@@ -104,7 +107,7 @@ class PongConsumer(AsyncWebsocketConsumer):
         await self.send_initial_state(game)
 
         # Start game if both players are online
-        async with games_lock:
+        async with lock:
             if (game['player1_status'] == 'online' and 
                 game['player2_status'] == 'online' and 
                 not game.get('game_running', False)):
@@ -133,11 +136,11 @@ class PongConsumer(AsyncWebsocketConsumer):
         timeout = 30
         elapsed = 0
         while elapsed < timeout:
-            async with games_lock:
-                if self.game_id in games:
-                    game = games[self.game_id]
-                    logger.debug(f"Game {self.game_id} found: {game}")
-                    return game
+            lock = self.game_locks.setdefault(self.game_id, asyncio.Lock())
+            if self.game_id in games:
+                game = games[self.game_id]
+                logger.debug(f"Game {self.game_id} found: {game}")
+                return game
             await self.send(text_data=json.dumps({
                 'type': 'status',
                 'message': 'Waiting for game to start...'
@@ -165,7 +168,8 @@ class PongConsumer(AsyncWebsocketConsumer):
             self.game_task.cancel()
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
-        async with games_lock:
+        lock = self.game_locks.setdefault(self.game_id, asyncio.Lock())
+        async with lock:
             game = games.get(self.game_id)
             if game and self.client_id:
                 if self.client_id == game['player_1']:
@@ -193,8 +197,9 @@ class PongConsumer(AsyncWebsocketConsumer):
         except (json.JSONDecodeError, KeyError) as e:
             logger.error(f"Invalid message: {e}")
             return
-
-        async with games_lock:
+        
+        lock = self.game_locks.setdefault(self.game_id, asyncio.Lock())
+        async with lock:
             game = games.get(self.game_id)
             if not game:
                 logger.warning(f"Game {self.game_id} not found in receive")
@@ -250,6 +255,7 @@ class PongConsumer(AsyncWebsocketConsumer):
         frame_duration = 1 / frame_rate
         last_frame_time = time.time()
 
+        lock = self.game_locks.setdefault(self.game_id, asyncio.Lock())
         while True:
             current_time = time.time()
             elapsed = current_time - last_frame_time
@@ -257,7 +263,7 @@ class PongConsumer(AsyncWebsocketConsumer):
                 await asyncio.sleep(frame_duration - elapsed)
                 current_time = time.time()
 
-            async with games_lock:
+            async with lock:
                 game = games.get(self.game_id)
                 if not game:
                     logger.warning(f"Game {self.game_id} not found in update loop")
@@ -348,9 +354,12 @@ class PongConsumer(AsyncWebsocketConsumer):
                         'tournament_id': game['tournament_id']
                     }
                 )
-        async with games_lock:
+        lock = self.game_locks.setdefault(self.game_id, asyncio.Lock())
+        async with lock:
             if self.game_id in games:
                 del games[self.game_id]
+                if self.game_id in self.game_locks:
+                    del self.game_locks[self.game_id]
 
     async def send_initial_state(self, game):
         """Send initial game state to the client."""

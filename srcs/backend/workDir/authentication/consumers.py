@@ -15,9 +15,14 @@ import logging
 logger = logging.getLogger(__name__)
 
 from gameBackend.views import games, create_new_game
-games_lock = asyncio.Lock()
+
+game_locks = {}
 
 class FriendshipConsumer(AsyncWebsocketConsumer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.game_locks = game_locks
+
     @database_sync_to_async
     def check_wsAuth(self):
         token = self.scope["cookies"].get("token")
@@ -242,8 +247,9 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
             from_user_id = result['from_user_id']
             from_username = result['from_username']
             to_username = self.user.user_name
-
-            async with games_lock:
+                
+            lock = self.game_locks.setdefault(game_id, asyncio.Lock())
+            async with lock:
                 if game_id not in games:
                     games[game_id] = create_new_game(to_username, from_username, 'online')
                     games[game_id]['player1_status'] = 'online'
@@ -340,7 +346,9 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
         try:
             game = await self.create_local_game(self.user)
             game_id = str(game.id)
-            async with games_lock:
+            
+            lock = self.game_locks.setdefault(game_id, asyncio.Lock())
+            async with lock:
                 if game_id not in games:
                     games[game_id] = create_new_game(self.user.user_name, self.user.user_name, 'local')
                     games[game_id]['player1_status'] = 'online'
@@ -715,9 +723,13 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
         tournament.semifinal_2 = semi2
         await database_sync_to_async(tournament.save)()
 
-        # Initialize game states
-        async with games_lock:
+        # Use per-game locks for initializing semifinals
+        semi1_lock = self.game_locks.setdefault(str(semi1.id), asyncio.Lock())
+        semi2_lock = self.game_locks.setdefault(str(semi2.id), asyncio.Lock())
+        
+        async with semi1_lock:
             games[str(semi1.id)] = create_new_game(participants[0].user_name, participants[1].user_name, 'online')
+        async with semi2_lock:
             games[str(semi2.id)] = create_new_game(participants[2].user_name, participants[3].user_name, 'online')
 
         # Notify participants to start semifinals
@@ -811,7 +823,8 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
             return
 
         # Initialize the final game state
-        async with games_lock:
+        final_lock = self.game_locks.setdefault(str(final_match.id), asyncio.Lock())
+        async with final_lock:
             games[str(final_match.id)] = create_new_game(winner1.user_name, winner2.user_name, 'online')
 
         # Notify participants to start the final
