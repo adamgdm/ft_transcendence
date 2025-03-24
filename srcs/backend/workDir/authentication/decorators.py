@@ -32,6 +32,7 @@ def check_auth(func):
             return JsonResponse({'error': 'Token is invalid'}, status=401)
 
         request.user_id = payload['user_id']
+        request.token = token
 
         # update online status
         user = Users.objects.get(id=payload['user_id'])

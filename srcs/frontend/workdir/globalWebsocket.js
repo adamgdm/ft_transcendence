@@ -1,14 +1,17 @@
 let friendshipSocket = null;
-const RECONNECT_DELAY = 5000;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 10;
+const BASE_RECONNECT_DELAY = 500; // Start at 0.5s, increase with backoff
 let currentUsername = localStorage.getItem('username') || null;
 let pendingNotifications = [];
-let sentInvites = new Map(); // Map invite_id to details for inviter tracking
+let sentInvites = new Map();
+let pendingActions = []; // Queue for actions when not connected
 
 function initializeWebSocket() {
     console.log('initializeWebSocket: Starting...');
     if (friendshipSocket && friendshipSocket.readyState === WebSocket.OPEN) {
         console.log('initializeWebSocket: Already connected, skipping');
-        return;
+        return Promise.resolve();
     }
 
     // Clean up any existing connection
@@ -28,100 +31,292 @@ function initializeWebSocket() {
 
     friendshipSocket = new WebSocket(wsUrl);
 
-    friendshipSocket.onopen = () => {
-        console.log('initializeWebSocket: Connection opened successfully');
-    };
+    // Return a promise that resolves when connected
+    return new Promise((resolve, reject) => {
+        friendshipSocket.onopen = () => {
+            console.log('initializeWebSocket: Connection opened successfully');
+            reconnectAttempts = 0;
+            processPendingActions(); // Execute any queued actions
+            resolve();
+        };
 
-    friendshipSocket.onclose = (e) => {
-        console.log('initializeWebSocket: Connection closed:', { code: e.code, reason: e.reason });
-        friendshipSocket = null;
-        if (localStorage.getItem('isAuthenticated') === 'true') {
-            console.log(`initializeWebSocket: Scheduling reconnect in ${RECONNECT_DELAY}ms`);
-            setTimeout(initializeWebSocket, RECONNECT_DELAY);
-        } else {
-            console.log('initializeWebSocket: Not authenticated, no reconnect scheduled');
-        }
-    };
-
-    friendshipSocket.onerror = (error) => {
-        console.error('initializeWebSocket: Error:', error);
-        // Force close to trigger onclose and reconnect logic
-        if (friendshipSocket) {
-            friendshipSocket.close();
-        }
-    };
-
-    friendshipSocket.onmessage = (event) => {
-        try {
-            const data = JSON.parse(event.data);
-
-            // Queue notifications for UI updates
-            if (data.type && (data.type.includes('notification') || data.type.includes('pending'))) {
-                pendingNotifications.push(data);
-                processNotifications();
+        friendshipSocket.onclose = (e) => {
+            console.log('initializeWebSocket: Connection closed:', { code: e.code, reason: e.reason });
+            friendshipSocket = null;
+            if (localStorage.getItem('isAuthenticated') === 'true' && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                const delay = BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts); // Exponential backoff
+                console.log(`initializeWebSocket: Scheduling reconnect in ${delay}ms (attempt ${reconnectAttempts + 1})`);
+                setTimeout(() => {
+                    reconnectAttempts++;
+                    initializeWebSocket();
+                }, delay);
+            } else {
+                console.log('initializeWebSocket: Not authenticated or max attempts reached, no reconnect');
             }
+        };
 
-            // Handle game invite acceptance for invitee
-            if (data.type === 'game_invite_accepted') {
-                const state = {
-                    game_id: data.game_id,
-                    from_username: data.from_username || sentInvites.get(String(data.invite_id))?.from_username || null,
-                    to_username: data.to_username || currentUsername,
-                    game_mode: data.game_mode || sentInvites.get(String(data.invite_id))?.game_mode || 'online',
-                    user: currentUsername,
-                    invite_id: data.invite_id
-                };
-                window.location.hash = 'game';
-                window.history.replaceState(state, '', '#game');
-                window.routeToPage('game');
+        friendshipSocket.onerror = (error) => {
+            console.error('initializeWebSocket: Error:', error);
+            reject(error);
+            if (friendshipSocket) {
+                friendshipSocket.close(); // Trigger onclose
             }
+        };
 
-            // Handle game invite acceptance notification for inviter
-            if (data.type === 'game_invite_accepted_notification') {
-                const inviteIdStr = String(data.invite_id);
-                const isInviter = sentInvites.has(inviteIdStr);
-                if (isInviter) {
-                    const inviteDetails = sentInvites.get(inviteIdStr);
+        friendshipSocket.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type && (data.type.includes('notification') || data.type.includes('pending'))) {
+                    pendingNotifications.push(data);
+                    processNotifications();
+                }
+
+                if (data.type === 'game_invite_accepted') {
                     const state = {
                         game_id: data.game_id,
-                        from_username: currentUsername,
-                        to_username: data.to_username,
-                        game_mode: inviteDetails.game_mode || 'online',
+                        from_username: data.from_username || sentInvites.get(String(data.invite_id))?.from_username || null,
+                        to_username: data.to_username || currentUsername,
+                        game_mode: data.game_mode || sentInvites.get(String(data.invite_id))?.game_mode || 'online',
                         user: currentUsername,
                         invite_id: data.invite_id
                     };
                     window.location.hash = 'game';
                     window.history.replaceState(state, '', '#game');
                     window.routeToPage('game');
-                    sentInvites.delete(inviteIdStr); // Clean up
                 }
-            }
 
-            // Track sent invites
-            if (data.type === 'game_invite_sent') {
-                sentInvites.set(String(data.invite_id), {
-                    from_username: currentUsername,
-                    to_username: data.to_username,
-                    game_mode: data.game_mode || 'online'
-                });
-            }
+                if (data.type === 'game_invite_accepted_notification') {
+                    const inviteIdStr = String(data.invite_id);
+                    if (sentInvites.has(inviteIdStr)) {
+                        const inviteDetails = sentInvites.get(inviteIdStr);
+                        const state = {
+                            game_id: data.game_id,
+                            from_username: currentUsername,
+                            to_username: data.to_username,
+                            game_mode: inviteDetails.game_mode || 'online',
+                            user: currentUsername,
+                            invite_id: data.invite_id
+                        };
+                        window.location.hash = 'game';
+                        window.history.replaceState(state, '', '#game');
+                        window.routeToPage('game');
+                        sentInvites.delete(inviteIdStr);
+                    }
+                }
 
-            window.dispatchEvent(new CustomEvent('websocketMessage', { detail: data }));
+                if (data.type === 'game_invite_sent') {
+                    sentInvites.set(String(data.invite_id), {
+                        from_username: currentUsername,
+                        to_username: data.to_username,
+                        game_mode: data.game_mode || 'online'
+                    });
+                }
+
+                window.dispatchEvent(new CustomEvent('websocketMessage', { detail: data }));
+            } catch (error) {
+                console.error('onmessage: Error parsing message:', error);
+            }
+        };
+    });
+}
+
+function processPendingActions() {
+    while (pendingActions.length > 0) {
+        const { action, resolve, reject } = pendingActions.shift();
+        try {
+            action().then(resolve).catch(reject);
         } catch (error) {
-            console.error('onmessage: Error parsing message:', error);
+            reject(error);
         }
+    }
+}
+
+function queueAction(action) {
+    return new Promise((resolve, reject) => {
+        if (isConnected()) {
+            action().then(resolve).catch(reject);
+        } else {
+            console.log('queueAction: WebSocket not connected, queuing action');
+            pendingActions.push({ action, resolve, reject });
+            initializeWebSocket(); // Trigger connection attempt
+        }
+    });
+}
+
+// Modified action functions to use queueing
+function sendFriendRequest(friendUsername) {
+    const action = () => {
+        friendshipSocket.send(JSON.stringify({
+            type: 'send_friend_request',
+            friend_username: friendUsername
+        }));
+        return new Promise((resolve) => {
+            const handleMessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'friend_request_sent' && data.friend_username === friendUsername) {
+                    friendshipSocket.removeEventListener('message', handleMessage);
+                    resolve({ message: data.message || 'Friend request sent' });
+                } else if (data.type === 'friend_request_error' && data.friend_username === friendUsername) {
+                    friendshipSocket.removeEventListener('message', handleMessage);
+                    resolve({ error: data.error || 'Failed to send friend request' });
+                }
+            };
+            friendshipSocket.addEventListener('message', handleMessage);
+        });
     };
+    return queueAction(action);
+}
+
+function acceptFriendRequest(friendUsername) {
+    const action = () => {
+        friendshipSocket.send(JSON.stringify({
+            type: 'accept_friend_request',
+            friend_username: friendUsername
+        }));
+        return new Promise((resolve) => {
+            const handleMessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'friend_request_accepted' && data.friend_username === friendUsername) {
+                    friendshipSocket.removeEventListener('message', handleMessage);
+                    resolve({ message: data.message || 'Friend request accepted' });
+                } else if (data.type === 'friend_request_error' && data.friend_username === friendUsername) {
+                    friendshipSocket.removeEventListener('message', handleMessage);
+                    resolve({ error: data.error || 'Failed to accept friend request' });
+                }
+            };
+            friendshipSocket.addEventListener('message', handleMessage);
+        });
+    };
+    return queueAction(action);
+}
+
+function rejectFriendRequest(friendUsername) {
+    const action = () => {
+        friendshipSocket.send(JSON.stringify({
+            type: 'reject_friend_request',
+            friend_username: friendUsername
+        }));
+        return new Promise((resolve) => {
+            const handleMessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'friend_request_rejected' && data.friend_username === friendUsername) {
+                    friendshipSocket.removeEventListener('message', handleMessage);
+                    resolve({ message: data.message || 'Friend request rejected' });
+                } else if (data.type === 'friend_request_error' && data.friend_username === friendUsername) {
+                    friendshipSocket.removeEventListener('message', handleMessage);
+                    resolve({ error: data.error || 'Failed to reject friend request' });
+                }
+            };
+            friendshipSocket.addEventListener('message', handleMessage);
+        });
+    };
+    return queueAction(action);
+}
+
+function cancelFriendRequest(friendUsername) {
+    const action = () => {
+        friendshipSocket.send(JSON.stringify({
+            type: 'cancel_friend_request',
+            friend_username: friendUsername
+        }));
+        return new Promise((resolve) => {
+            const handleMessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'friend_request_cancelled' && data.friend_username === friendUsername) {
+                    friendshipSocket.removeEventListener('message', handleMessage);
+                    resolve({ message: data.message || 'Friend request cancelled' });
+                } else if (data.type === 'friend_request_error' && data.friend_username === friendUsername) {
+                    friendshipSocket.removeEventListener('message', handleMessage);
+                    resolve({ error: data.error || 'Failed to cancel friend request' });
+                }
+            };
+            friendshipSocket.addEventListener('message', handleMessage);
+        });
+    };
+    return queueAction(action);
+}
+
+function sendGameInvite(toUsername, gameMode) {
+    const action = () => {
+        friendshipSocket.send(JSON.stringify({
+            type: 'send_game_invite',
+            to_username: toUsername,
+            game_mode: gameMode || 'online'
+        }));
+        return new Promise((resolve) => {
+            const handleMessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'game_invite_sent' && data.to_username === toUsername) {
+                    sentInvites.set(String(data.invite_id), {
+                        from_username: currentUsername,
+                        to_username: toUsername,
+                        game_mode: gameMode || 'online'
+                    });
+                    friendshipSocket.removeEventListener('message', handleMessage);
+                    resolve({ message: data.message || 'Game invite sent', invite_id: data.invite_id });
+                } else if (data.type === 'error' && data.to_username === toUsername) {
+                    friendshipSocket.removeEventListener('message', handleMessage);
+                    resolve({ error: data.message || 'Failed to send game invite' });
+                }
+            };
+            friendshipSocket.addEventListener('message', handleMessage);
+        });
+    };
+    return queueAction(action);
+}
+
+function acceptGameInvite(inviteId, fromUsername, gameMode) {
+    const action = () => {
+        friendshipSocket.send(JSON.stringify({
+            type: 'accept_game_invite',
+            invite_id: inviteId,
+            from_username: fromUsername,
+            game_mode: gameMode
+        }));
+        return new Promise((resolve) => {
+            const handleMessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'game_invite_accepted' && data.invite_id === inviteId) {
+                    friendshipSocket.removeEventListener('message', handleMessage);
+                    resolve({ message: 'Game invite accepted' });
+                } else if (data.type === 'error' && data.invite_id === inviteId) {
+                    friendshipSocket.removeEventListener('message', handleMessage);
+                    resolve({ error: data.message || 'Failed to accept game invite' });
+                }
+            };
+            friendshipSocket.addEventListener('message', handleMessage);
+        });
+    };
+    return queueAction(action);
+}
+
+function isConnected() {
+    const connected = friendshipSocket && friendshipSocket.readyState === WebSocket.OPEN;
+    console.log('isConnected:', connected);
+    return connected;
+}
+
+function closeConnection() {
+    console.log('closeConnection: Starting...');
+    if (friendshipSocket && friendshipSocket.readyState !== WebSocket.CLOSED) {
+        friendshipSocket.onopen = null;
+        friendshipSocket.onclose = null;
+        friendshipSocket.onerror = null;
+        friendshipSocket.onmessage = null;
+        friendshipSocket.close();
+        friendshipSocket = null;
+        reconnectAttempts = 0;
+        pendingActions = [];
+        console.log('closeConnection: Closed');
+    }
 }
 
 function processNotifications() {
     const notifContainer = document.querySelector('[layout="notifbar"] .notif-container');
-    if (!notifContainer) {
-        return;
-    }
+    if (!notifContainer) return;
 
     while (pendingNotifications.length > 0) {
         const data = pendingNotifications.shift();
-
         switch (data.type) {
             case 'pending_friend_requests':
                 data.requests.forEach(request => {
@@ -222,234 +417,27 @@ function appendGameInviteNotification(container, fromUsername, gameMode, inviteI
     const declineBtn = notifItem.querySelector('.decline-btn');
 
     const acceptHandler = () => {
-        if (!friendshipSocket || friendshipSocket.readyState !== WebSocket.OPEN) {
-            console.error('WebSocket not open, cannot accept invite');
-            return;
-        }
-        friendshipSocket.send(JSON.stringify({
-            type: 'accept_game_invite',
-            invite_id: inviteId,
-            from_username: fromUsername,
-            game_mode: gameMode
-        }));
-        notifItem.remove();
+        acceptGameInvite(inviteId, fromUsername, gameMode).then(result => {
+            if (!result.error) notifItem.remove();
+        });
         acceptBtn.removeEventListener('click', acceptHandler);
         declineBtn.removeEventListener('click', declineHandler);
     };
 
     const declineHandler = () => {
-        if (!friendshipSocket || friendshipSocket.readyState !== WebSocket.OPEN) {
-            console.error('WebSocket not open, cannot decline invite');
-            return;
+        if (isConnected()) {
+            friendshipSocket.send(JSON.stringify({
+                type: 'reject_game_invite',
+                invite_id: inviteId
+            }));
+            notifItem.remove();
         }
-        friendshipSocket.send(JSON.stringify({
-            type: 'reject_game_invite',
-            invite_id: inviteId
-        }));
-        notifItem.remove();
         acceptBtn.removeEventListener('click', acceptHandler);
         declineBtn.removeEventListener('click', declineHandler);
     };
 
     acceptBtn.addEventListener('click', acceptHandler);
     declineBtn.addEventListener('click', declineHandler);
-}
-
-function sendGameInvite(toUsername, gameMode) {
-    if (!friendshipSocket || friendshipSocket.readyState !== WebSocket.OPEN) {
-        console.error('sendGameInvite: WebSocket not open');
-        return Promise.resolve({ error: 'WebSocket connection not open' });
-    }
-    friendshipSocket.send(JSON.stringify({
-        type: 'send_game_invite',
-        to_username: toUsername,
-        game_mode: gameMode || 'online'
-    }));
-    return new Promise((resolve) => {
-        const handleMessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                if (data.type === 'game_invite_sent' && data.to_username === toUsername) {
-                    sentInvites.set(String(data.invite_id), {
-                        from_username: currentUsername,
-                        to_username: toUsername,
-                        game_mode: gameMode || 'online'
-                    });
-                    friendshipSocket.removeEventListener('message', handleMessage);
-                    resolve({ message: data.message || 'Game invite sent', invite_id: data.invite_id });
-                } else if (data.type === 'error' && data.to_username === toUsername) {
-                    console.error('sendGameInvite: Error:', data.message);
-                    friendshipSocket.removeEventListener('message', handleMessage);
-                    resolve({ error: data.message || 'Failed to send game invite' });
-                }
-            } catch (error) {
-                console.error('sendGameInvite: Error parsing message:', error);
-            }
-        };
-        friendshipSocket.addEventListener('message', handleMessage);
-    });
-}
-
-function acceptGameInvite(inviteId, fromUsername, gameMode) {
-    if (!friendshipSocket || friendshipSocket.readyState !== WebSocket.OPEN) {
-        console.error('acceptGameInvite: WebSocket not open, cannot accept invite');
-        return Promise.resolve({ error: 'WebSocket connection not open' });
-    }
-    friendshipSocket.send(JSON.stringify({
-        type: 'accept_game_invite',
-        invite_id: inviteId,
-        from_username: fromUsername,
-        game_mode: gameMode
-    }));
-    return new Promise((resolve) => {
-        const handleMessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                if (data.type === 'game_invite_accepted' && data.invite_id === inviteId) {
-                    friendshipSocket.removeEventListener('message', handleMessage);
-                    resolve({ message: 'Game invite accepted' });
-                } else if (data.type === 'error' && data.invite_id === inviteId) {
-                    console.error('acceptGameInvite: Error:', data.message);
-                    friendshipSocket.removeEventListener('message', handleMessage);
-                    resolve({ error: data.message || 'Failed to accept game invite' });
-                }
-            } catch (error) {
-                console.error('acceptGameInvite: Error parsing message:', error);
-            }
-        };
-        friendshipSocket.addEventListener('message', handleMessage);
-    });
-}
-
-function sendFriendRequest(friendUsername) {
-    if (!friendshipSocket || friendshipSocket.readyState !== WebSocket.OPEN) {
-        console.error('sendFriendRequest: WebSocket not open');
-        return Promise.resolve({ error: 'WebSocket connection not open' });
-    }
-    friendshipSocket.send(JSON.stringify({
-        type: 'send_friend_request',
-        friend_username: friendUsername
-    }));
-    return new Promise((resolve) => {
-        const handleMessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                if (data.type === 'friend_request_sent' && data.friend_username === friendUsername) {
-                    friendshipSocket.removeEventListener('message', handleMessage);
-                    resolve({ message: data.message || 'Friend request sent' });
-                } else if (data.type === 'friend_request_error' && data.friend_username === friendUsername) {
-                    friendshipSocket.removeEventListener('message', handleMessage);
-                    resolve({ error: data.error || 'Failed to send friend request' });
-                }
-            } catch (error) {
-                console.error('sendFriendRequest: Error parsing message:', error);
-            }
-        };
-        friendshipSocket.addEventListener('message', handleMessage);
-    });
-}
-
-function acceptFriendRequest(friendUsername) {
-    if (!friendshipSocket || friendshipSocket.readyState !== WebSocket.OPEN) {
-        console.error('acceptFriendRequest: WebSocket not open');
-        return Promise.resolve({ error: 'WebSocket connection not open' });
-    }
-    friendshipSocket.send(JSON.stringify({
-        type: 'accept_friend_request',
-        friend_username: friendUsername
-    }));
-    return new Promise((resolve) => {
-        const handleMessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                if (data.type === 'friend_request_accepted' && data.friend_username === friendUsername) {
-                    friendshipSocket.removeEventListener('message', handleMessage);
-                    resolve({ message: data.message || 'Friend request accepted' });
-                } else if (data.type === 'friend_request_error' && data.friend_username === friendUsername) {
-                    friendshipSocket.removeEventListener('message', handleMessage);
-                    resolve({ error: data.error || 'Failed to accept friend request' });
-                }
-            } catch (error) {
-                console.error('acceptFriendRequest: Error parsing message:', error);
-            }
-        };
-        friendshipSocket.addEventListener('message', handleMessage);
-    });
-}
-
-function rejectFriendRequest(friendUsername) {
-    if (!friendshipSocket || friendshipSocket.readyState !== WebSocket.OPEN) {
-        console.error('rejectFriendRequest: WebSocket not open');
-        return Promise.resolve({ error: 'WebSocket connection not open' });
-    }
-    friendshipSocket.send(JSON.stringify({
-        type: 'reject_friend_request',
-        friend_username: friendUsername
-    }));
-    return new Promise((resolve) => {
-        const handleMessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                if (data.type === 'friend_request_rejected' && data.friend_username === friendUsername) {
-                    friendshipSocket.removeEventListener('message', handleMessage);
-                    resolve({ message: data.message || 'Friend request rejected' });
-                } else if (data.type === 'friend_request_error' && data.friend_username === friendUsername) {
-                    friendshipSocket.removeEventListener('message', handleMessage);
-                    resolve({ error: data.error || 'Failed to reject friend request' });
-                }
-            } catch (error) {
-                console.error('rejectFriendRequest: Error parsing message:', error);
-            }
-        };
-        friendshipSocket.addEventListener('message', handleMessage);
-    });
-}
-
-function cancelFriendRequest(friendUsername) {
-    if (!friendshipSocket || friendshipSocket.readyState !== WebSocket.OPEN) {
-        console.error('cancelFriendRequest: WebSocket not open');
-        return Promise.resolve({ error: 'WebSocket connection not open' });
-    }
-    friendshipSocket.send(JSON.stringify({
-        type: 'cancel_friend_request',
-        friend_username: friendUsername
-    }));
-    return new Promise((resolve) => {
-        const handleMessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                if (data.type === 'friend_request_cancelled' && data.friend_username === friendUsername) {
-                    friendshipSocket.removeEventListener('message', handleMessage);
-                    resolve({ message: data.message || 'Friend request cancelled' });
-                } else if (data.type === 'friend_request_error' && data.friend_username === friendUsername) {
-                    friendshipSocket.removeEventListener('message', handleMessage);
-                    resolve({ error: data.error || 'Failed to cancel friend request' });
-                }
-            } catch (error) {
-                console.error('cancelFriendRequest: Error parsing message:', error);
-            }
-        };
-        friendshipSocket.addEventListener('message', handleMessage);
-    });
-}
-
-function isConnected() {
-    const connected = friendshipSocket && friendshipSocket.readyState === WebSocket.OPEN;
-    console.log('isConnected:', connected);
-    return connected;
-}
-
-function closeConnection() {
-    console.log('closeConnection: Starting...');
-    if (friendshipSocket) {
-        friendshipSocket.onopen = null;
-        friendshipSocket.onclose = null;
-        friendshipSocket.onerror = null;
-        friendshipSocket.onmessage = null;
-        friendshipSocket.close();
-        friendshipSocket = null;
-        console.log('closeConnection: Closed');
-    }
 }
 
 export {

@@ -8,10 +8,9 @@ import { scrollAction } from "./pages/story/scroll.js";
 
 const authenticatedPages = ['home', 'settings', 'shop', 'play', 'game'];
 
-window.isAuthenticated = localStorage.getItem('isAuthenticated') === 'true' || false;
-console.log('Initial isAuthenticated:', window.isAuthenticated);
-
 // Friend-related state
+localStorage.clear();
+
 let pendingSentRequests = new Set();
 let pendingReceivedRequests = new Set();
 let friendsList = new Set();
@@ -159,8 +158,13 @@ function handleAuthStateChange() {
     window.isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
     console.log('handleAuthStateChange: isAuthenticated=', window.isAuthenticated);
     if (window.isAuthenticated) {
-        initializeWebSocket();
-        syncStateWithWebSocket();
+        initializeWebSocket().then(() => {
+            if (isConnected()) {
+                syncStateWithWebSocket();
+            } else {
+                console.error('WebSocket failed to connect in handleAuthStateChange');
+            }
+        }).catch(err => console.error('WebSocket initialization failed:', err));
     } else {
         closeConnection();
     }
@@ -169,26 +173,28 @@ function handleAuthStateChange() {
 window.routeToPage = function (path, options = {}) {
     console.log(`Routing to ${path}`);
     if (!isValidRoute(path)) {
-        console.log('routeToPage: Invalid route, loading 404');
         loadPage('404');
         return;
     }
 
     if (authenticatedPages.includes(path) && !window.isAuthenticated) {
-        console.log('routeToPage: Unauthorized, redirecting to #story');
         window.location.hash = 'story';
         return;
     }
 
     if (path === 'story' && window.isAuthenticated) {
-        console.log('routeToPage: Authenticated user on story, redirecting to #home');
         window.location.hash = 'home';
         return;
     }
 
-    // Clean up previous page
-    cleanupPreviousPage();
+    if (window.isAuthenticated && !isConnected()) {
+        console.log('WebSocket not connected, reinitializing...');
+        initializeWebSocket().then(() => {
+            syncStateWithWebSocket();
+        }).catch(err => console.error('WebSocket reinitialization failed:', err));
+    }
 
+    cleanupPreviousPage();
     if (authenticatedPages.includes(path)) {
         loadAuthenticatedLayout(path);
     } else {
@@ -196,46 +202,63 @@ window.routeToPage = function (path, options = {}) {
     }
 };
 
-window.onload = function () {
+window.onload = async function () {
     const fragId = window.location.hash.substring(1) || 'story';
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
 
     if (code) {
-        fetch('/api/oauth2/login/redirect/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code }),
-            credentials: 'include',
-        })
-        .then(response => {
+        // Handle OAuth login
+        try {
+            const response = await fetch('/api/oauth2/login/redirect/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code }),
+                credentials: 'include',
+            });
+
             if (!response.ok) throw new Error(`Login failed: ${response.status}`);
-            return response.json();
-        })
-        .then(data => {
+            const data = await response.json();
             console.log('Login successful:', data);
+
             localStorage.setItem('isAuthenticated', 'true');
             window.isAuthenticated = true;
-            initializeWebSocket();
-            setTimeout(() => {
-                if (isConnected()) {
-                    window.location.hash = 'home';
-                    const currentUrl = new URL(window.location);
-                    currentUrl.searchParams.delete('code');
-                    window.history.replaceState({}, '', currentUrl.toString());
-                } else {
-                    console.error('WebSocket not connected after login');
-                    alert('Connection failed, please refresh');
-                }
-            }, 500);
-        })
-        .catch(error => {
+
+            await initializeWebSocket();
+            if (isConnected()) {
+                syncStateWithWebSocket();
+                window.location.hash = 'home';
+                const currentUrl = new URL(window.location);
+                currentUrl.searchParams.delete('code');
+                window.history.replaceState({}, '', currentUrl.toString());
+                routeToPage('home');
+            } else {
+                console.error('WebSocket not connected after login');
+                alert('Connection failed, please refresh');
+            }
+        } catch (error) {
             console.error('Login error:', error);
             alert('Login failed: ' + error.message);
-        });
+        }
     } else {
-        handleAuthStateChange();
-        routeToPage(fragId);
+        // Handle page load/refresh
+        window.isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+        if (window.isAuthenticated) {
+            await initializeWebSocket();
+            if (isConnected()) {
+                console.log('WebSocket connected successfully on page load');
+                syncStateWithWebSocket();
+                routeToPage(fragId);
+            } else {
+                console.log('WebSocket not connected on page load, clearing auth');
+                window.isAuthenticated = false;
+                localStorage.setItem('isAuthenticated', 'false');
+                routeToPage('story');
+            }
+        } else {
+            console.log('Not authenticated, skipping WebSocket initialization');
+            routeToPage('story');
+        }
     }
 
     window.addEventListener('hashchange', () => {
@@ -379,6 +402,8 @@ function loadAuthenticatedLayout(contentPath) {
                 loadContentIntoLayout(contentPath);
                 setupSidebarNavigation();
                 setupSearchBar();
+                setupFriendsModal(); // Move here from global scope
+                setupLogoutButton(); // Move here from global scope
             } else {
                 loadPage('404');
             }
@@ -421,7 +446,7 @@ function loadContentIntoLayout(path) {
 function setupSidebarNavigation() {
     const items = document.querySelectorAll('.sidebar-menu div, .sidebar-actions div');
     items.forEach(item => {
-        item.removeEventListener('click', handleSidebarClick); // Remove old listeners
+        item.removeEventListener('click', handleSidebarClick);
         item.addEventListener('click', handleSidebarClick);
     });
 
@@ -446,115 +471,142 @@ function setupSidebarNavigation() {
 }
 
 function setupFriendsModal() {
-    let cleanup = () => {};
-    const waitForButton = setInterval(() => {
-        const seeFriendsBtn = document.querySelector(".see-friends-btn");
-        if (seeFriendsBtn) {
-            clearInterval(waitForButton);
-            seeFriendsBtn.removeEventListener('click', handleFriendsClick); // Clean old listener
-            seeFriendsBtn.addEventListener('click', handleFriendsClick);
+    let modal = null;
+    let friendsListContainer = null;
+    let searchBar = null;
+    let closeBtn = null;
 
-            async function handleFriendsClick() {
-                let friendsModal = document.getElementById("friends-modal");
-                if (!friendsModal) {
-                    friendsModal = document.createElement("div");
-                    friendsModal.id = "friends-modal";
-                    friendsModal.classList.add("friends-modal");
-                    friendsModal.innerHTML = `
-                        <button class="close-btn">×</button>
-                        <div class="search-bar-container">
-                            <input type="text" class="search-bar" placeholder="Search friends...">
-                        </div>
-                        <div class="friends-list"></div>
-                    `;
-                    document.body.appendChild(friendsModal);
-                }
+    let cleanupFriendsModal = () => {};
 
-                const closeBtn = friendsModal.querySelector(".close-btn");
-                const friendsListContainer = friendsModal.querySelector(".friends-list");
-                const searchBar = friendsModal.querySelector(".search-bar");
+    function initializeModal() {
+        const seeFriendsBtn = document.querySelector('.see-friends-btn');
+        if (!seeFriendsBtn) {
+            console.warn('setupFriendsModal: .see-friends-btn not found, modal not initialized');
+            return;
+        }
 
-                friendsModal.style.opacity = "1";
-                friendsModal.style.visibility = "visible";
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'friends-modal';
+            modal.classList.add('friends-modal');
+            modal.innerHTML = `
+                <button class="close-btn">×</button>
+                <div class="search-bar-container">
+                    <input type="text" class="search-bar" placeholder="Search friends...">
+                </div>
+                <div class="friends-list"></div>
+            `;
+            document.body.appendChild(modal);
 
+            closeBtn = modal.querySelector('.close-btn');
+            searchBar = modal.querySelector('.search-bar');
+            friendsListContainer = modal.querySelector('.friends-list');
+        }
+
+        const openModal = async () => {
+            try {
                 const friends = await fetchFriendsList();
                 friendsList = new Set(friends.map(f => f.username));
                 saveFriendsList();
-                renderFriends([...friendsList], friendsListContainer);
+                renderFriends([...friendsList]);
 
-                closeBtn.removeEventListener('click', handleCloseClick);
-                closeBtn.addEventListener('click', handleCloseClick);
-                function handleCloseClick() {
-                    friendsModal.style.opacity = "0";
-                    friendsModal.style.visibility = "hidden";
-                    searchBar.value = '';
-                    renderFriends([...friendsList], friendsListContainer);
-                }
+                modal.style.opacity = '1';
+                modal.style.visibility = 'visible';
+            } catch (error) {
+                console.error('setupFriendsModal: Error fetching friends:', error);
+                friendsListContainer.innerHTML = '<p>Error loading friends.</p>';
+            }
+        };
 
-                searchBar.removeEventListener('input', handleSearchInput);
-                searchBar.addEventListener('input', handleSearchInput);
-                function handleSearchInput() {
-                    const query = searchBar.value.trim().toLowerCase();
-                    const filteredFriends = [...friendsList].filter(friend => friend.toLowerCase().startsWith(query));
-                    renderFriends(filteredFriends, friendsListContainer);
-                }
+        const closeModal = () => {
+            modal.style.opacity = '0';
+            modal.style.visibility = 'hidden';
+            searchBar.value = '';
+            renderFriends([...friendsList]);
+        };
 
-                cleanup = () => {
-                    closeBtn.removeEventListener('click', handleCloseClick);
-                    searchBar.removeEventListener('input', handleSearchInput);
-                    if (friendsModal) {
-                        friendsModal.style.opacity = "0";
-                        friendsModal.style.visibility = "hidden";
+        const debounce = (func, wait) => {
+            let timeout;
+            return (...args) => {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        };
+
+        const handleSearch = debounce(() => {
+            const query = searchBar.value.trim().toLowerCase();
+            const filteredFriends = [...friendsList].filter(friend =>
+                friend.toLowerCase().startsWith(query)
+            );
+            renderFriends(filteredFriends);
+        }, 300);
+
+        seeFriendsBtn.addEventListener('click', openModal);
+        closeBtn.addEventListener('click', closeModal);
+        searchBar.addEventListener('input', handleSearch);
+
+        function renderFriends(friends) {
+            friendsListContainer.innerHTML = '';
+            if (!friends || friends.length === 0) {
+                friendsListContainer.innerHTML = '<p>No friends found.</p>';
+                return;
+            }
+
+            friends.forEach(friend => {
+                const friendItem = document.createElement('div');
+                friendItem.classList.add('friend-item');
+                friendItem.innerHTML = `
+                    <img src="https://cdn-icons-png.flaticon.com/512/147/147144.png" alt="${friend} image">
+                    <p>${friend}</p>
+                    <button class="remove-friend">Remove Friend</button>
+                `;
+
+                const removeBtn = friendItem.querySelector('.remove-friend');
+                removeBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    try {
+                        const result = await removeFriend(friend);
+                        if (!result.error) {
+                            friendsList.delete(friend);
+                            saveFriendsList();
+                            const filtered = [...friendsList].filter(f =>
+                                f.toLowerCase().startsWith(searchBar.value.trim().toLowerCase())
+                            );
+                            renderFriends(filtered);
+                        } else {
+                            console.error('setupFriendsModal: Remove friend failed:', result.error);
+                        }
+                    } catch (error) {
+                        console.error('setupFriendsModal: Error removing friend:', error);
                     }
-                };
-            }
-        }
-    }, 100);
+                });
 
-    setTimeout(() => {
-        clearInterval(waitForButton);
-        console.error('setupFriendsModal: Timed out waiting for .see-friends-btn');
-    }, 5000);
-
-    function renderFriends(friends, container) {
-        container.innerHTML = '';
-        if (!Array.isArray(friends) || friends.length === 0) {
-            container.innerHTML = '<p>No friends found.</p>';
-            return;
+                friendsListContainer.appendChild(friendItem);
+            });
         }
-        friends.forEach((friend) => {
-            const username = typeof friend === 'string' ? friend : friend.username;
-            const friendItem = document.createElement('div');
-            friendItem.classList.add('friend-item');
-            friendItem.innerHTML = `
-                <img src="https://cdn-icons-png.flaticon.com/512/147/147144.png" alt="${username} image">
-                <p>${username}</p>
-                <button class="remove-friend">Remove Friend</button>
-            `;
-            const removeBtn = friendItem.querySelector('.remove-friend');
-            removeBtn.removeEventListener('click', handleRemoveClick); // Clean old listener
-            removeBtn.addEventListener('click', handleRemoveClick);
-            async function handleRemoveClick(e) {
-                e.stopPropagation();
-                const result = await removeFriend(username);
-                if (!result.error) {
-                    friendsList.delete(username);
-                    saveFriendsList();
-                    renderFriends([...friendsList].filter(f => f.toLowerCase().startsWith(container.parentElement.querySelector('.search-bar').value.trim().toLowerCase())), container);
-                }
+
+        cleanupFriendsModal = () => {
+            seeFriendsBtn.removeEventListener('click', openModal);
+            if (modal) {
+                closeBtn.removeEventListener('click', closeModal);
+                searchBar.removeEventListener('input', handleSearch);
+                modal.style.opacity = '0';
+                modal.style.visibility = 'hidden';
+                friendsListContainer.innerHTML = '';
+                modal.remove();
+                modal = null;
             }
-            container.appendChild(friendItem);
-        });
+            console.log('setupFriendsModal: Cleaned up');
+        };
     }
 
-    pageCleanups.set('play', cleanup); // Assuming this is tied to 'play' page
+    initializeModal();
+    pageCleanups.set('play', cleanupFriendsModal);
 }
-
-document.addEventListener("DOMContentLoaded", setupFriendsModal);
 
 function setupSearchBar() {
     const searchInput = document.getElementById('search-bar');
-    if (!searchInput) return; // Skip if not present
+    if (!searchInput) return;
     const userSuggestionsBox = document.createElement('div');
     userSuggestionsBox.classList.add('user-suggestions');
     const navbarSearch = document.querySelector('.navbar-search');
@@ -690,6 +742,51 @@ function updateStylesheet(href) {
     linkTag.href = href;
 }
 
+function setupLogoutButton() {
+    const logoutBtn = document.querySelector('#logoutBtn');
+    if (!logoutBtn) {
+        console.warn('setupLogoutButton: #logoutBtn not found');
+        return;
+    }
+
+    const handleLogout = async () => {
+        try {
+            const response = await fetch('/api/logout/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || `Logout failed: ${response.status}`);
+            }
+            console.log(data.message || 'Logout successful');
+
+            if (isConnected()) {
+                closeConnection();
+                console.log('WebSocket disconnected due to logout');
+            }
+
+            window.isAuthenticated = false;
+            localStorage.setItem('isAuthenticated', 'false');
+            window.location.hash = 'story';
+        } catch (error) {
+            console.error('Error during logout:', error);
+            alert('Logout failed: ' + error.message);
+        }
+    };
+
+    logoutBtn.addEventListener('click', handleLogout);
+
+    const cleanup = () => {
+        logoutBtn.removeEventListener('click', handleLogout);
+        console.log('setupLogoutButton: Cleaned up');
+    };
+
+    pageCleanups.set('logout', cleanup);
+}
+
 function executePageScripts(path) {
     console.log('Executing scripts for:', path);
     let cleanup;
@@ -698,33 +795,29 @@ function executePageScripts(path) {
             storyActions();
             scrollAction();
             cleanup = () => {
-                // Add cleanup logic if storyActions/scrollAction attach listeners
                 console.log('Cleaned up story page');
             };
             break;
         case "play":
-            flip();
-            setupFriendsModal();
-            cleanup = pageCleanups.get('play');
+            flip().then(cleanupFn => {
+                cleanup = cleanupFn;
+            });
             break;
         case "home":
             home();
             cleanup = () => {
-                // Add cleanup logic if home.js attaches listeners
                 console.log('Cleaned up home page');
             };
             break;
         case "settings":
             settings();
             cleanup = () => {
-                // Add cleanup logic if settings.js attaches listeners
                 console.log('Cleaned up settings page');
             };
             break;
         case "game":
             game();
             cleanup = () => {
-                // Add cleanup logic if game.js attaches listeners
                 console.log('Cleaned up game page');
             };
             break;

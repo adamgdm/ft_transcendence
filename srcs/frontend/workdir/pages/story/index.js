@@ -120,10 +120,6 @@ export function storyActions() {
             } else {
                 throw new Error('URL was not received')
             }
-            // localStorage.setItem('isAuthenticated', 'true');
-            // window.isAuthenticated = true;
-
-            // window.location.hash = 'home';
         })
         .catch(error => {
             console.error('Error:', error);
@@ -266,14 +262,13 @@ export function storyActions() {
                 return; // Exit early for OTP case
             }
             console.log('Login successful:', data);
-        
-            localStorage.setItem('isAuthenticated', 'true');
-            window.isAuthenticated = true;
+    
 
             // Initialize WebSocket and only navigate if connected
             initializeWebSocket();
             setTimeout(() => {
                 if (isConnected()) {
+                    window.isAuthenticated = true;
                     window.location.hash = 'home';
                 } else {
                     console.error('WebSocket not initialized, navigation aborted');
@@ -324,13 +319,12 @@ export function storyActions() {
             if (data.message === 'Login successful') {
                 isVerificationSuccessful = true;
                 hideModal(otpVerificationModal);
-                localStorage.setItem('isAuthenticated', 'true');
-                window.isAuthenticated = true;
 
                 // Initialize WebSocket and only navigate if connected
                 initializeWebSocket();
                 setTimeout(() => {
                     if (isConnected()) {
+                        window.isAuthenticated = true;
                         window.location.hash = 'home';
                     } else {
                         console.error('WebSocket not initialized, navigation aborted');

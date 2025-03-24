@@ -546,7 +546,7 @@ def modify_password(request):
 @check_auth
 def logout(request):
     if request.method == 'POST':
-        
+        token = request.token
         LoggedOutTokens.objects.create(token=token)
         return JsonResponse({'message': 'Logged out successfully'}, status=200)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
