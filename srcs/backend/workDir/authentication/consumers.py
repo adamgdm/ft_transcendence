@@ -747,23 +747,36 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
         logger.info(f"Waiting for semifinals {semi1_id} and {semi2_id} to complete in tournament {tournament.id}")
 
         while True:
-            # Check semifinal statuses using database_sync_to_async
-            semi1_done = await database_sync_to_async(lambda: Match.objects.get(id=semi1_id).match_status == 'done')()
-            semi2_done = await database_sync_to_async(lambda: Match.objects.get(id=semi2_id).match_status == 'done')()
+            # Check in-memory status with fallback to database
+            semi1_done = games.get(semi1_id, {}).get('status', 'pending') == 'done'
+            semi2_done = games.get(semi2_id, {}).get('status', 'pending') == 'done'
+
+            # Database fallback to ensure accuracy
+            if not (semi1_done and semi2_done):
+                try:
+                    semi1 = await database_sync_to_async(Match.objects.get)(id=semi1_id)
+                    semi2 = await database_sync_to_async(Match.objects.get)(id=semi2_id)
+                    semi1_done = semi1.match_status == Match.MatchStatusChoices.DONE
+                    semi2_done = semi2.match_status == Match.MatchStatusChoices.DONE
+                except Match.DoesNotExist as e:
+                    logger.error(f"Semifinal match not found: {e}")
+                    break
 
             if semi1_done and semi2_done:
                 logger.info(f"Both semifinals {semi1_id} and {semi2_id} are done for tournament {tournament.id}")
                 break
 
-            # Wait a reasonable amount of time (15 seconds) before the next check
             logger.debug(f"Semifinals status: semi1_done={semi1_done}, semi2_done={semi2_done}, waiting 15 seconds before next check")
-            await asyncio.sleep(10)
+            await asyncio.sleep(10)  # Matches comment
 
-        # Fetch semifinal objects and their winners with proper async wrapping
-        semi1 = await database_sync_to_async(Match.objects.get)(id=semi1_id)
-        semi2 = await database_sync_to_async(Match.objects.get)(id=semi2_id)
-        
-        # Use a helper to safely get winners
+        # Fetch semifinal objects and their winners
+        try:
+            semi1 = await database_sync_to_async(Match.objects.select_related('match_winner', 'match_loser').get)(id=semi1_id)
+            semi2 = await database_sync_to_async(Match.objects.select_related('match_winner', 'match_loser').get)(id=semi2_id)
+        except Match.DoesNotExist as e:
+            logger.error(f"Failed to fetch semifinals: {e}")
+            return
+
         winner1 = await self.get_match_winner(semi1)
         winner2 = await self.get_match_winner(semi2)
 
@@ -776,7 +789,7 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
                     {
                         'type': 'tournament_error',
                         'error': 'Failed to determine semifinal winners',
-                        'tournament_id': tournament.id
+                        'tournament_id': str(tournament.id)  # Ensure string for consistency
                     }
                 )
             return
@@ -784,9 +797,18 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
         # Create the final match
         logger.info(f"Creating final match for tournament {tournament.id}: {winner1.user_name} vs {winner2.user_name}")
         final_match = await self.create_match(winner1, winner2, 'online', tournament)
-        tournament.current_round = 'final'
-        tournament.final = final_match
-        await database_sync_to_async(tournament.save)()
+
+        # Update tournament synchronously to avoid async context issues
+        def sync_update_tournament():
+            tournament.current_round = 'final'
+            tournament.final = final_match
+            tournament.save()
+
+        try:
+            await database_sync_to_async(sync_update_tournament)()
+        except Exception as e:
+            logger.error(f"Failed to update tournament {tournament.id}: {e}")
+            return
 
         # Initialize the final game state
         async with games_lock:
@@ -800,7 +822,7 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
                 f"friendship_group_{participant.id}",
                 {
                     'type': 'tournament_match_start',
-                    'tournament_id': tournament.id,
+                    'tournament_id': str(tournament.id),
                     'game_id': str(final_match.id),
                     'player_1': winner1.user_name,
                     'player_2': winner2.user_name
@@ -960,4 +982,12 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
             'type': 'tournament_waiting',
             'tournament_id': event['tournament_id'],
             'participant_count': event['participant_count']
+        }))
+
+    async def tournament_error(self, event):
+        """Handle tournament error notifications."""
+        await self.send(text_data=json.dumps({
+            'type': 'tournament_error',
+            'error': event['error'],
+            'tournament_id': event.get('tournament_id')  # Optional, only included in some cases
         }))

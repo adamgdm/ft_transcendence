@@ -208,7 +208,7 @@ class PongConsumer(AsyncWebsocketConsumer):
                 logger.debug(f"Invalid action: {action}")
                 return
 
-            if game.get('status') == 'Done':
+            if game.get('status') == 'done':
                 await self.send(text_data=json.dumps({'status': 'Done'}))
                 return
 
@@ -272,7 +272,7 @@ class PongConsumer(AsyncWebsocketConsumer):
                     if game[status_key] == 'offline' and game[disconnect_key]:
                         if (now - game[disconnect_key]).total_seconds() > 7:
                             game[opponent_score_key] = 7
-                            game['status'] = 'Done'
+                            game['status'] = 'done'
                             game['winner'] = game['player_2'] if player == 'player1' else game['player_1']
                             logger.info(f"Player {game[player + '_1' if player == 'player1' else 'player_2']} disconnected >7s, {game['winner']} wins game {self.game_id}")
                             await self.end_game(game)
@@ -309,7 +309,7 @@ class PongConsumer(AsyncWebsocketConsumer):
 
     async def check_game_end(self, game):
         """Check if the game has ended, using in-memory state or database fallback."""
-        if game.get('status') == 'Done':
+        if game.get('status') == 'done':
             logger.info(f"Game {self.game_id} ended (in-memory), winner: {game['winner']}")
             return True
 
@@ -318,7 +318,7 @@ class PongConsumer(AsyncWebsocketConsumer):
             match = await database_sync_to_async(Match.objects.get)(id=self.game_id)
             if match.match_status == 'done':
                 logger.info(f"Game {self.game_id} ended (database), winner: {match.match_winner.user_name}")
-                game['status'] = 'Done'
+                game['status'] = 'done'
                 game['winner'] = match.match_winner.user_name
                 tournament = await database_sync_to_async(Tournament.objects.filter(
                     Q(semifinal_1=match) | Q(semifinal_2=match) | Q(final=match)
@@ -388,8 +388,8 @@ class PongConsumer(AsyncWebsocketConsumer):
             'paddle_bounds_y': game['paddle_bounds_y'],
             'game_opponent': game['game_opponent']
         }
-        if game.get('status') == 'Done':
-            state['status'] = 'Done'
+        if game.get('status') == 'done':
+            state['status'] = 'done'
             state['winner'] = game.get('winner', 'Unknown')
         await self.send(text_data=json.dumps(state))
 
