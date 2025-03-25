@@ -1045,6 +1045,7 @@ def exchange_code(code):
                     'has_42_image': True,
                     'has_profile_pic': False,
                     'last_login': timezone.now(),
+                    'is_Email_Verified': True,
                     # Add any other fields you want to store
                 }
             )

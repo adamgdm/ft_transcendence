@@ -38,7 +38,7 @@ class Users(models.Model):
     has_profile_pic = models.BooleanField(default=False, blank=False)
     has_42_image = models.BooleanField(default=False, blank=False)
     oauth2_authentified = models.BooleanField(default=False, blank=False) #just added
-    is_Email_Verified = models.BooleanField(default=False)
+    is_Email_Verified = models.BooleanField(default=False)#true when oauth2
     registration_date = models.DateTimeField(auto_now_add=True)
     online_status = models.DateTimeField(auto_now_add=True)
     last_login = models.DateTimeField(null=True, blank=True)

@@ -72,6 +72,22 @@ async function fetchPendingSentRequests() {
     }
 }
 
+async function fetchPendingGameInvites() {
+    try {
+        const response = await fetch('api/get_game_invites/', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+        });
+        if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+        const data = await response.json();
+        return data.invites || [];
+    } catch (error) {
+        console.error('Error fetching game invites:', error);
+        return [];
+    }
+}
+
 async function fetchFriendsList() {
     try {
         const response = await fetch('api/get_friends/', {
@@ -119,6 +135,45 @@ async function removeFriend(username) {
         console.error('Error removing friend:', error);
         return { error: 'Network error' };
     }
+}
+
+// Define game invite actions (move to globalWebsocket.js if preferred)
+async function sendGameInvite(toUsername, gameMode = 'online', tournamentId = null) {
+    if (!isConnected()) {
+        console.error('WebSocket not connected, cannot send game invite');
+        return false;
+    }
+    friendshipSocket.send(JSON.stringify({
+        type: 'send_game_invite',
+        to_username: toUsername,
+        game_mode: gameMode,
+        tournament_id: tournamentId
+    }));
+    return true;
+}
+
+async function acceptGameInvite(inviteId) {
+    if (!isConnected()) {
+        console.error('WebSocket not connected, cannot accept game invite');
+        return false;
+    }
+    friendshipSocket.send(JSON.stringify({
+        type: 'accept_game_invite',
+        invite_id: inviteId
+    }));
+    return true;
+}
+
+async function rejectGameInvite(inviteId) {
+    if (!isConnected()) {
+        console.error('WebSocket not connected, cannot reject game invite');
+        return false;
+    }
+    friendshipSocket.send(JSON.stringify({
+        type: 'reject_game_invite',
+        invite_id: inviteId
+    }));
+    return true;
 }
 
 function handleAuthStateChange() {
@@ -195,7 +250,6 @@ window.onload = async function () {
             localStorage.setItem('isAuthenticated', 'true');
             window.isAuthenticated = true;
 
-            // Wait for WebSocket and state sync before routing
             await initializeWebSocket();
             if (isConnected()) {
                 await syncStateWithWebSocket();
@@ -218,7 +272,6 @@ window.onload = async function () {
             routeToPage('story');
         }
     } else {
-        // Handle page load/refresh
         const isLocalAuth = localStorage.getItem('isAuthenticated') === 'true';
         if (isLocalAuth) {
             const username = await fetchLogin();
@@ -226,7 +279,6 @@ window.onload = async function () {
                 window.isAuthenticated = true;
                 console.log('Session validated, user:', username);
 
-                // Wait for WebSocket and state sync before routing
                 await initializeWebSocket();
                 if (isConnected()) {
                     await syncStateWithWebSocket();
@@ -264,7 +316,7 @@ function showNotification(message) {
     `;
     notificationContainer.textContent = message;
     document.body.appendChild(notificationContainer);
-    setTimeout(() => notificationContainer.remove(), 5000); // Remove after 5 seconds
+    setTimeout(() => notificationContainer.remove(), 5000);
 }
 
 async function syncStateWithWebSocket() {
@@ -275,14 +327,24 @@ async function syncStateWithWebSocket() {
         Promise.all([
             fetchPendingSentRequests(),
             fetchPendingReceivedRequests(),
+            fetchPendingGameInvites(),
             fetchFriendsList()
-        ]).then(([sentRequests, receivedRequests, friends]) => {
-            // Reset state and populate from server
+        ]).then(([sentRequests, receivedRequests, gameInvites, friends]) => {
+            // Sync friend requests
             pendingSentRequests.clear();
             sentRequests.forEach(req => pendingSentRequests.add(req.to_username));
 
             pendingReceivedRequests.clear();
             receivedRequests.forEach(req => pendingReceivedRequests.set(req.request_id, req.from_username));
+
+            // Sync game invites
+            receivedInvites = gameInvites.map(invite => ({
+                invite_id: invite.invite_id,
+                from_username: invite.from_username,
+                status: 'pending',
+                tournament_id: invite.game_mode === 'tournament' ? invite.game_id : null,
+                game_mode: invite.game_mode
+            }));
 
             friendsList.clear();
             friends.forEach(friend => friendsList.add(friend.username));
@@ -290,25 +352,26 @@ async function syncStateWithWebSocket() {
             console.log('Initial state synced:', {
                 pendingSentRequests: [...pendingSentRequests],
                 pendingReceivedRequests: [...pendingReceivedRequests.entries()],
+                receivedInvites: [...receivedInvites],
                 friendsList: [...friendsList]
             });
 
-            // Show initial pending requests as popup notifications
+            // Show initial notifications
             for (let [requestId, fromUsername] of pendingReceivedRequests) {
                 showNotification(`New friend request from ${fromUsername}`);
             }
+            for (let invite of receivedInvites) {
+                showNotification(`New game invite from ${invite.from_username}`);
+            }
 
-            // Trigger UI update after initial sync
             triggerUIUpdate();
-
-            // Resolve the promise once initial sync is complete
             resolve();
         }).catch(err => {
             console.error('Error syncing initial state:', err);
-            resolve(); // Resolve even on error to avoid hanging
+            resolve();
         });
 
-        // Set up WebSocket listener for real-time updates
+        // WebSocket listener for real-time updates
         friendshipSocket.addEventListener('message', async (event) => {
             const data = JSON.parse(event.data);
             console.log('Received:', data);
@@ -327,6 +390,20 @@ async function syncStateWithWebSocket() {
                         showNotification(`Friend request from ${req.from_username}`);
                     });
                     console.log('Pending friend requests loaded:', [...pendingReceivedRequests.entries()]);
+                    triggerUIUpdate();
+                    break;
+                case 'pending_game_invites':
+                    receivedInvites = data.invites.map(invite => ({
+                        invite_id: invite.invite_id,
+                        from_username: invite.from_username,
+                        status: 'pending',
+                        tournament_id: invite.game_mode === 'tournament' ? invite.game_id : null,
+                        game_mode: invite.game_mode
+                    }));
+                    console.log('Pending game invites loaded:', [...receivedInvites]);
+                    for (let invite of receivedInvites) {
+                        showNotification(`New game invite from ${invite.from_username}`);
+                    }
                     triggerUIUpdate();
                     break;
                 case 'friend_request_sent':
@@ -365,10 +442,26 @@ async function syncStateWithWebSocket() {
                     triggerUIUpdate();
                     break;
                 case 'game_invite_sent':
-                    sentInvites.push({ to_username: data.to_username, invite_id: data.invite_id, status: 'pending', tournament_id: data.tournament_id || null, game_mode: data.game_mode || 'online' });
+                    sentInvites.push({ 
+                        to_username: data.to_username, 
+                        invite_id: data.invite_id, 
+                        status: 'pending', 
+                        tournament_id: data.tournament_id || null, 
+                        game_mode: data.game_mode || 'online' 
+                    });
+                    triggerUIUpdate();
                     break;
                 case 'new_game_invite_notification':
-                    receivedInvites.push({ invite_id: data.invite_id, from_username: data.from_username, status: 'pending', tournament_id: data.tournament_id || null, game_mode: data.game_mode || 'online' });
+                    receivedInvites.push({ 
+                        invite_id: data.invite_id, 
+                        from_username: data.from_username, 
+                        status: 'pending', 
+                        tournament_id: data.tournament_id || null, 
+                        game_mode: data.game_mode || 'online' 
+                    });
+                    showNotification(`New game invite from ${data.from_username}`);
+                    console.log(`New game invite from ${data.from_username} (ID: ${data.invite_id})`);
+                    triggerUIUpdate();
                     break;
                 case 'game_invite_accepted':
                     const sentInvite = sentInvites.find(i => i.invite_id === data.invite_id);
@@ -380,18 +473,27 @@ async function syncStateWithWebSocket() {
                             window.routeToPage('game');
                         }
                     }
+                    triggerUIUpdate();
                     break;
                 case 'game_invite_accepted_notification':
                     const receivedInvite = receivedInvites.find(i => i.invite_id === data.invite_id);
-                    if (receivedInvite && receivedInvite.game_mode !== 'tournament') {
+                    if (receivedInvite) {
                         receivedInvite.status = 'accepted';
                         receivedInvite.game_id = data.game_id;
-                        history.pushState({ game_id: data.game_id, user: currentUsername, from_username: receivedInvite.from_username, to_username: data.to_username }, "", "#game");
-                        window.routeToPage('game');
+                        if (receivedInvite.game_mode !== 'tournament') {
+                            history.pushState({ game_id: data.game_id, user: currentUsername, from_username: receivedInvite.from_username, to_username: data.to_username }, "", "#game");
+                            window.routeToPage('game');
+                        }
                     }
+                    triggerUIUpdate();
                     break;
                 case 'game_invite_rejected':
                     sentInvites = sentInvites.filter(i => i.invite_id !== data.invite_id);
+                    triggerUIUpdate();
+                    break;
+                case 'game_invite_rejected_notification':
+                    receivedInvites = receivedInvites.filter(i => i.invite_id !== data.invite_id);
+                    triggerUIUpdate();
                     break;
                 case 'local_game_created':
                     if (data.user === currentUsername) {
@@ -403,17 +505,20 @@ async function syncStateWithWebSocket() {
                     tournamentId = data.tournament_id;
                     invitedFriends = new Set(data.invited_usernames);
                     participantCount = 1;
+                    triggerUIUpdate();
                     break;
                 case 'tournament_invite_accepted':
                     if (data.tournament_id === tournamentId) participantCount++;
                     const acceptedInvite = receivedInvites.find(i => i.invite_id === data.invite_id);
                     if (acceptedInvite) acceptedInvite.status = 'accepted';
+                    triggerUIUpdate();
                     break;
                 case 'tournament_waiting':
                     if (data.tournament_id === tournamentId) {
                         participantCount = data.participant_count;
                         alert(`Waiting for more players: ${participantCount}/4`);
                     }
+                    triggerUIUpdate();
                     break;
                 case 'tournament_match_start':
                     if (currentUsername === data.player_1 || currentUsername === data.player_2) {
@@ -421,15 +526,18 @@ async function syncStateWithWebSocket() {
                         history.pushState(state, "", `#game/${data.game_id}`);
                         window.routeToPage('game', { gameId: data.game_id });
                     }
+                    triggerUIUpdate();
                     break;
                 case 'tournament_completed':
                     alert(`Tournament ${data.tournament_id} completed! Champion: ${data.champion}`);
                     resetTournamentState();
+                    triggerUIUpdate();
                     break;
                 case 'tournament_error':
                     console.error(`Tournament error: ${data.error}`);
                     alert(`Tournament error: ${data.error}`);
                     if (data.tournament_id === tournamentId) resetTournamentState();
+                    triggerUIUpdate();
                     break;
             }
             window.dispatchEvent(updateEvent);
@@ -438,9 +546,10 @@ async function syncStateWithWebSocket() {
 }
 
 async function fetchAndSyncStateFallback() {
-    const [sentRequests, receivedRequests, friends] = await Promise.all([
+    const [sentRequests, receivedRequests, gameInvites, friends] = await Promise.all([
         fetchPendingSentRequests(),
         fetchPendingReceivedRequests(),
+        fetchPendingGameInvites(),
         fetchFriendsList()
     ]);
 
@@ -450,31 +559,41 @@ async function fetchAndSyncStateFallback() {
     pendingReceivedRequests.clear();
     receivedRequests.forEach(req => pendingReceivedRequests.set(req.request_id, req.from_username));
 
+    receivedInvites = gameInvites.map(invite => ({
+        invite_id: invite.invite_id,
+        from_username: invite.from_username,
+        status: 'pending',
+        tournament_id: invite.game_mode === 'tournament' ? invite.game_id : null,
+        game_mode: invite.game_mode
+    }));
+
     friendsList.clear();
     friends.forEach(friend => friendsList.add(friend.username));
 
     console.log('Fallback state synced:', {
         pendingSentRequests: [...pendingSentRequests],
         pendingReceivedRequests: [...pendingReceivedRequests.entries()],
+        receivedInvites: [...receivedInvites],
         friendsList: [...friendsList]
     });
 
-    // Trigger UI update
     triggerUIUpdate();
 }
 
 function triggerUIUpdate() {
     const currentPath = window.location.hash.substring(1) || 'story';
     if (authenticatedPages.includes(currentPath)) {
-        loadAuthenticatedLayout(currentPath); // Reload the layout with updated state
+        loadAuthenticatedLayout(currentPath);
     }
-    // Dispatch a custom event to notify components
     window.dispatchEvent(new CustomEvent('friendStateUpdate', {
         detail: {
             pendingSentRequests: [...pendingSentRequests],
             pendingReceivedRequests: [...pendingReceivedRequests.entries()],
             friendsList: [...friendsList]
         }
+    }));
+    window.dispatchEvent(new CustomEvent('gameStateUpdate', {
+        detail: { sentInvites, receivedInvites, tournamentId, participantCount, invitedFriends }
     }));
 }
 
@@ -515,7 +634,7 @@ function loadAuthenticatedLayout(contentPath) {
                 loadContentIntoLayout(contentPath);
                 setupSidebarNavigation();
                 setupSearchBar();
-                setupNotificationBar(); // Add notification bar setup
+                setupNotificationBar();
                 setupLogoutButton();
             } else {
                 loadPage('404');
@@ -527,7 +646,7 @@ function loadAuthenticatedLayout(contentPath) {
         layoutRequest.send();
     } else {
         loadContentIntoLayout(contentPath);
-        setupNotificationBar(); // Ensure notification bar is updated on reload
+        setupNotificationBar();
     }
 }
 
@@ -592,19 +711,16 @@ async function setupNotificationBar() {
     }
 
     const renderNotifications = () => {
-        notifBar.innerHTML = ''; // Clear existing content
-        if (pendingReceivedRequests.size === 0) {
-            notifBar.innerHTML = '<p>No pending friend requests</p>';
+        notifBar.innerHTML = '';
+
+        if (pendingReceivedRequests.size === 0 && receivedInvites.length === 0) {
+            notifBar.innerHTML = '<p>No pending notifications</p>';
             return;
         }
 
         for (let [requestId, fromUsername] of pendingReceivedRequests) {
             const notifItem = document.createElement('div');
             notifItem.classList.add('notification-item');
-            notifItem.style.cssText = `
-                display: flex; justify-content: space-between; align-items: center;
-                padding: 10px; border-bottom: 1px solid #444; color: white;
-            `;
             notifItem.innerHTML = `
                 <span class="notif-text">${fromUsername} sent you a friend request.</span>
                 <button class="accept-btn">Accept</button>
@@ -627,17 +743,40 @@ async function setupNotificationBar() {
 
             notifBar.appendChild(notifItem);
         }
+
+        for (let invite of receivedInvites.filter(i => i.status === 'pending')) {
+            const notifItem = document.createElement('div');
+            notifItem.classList.add('notification-item');
+            notifItem.innerHTML = `
+                <span class="notif-text">${invite.from_username} sent you a game invite.</span>
+                <button class="accept-btn">Accept</button>
+                <button class="decline-btn">Decline</button>
+            `;
+
+            const acceptBtn = notifItem.querySelector('.accept-btn');
+            acceptBtn.onclick = async () => {
+                await acceptGameInvite(invite.invite_id);
+                renderNotifications();
+            };
+
+            const declineBtn = notifItem.querySelector('.decline-btn');
+            declineBtn.onclick = async () => {
+                await rejectGameInvite(invite.invite_id);
+                renderNotifications();
+            };
+
+            notifBar.appendChild(notifItem);
+        }
     };
 
-    // Initial render
     renderNotifications();
 
-    // Listen for state updates
     window.addEventListener('friendStateUpdate', renderNotifications);
+    window.addEventListener('gameStateUpdate', renderNotifications);
 
-    // Cleanup
     pageCleanups.set('notificationBar', () => {
         window.removeEventListener('friendStateUpdate', renderNotifications);
+        window.removeEventListener('gameStateUpdate', renderNotifications);
         console.log('Cleaned up notification bar');
     });
 }
@@ -650,7 +789,6 @@ async function setupSearchBar() {
     const navbarSearch = document.querySelector('.navbar-search');
     navbarSearch.appendChild(userSuggestionsBox);
 
-    // Initial state fetch
     const [sentRequests, receivedRequests, friends] = await Promise.all([
         fetchPendingSentRequests(),
         fetchPendingReceivedRequests(),
@@ -734,9 +872,8 @@ async function setupSearchBar() {
 
     searchInput.addEventListener('input', handleSearchInput);
 
-    // Listen for friend state updates
     window.addEventListener('friendStateUpdate', () => {
-        handleSearchInput(); // Re-render suggestions based on updated state
+        handleSearchInput();
     });
 
     document.addEventListener('click', handleOutsideClick);
@@ -836,12 +973,10 @@ function setupLogoutButton() {
 
     logoutBtn.addEventListener('click', handleLogout);
 
-    const cleanup = () => {
+    pageCleanups.set('logout', () => {
         logoutBtn.removeEventListener('click', handleLogout);
         console.log('setupLogoutButton: Cleaned up');
-    };
-
-    pageCleanups.set('logout', cleanup);
+    });
 }
 
 function executePageScripts(path) {
@@ -851,32 +986,39 @@ function executePageScripts(path) {
         case "story":
             storyActions();
             scrollAction();
-            cleanup = () => {
-                console.log('Cleaned up story page');
-            };
+            cleanup = () => console.log('Cleaned up story page');
             break;
         case "play":
-            flip().then(cleanupFn => {
-                cleanup = cleanupFn;
-            });
+            flip().then(cleanupFn => cleanup = cleanupFn);
             break;
         case "home":
             cleanup = home();
             break;
         case "settings":
             settings();
-            cleanup = () => {
-                console.log('Cleaned up settings page');
-            };
+            cleanup = () => console.log('Cleaned up settings page');
             break;
         case "game":
             game();
-            cleanup = () => {
-                console.log('Cleaned up game page');
-            };
+            cleanup = () => console.log('Cleaned up game page');
             break;
     }
     if (cleanup) pageCleanups.set(path, cleanup);
 }
 
-export { handleAuthStateChange, fetchFriendsList, fetchLogin, sentInvites, receivedInvites, tournamentId, invitedFriends, participantCount, friendsList, removeFriend, pageCleanups };
+export { 
+    handleAuthStateChange, 
+    fetchFriendsList, 
+    fetchLogin, 
+    sentInvites, 
+    receivedInvites, 
+    tournamentId, 
+    invitedFriends, 
+    participantCount, 
+    friendsList, 
+    removeFriend, 
+    pageCleanups,
+    sendGameInvite,
+    acceptGameInvite,
+    rejectGameInvite
+};
