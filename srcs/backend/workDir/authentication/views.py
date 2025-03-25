@@ -66,8 +66,8 @@ def register(request):
             return JsonResponse({'error': f'An error occured: {e}'}, status=400)
         
         # Send email verification
-        if send_2fa_email(email, user.otp_password, 2):
-            return JsonResponse({'error': 'Could not send Verification Email'}, status=400)
+        if not send_2fa_email(email, user.otp_password, 2):
+            return JsonResponse({'error': 'Could not send Verification Email'}, status=467)
         return JsonResponse({'message': 'User registered successfully'}, status=201)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 

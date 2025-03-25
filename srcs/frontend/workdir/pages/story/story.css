@@ -731,7 +731,7 @@
     text-align: center;
 }
 
-[data-modal="otp-verification"] .verification-mail-text {
+[data-modal="otp-verification"] .otpverification-mail-text {
     width: 90%;
     margin-top: 30px;
     color: var(--text-color);

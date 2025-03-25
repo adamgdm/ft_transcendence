@@ -134,18 +134,14 @@ export function storyActions() {
     // Event listener for submitting the signup form
     signupForm.addEventListener('submit', (e) => {
         e.preventDefault();
-
+    
         const firstname = signupForm.querySelector('[name="fname"]').value;
         const lastname = signupForm.querySelector('[name="lname"]').value;
         const username = signupForm.querySelector('[name="uname"]').value;
         const email = signupForm.querySelector('[name="email"]').value;
-        emmail = email;
         const passwd = signupForm.querySelector('[name="passwd"]').value;
-
-        const newUser = new User(firstname, lastname, username, email, passwd);
-        users.push(newUser);
-        users.forEach(usr => usr.printInfo());
-
+        emmail = email;
+    
         const userData = {
             first_name: firstname,
             last_name: lastname,
@@ -153,7 +149,7 @@ export function storyActions() {
             email: email,
             password: passwd,
         };
-
+    
         fetch('/api/register/', {
             method: 'POST',
             headers: {
@@ -161,21 +157,31 @@ export function storyActions() {
             },
             body: JSON.stringify(userData),
         })
-        .then(response => response.json())
-        .then(data => console.log('Success:', data))
-        .catch(error => console.error('Error:', error));
-
-        signupForm.reset();
-        hideModal(signupModal);
-
-        const verificationMailText = vefiricationModal.querySelector('.verification-mail-text');
-        verificationMailText.textContent = email;
-        displayModal(vefiricationModal);
+        .then(response => {
+            if (!response.ok && response.status !== 467) {
+                return response.json().then(err => { throw err; });
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Success:', data);
+            signupForm.reset();
+            hideModal(signupModal);
+    
+            const verificationMailText = vefiricationModal.querySelector('.verification-mail-text');
+            verificationMailText.textContent = email;
+            displayModal(vefiricationModal);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showError(signupModal, error.error || 'An unexpected error occurred');
+        });
     });
 
     // Event listener for submitting the VERIFICATION form
     vefiricationForm.addEventListener('submit', (e) => {
         e.preventDefault();
+
         const verifCode = [];
         for (let i = 1; i <= 6; i++) {
             const num = vefiricationForm.querySelector(`[name="num-${i}"]`).value;
@@ -187,9 +193,6 @@ export function storyActions() {
             code: verifCode.join(''),
         };
 
-        console.log(verfiInfos.code);
-        console.log(verifCode);
-
         fetch('/api/verify_email/', {
             method: 'POST',
             headers: {
@@ -197,15 +200,24 @@ export function storyActions() {
             },
             body: JSON.stringify(verfiInfos),
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => { throw err; });
+            }
+            return response.json();
+        })
         .then(data => {
             console.log('Success:', data);
             isVerificationSuccessful = true;
             hideModal(vefiricationModal);
+            // showError(vefiricationModal, 'Email verified successfully!', true);
         })
-        .catch(error => console.error('Error:', error));
+        .catch(error => {
+            console.error('Error:', error);
+            showError(vefiricationModal, error.error || 'An unexpected error occurred');
+        });
 
-        vefiricationForm.reset();
+        vefiricationForm.reset(); // Reset the form
     });
 
     // Auto-focus functionality for verification inputs
@@ -251,45 +263,44 @@ export function storyActions() {
             credentials: 'include',
         })
         .then(response => {
-            console.log('Response status:', response.status);
             if (response.status === 205) {
                 hideModal(loginModal);
+                const otpverificationMailText = otpVerificationModal.querySelector('.otpverification-mail-text');
+                otpverificationMailText.textContent = email;
                 displayModal(otpVerificationModal);
                 return null;
-            } else if (response.status !== 200) {
-                throw new Error('Network response was not ok');
+            } else if (!response.ok) {
+                return response.json().then(errData => {
+                    throw new Error(errData.error || 'Login failed');
+                });
             }
             return response.json();
         })
         .then(data => {
             if (data == null) {
-                return; // Exit early for OTP case
+                return;
             }
-            console.log('Login successful:', data);
+            showError(loginModal, "Login successful", true)
+            // console.log('Login successful:', data);
         
             localStorage.setItem('isAuthenticated', 'true');
             window.isAuthenticated = true;
 
-            // Initialize WebSocket and only navigate if connected
             initializeWebSocket();
             setTimeout(() => {
                 if (isConnected()) {
                     window.location.hash = 'home';
                 } else {
-                    console.error('WebSocket not initialized, navigation aborted');
-                    alert('Failed to initialize connection, please try again');
+                    showError(loginModal, 'Failed to initialize connection, please try again', false);
                 }
-            }, 1000); // Wait briefly to ensure WebSocket connects
+            }, 1000);
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('Login failed: ' + error.message);
+            showError(loginModal, error.message, false);
         });
 
         console.log("Login informations:  " + email + "  " + pass);
-
-        loginForm.reset();
-        hideModal(loginModal);
     });
 
     // Event listener for submitting the OTP VERIFICATION form
@@ -301,7 +312,7 @@ export function storyActions() {
             const num = otpVerificationForm.querySelector(`[name="num-${i}"]`).value;
             verifCode.push(num);
         }
-
+        console.log(emmail)
         const otpInfos = {
             login: emmail,
             otp: verifCode.join(''),
@@ -317,7 +328,13 @@ export function storyActions() {
             },
             body: JSON.stringify(otpInfos),
         })
-        .then(response => response.json())
+        .then(response => {
+            // Even if it's a 400, parse the response and handle it
+            return response.json().catch(() => {
+                // If JSON parsing fails, return a default error object
+                return { error: 'Unable to process server response' };
+            });
+        })
         .then(data => {
             console.log("Login informations:  " + otpInfos.emmail + "  " + otpInfos.otp);
             console.log('Success:', data);
@@ -334,15 +351,18 @@ export function storyActions() {
                         window.location.hash = 'home';
                     } else {
                         console.error('WebSocket not initialized, navigation aborted');
-                        alert('Failed to initialize connection, please try again');
+                        showError(otpVerificationModal, 'Failed to initialize connection, please try again', false);
                     }
                 }, 1000); // Wait briefly to ensure WebSocket connects
             } else {
                 console.error('Error:', data.error);
+                showError(otpVerificationModal, data.error, false);
             }
         })
-        .catch(error => console.error('Error:', error));
-
+        .catch(error => {
+            // Display the error in the UI instead of letting it hit the console unhandled
+            showError(otpVerificationModal, error.message || 'An error occurred', false);
+        });
         otpVerificationForm.reset();
     });
 
