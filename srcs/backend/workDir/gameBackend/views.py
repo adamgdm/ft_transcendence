@@ -521,6 +521,17 @@ async def game_update(game_id):
             else:
                 pongMatch.match_winner = pongMatch.player_2
                 pongMatch.match_loser = pongMatch.player_1
+            if pongMatch.game_opponent != 'local':
+                winner = pongMatch.match_winner
+                loser = pongMatch.match_loser
+                winner.matches_played += 1
+                loser.matches_played += 1
+                winner.matches_won += 1
+                winner.win_ratio = (winner.matches_won / winner.matches_played) * 100 if winner.matches_played > 0 else 0
+                loser.win_ratio = (loser.matches_won / loser.matches_played) * 100 if loser.matches_played > 0 else 0
+                winner.save()
+                loser.save()
+
             pongMatch.match_status = Match.MatchStatusChoices.DONE
             pongMatch.save()
             game_info['status'] = 'Done'
