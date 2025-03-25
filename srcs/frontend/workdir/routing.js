@@ -9,8 +9,6 @@ import { scrollAction } from "./pages/story/scroll.js";
 const authenticatedPages = ['home', 'settings', 'shop', 'play', 'game'];
 
 // Friend-related state
-localStorage.clear();
-
 let pendingSentRequests = new Set();
 let pendingReceivedRequests = new Set();
 let friendsList = new Set();
@@ -129,8 +127,12 @@ async function fetchLogin() {
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include'
         });
-        if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
-        cachedUsername = (await response.json()).user_name;
+        if (!response.ok) {
+            cachedUsername = null;
+            throw new Error(`HTTP error: ${response.status}`);
+        }
+        const data = await response.json();
+        cachedUsername = data.user_name;
         return cachedUsername;
     } catch (error) {
         console.error('Error fetching username:', error);
@@ -162,7 +164,7 @@ function handleAuthStateChange() {
             if (isConnected()) {
                 syncStateWithWebSocket();
             } else {
-                console.error('WebSocket failed to connect in handleAuthStateChange');
+                console.warn('WebSocket failed to connect in handleAuthStateChange');
             }
         }).catch(err => console.error('WebSocket initialization failed:', err));
     } else {
@@ -190,7 +192,11 @@ window.routeToPage = function (path, options = {}) {
     if (window.isAuthenticated && !isConnected()) {
         console.log('WebSocket not connected, reinitializing...');
         initializeWebSocket().then(() => {
-            syncStateWithWebSocket();
+            if (isConnected()) {
+                syncStateWithWebSocket();
+            } else {
+                console.warn('WebSocket reconnection failed, proceeding anyway');
+            }
         }).catch(err => console.error('WebSocket reinitialization failed:', err));
     }
 
@@ -227,30 +233,41 @@ window.onload = async function () {
             await initializeWebSocket();
             if (isConnected()) {
                 syncStateWithWebSocket();
-                window.location.hash = 'home';
-                const currentUrl = new URL(window.location);
-                currentUrl.searchParams.delete('code');
-                window.history.replaceState({}, '', currentUrl.toString());
-                routeToPage('home');
             } else {
-                console.error('WebSocket not connected after login');
-                alert('Connection failed, please refresh');
+                console.warn('WebSocket not connected after login, proceeding anyway');
             }
+
+            window.location.hash = 'home';
+            const currentUrl = new URL(window.location);
+            currentUrl.searchParams.delete('code');
+            window.history.replaceState({}, '', currentUrl.toString());
+            routeToPage('home');
         } catch (error) {
             console.error('Login error:', error);
             alert('Login failed: ' + error.message);
+            window.isAuthenticated = false;
+            localStorage.setItem('isAuthenticated', 'false');
+            routeToPage('story');
         }
     } else {
         // Handle page load/refresh
-        window.isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
-        if (window.isAuthenticated) {
-            await initializeWebSocket();
-            if (isConnected()) {
-                console.log('WebSocket connected successfully on page load');
-                syncStateWithWebSocket();
-                routeToPage(fragId);
+        const isLocalAuth = localStorage.getItem('isAuthenticated') === 'true';
+        if (isLocalAuth) {
+            const username = await fetchLogin(); // Validate session with server
+            if (username) {
+                window.isAuthenticated = true;
+                console.log('Session validated, user:', username);
+
+                await initializeWebSocket();
+                if (isConnected()) {
+                    console.log('WebSocket connected successfully on page load');
+                    syncStateWithWebSocket();
+                } else {
+                    console.warn('WebSocket not connected on page load, proceeding anyway');
+                }
+                routeToPage(fragId); // Respect current hash (e.g., #home)
             } else {
-                console.log('WebSocket not connected on page load, clearing auth');
+                console.log('Session invalid, forcing logout');
                 window.isAuthenticated = false;
                 localStorage.setItem('isAuthenticated', 'false');
                 routeToPage('story');
@@ -304,7 +321,7 @@ function syncStateWithWebSocket() {
                 if (sentInvite) {
                     sentInvite.status = 'accepted';
                     sentInvite.game_id = data.game_id;
-                    if (sentInvite.game_mode !== 'tournament') {
+                    if (sentInvite.game_mode !== 'tournament') { // Fixed typo
                         history.pushState({ game_id: data.game_id, user: currentUsername }, "", "#game");
                         window.routeToPage('game');
                     }
@@ -402,8 +419,8 @@ function loadAuthenticatedLayout(contentPath) {
                 loadContentIntoLayout(contentPath);
                 setupSidebarNavigation();
                 setupSearchBar();
-                setupFriendsModal(); // Move here from global scope
-                setupLogoutButton(); // Move here from global scope
+                setupFriendsModal();
+                setupLogoutButton();
             } else {
                 loadPage('404');
             }
@@ -771,6 +788,7 @@ function setupLogoutButton() {
             window.isAuthenticated = false;
             localStorage.setItem('isAuthenticated', 'false');
             window.location.hash = 'story';
+            routeToPage('story');
         } catch (error) {
             console.error('Error during logout:', error);
             alert('Logout failed: ' + error.message);
