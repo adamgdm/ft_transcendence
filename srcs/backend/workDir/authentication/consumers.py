@@ -7,6 +7,7 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from authentication.utils import decode_jwt_token
 from authentication.models import BlacklistedTokens, LoggedOutTokens, Users
 from gameBackend.models import GameInvites, Match, Tournament
+from blockchain.blockchainInterface import TournamentBlockchain
 from django.db.models import Q
 from .models import Friendship
 from channels.db import database_sync_to_async
@@ -567,8 +568,13 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
         ###########################################
         ####         create tournament         ####
         ###########################################
+
+        blockchain = TournamentBlockchain()
+        blockchain_tournament_id = blockchain.createTournament()
+
         tournament = Tournament.objects.create(
             tournament_name=tournament_name,
+            blockchain_tournament_id=blockchain_tournament_id,
             ###   blockchain id   ###
             creator=creator,
             status='pending'
@@ -862,11 +868,29 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def create_match(self, player_1, player_2, game_opponent, tournament):
+        blockchain = TournamentBlockchain()
+        match_id = None
+
+        # Check for Ethereum addresses and attempt blockchain integration
+        if player_1.eth_address and player_2.eth_address:
+            try:
+                match_id = blockchain.createMatch(
+                    tournament.blockchain_tournament_id,
+                    player_1.eth_address,
+                    player_2.eth_address
+                )
+                logger.info(f"Blockchain match ID {match_id} created")
+            except Exception as e:
+                logger.warning(f"Blockchain match creation failed: {e}, proceeding without blockchain")
+        else:
+            logger.warning(f"Players {player_1.user_name} or {player_2.user_name} lack Ethereum addresses, skipping blockchain")
+
         match = Match.objects.create(
             match_name=f"{player_1.user_name} vs {player_2.user_name}",
             player_1=player_1,
             player_2=player_2,
-            game_opponent=game_opponent
+            game_opponent=game_opponent,
+            blockchain_match_id=match_id
         )
         logger.info(f"Created match {match.id} for {player_1.user_name} vs {player_2.user_name} in tournament {tournament.id}")
         return match

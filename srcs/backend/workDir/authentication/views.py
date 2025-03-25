@@ -14,6 +14,7 @@ from .decorators import check_auth
 from datetime import datetime, timedelta
 from django.utils import timezone
 from django.conf import settings
+from blockchain.blockchainInterface import TournamentBlockchain
 from .models import BlacklistedTokens, LoggedOutTokens, Friendship
 import json
 import random
@@ -52,7 +53,40 @@ def register(request):
         if (not NameValidator(first_name) or not NameValidator(last_name)):
             return JsonResponse({'error': 'Invalid Name'}, status=400)
         hash_pass = make_password(password)
-        # Add wallet blockchain #
+        # Assign Ethereum address
+        blockchain = TournamentBlockchain()
+        eth_address = None
+        used_addresses = set(Users.objects.values_list('eth_address', flat=True).exclude(eth_address=None))
+        
+        # Step 1: Try pre-generated Ganache accounts (indices 1-9, skip admin at 0)
+        available_accounts = blockchain.w3.eth.accounts[1:10]  # 9 accounts for users
+        for address in available_accounts:
+            if address not in used_addresses:
+                eth_address = address
+                logger.info(f"Assigned pre-generated address {eth_address} to {user_name}")
+                break
+        
+        # Step 2: If no pre-generated accounts are available, create a new one
+        if not eth_address:
+            try:
+                new_account = blockchain.w3.eth.account.create()
+                # Fund the new account from admin
+                tx = {
+                    'from': blockchain.admin_address,
+                    'to': new_account.address,
+                    'value': blockchain.w3.to_wei(1, 'ether'),  # 1 ETH for gas
+                    'gas': 21000,
+                    'gasPrice': blockchain.w3.eth.gas_price,
+                    'nonce': blockchain.w3.eth.get_transaction_count(blockchain.admin_address)
+                }
+                signed_tx = blockchain.w3.eth.account.sign_transaction(tx, blockchain.admin_private_key)
+                tx_hash = blockchain.w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+                blockchain.w3.eth.wait_for_transaction_receipt(tx_hash)
+                eth_address = new_account.address
+                logger.info(f"Created and funded new address {eth_address} for {user_name}")
+            except Exception as e:
+                logger.warning(f"Failed to create/fund Ethereum address for {user_name}: {e}")
+                eth_address = None  # Proceed without an address
         try:
             user = Users.objects.create(
                 user_name=user_name,
@@ -62,6 +96,7 @@ def register(request):
                 password_hash=hash_pass,
                 otp_password = random.randint(100000, 999999),
                 otp_expiry = timezone.now() + timedelta(minutes=5),
+                eth_address = eth_address
             )
         except Exception as e: 
             return JsonResponse({'error': f'An error occured: {e}'}, status=400)

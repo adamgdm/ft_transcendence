@@ -480,6 +480,7 @@ import asyncio
 from django.db.models import Q
 from asgiref.sync import sync_to_async as database_sync_to_async
 from .models import Match, Tournament
+from blockchain.blockchainInterface import TournamentBlockchain
 
 async def game_update(game_id):
     global games
@@ -511,7 +512,9 @@ async def game_update(game_id):
     # Check for game completion and update database
     if game_info['score1'] >= 7 or game_info['score2'] >= 7:
         def sync_save_match_completion():
-            ## update score blockchain ###
+            # Initialize blockchain instance
+            blockchain = TournamentBlockchain()
+
             pongMatch = Match.objects.select_related('player_1', 'player_2', 'match_winner', 'match_loser').get(id=game_id)
             pongMatch.score_player_1 = game_info['score1']
             pongMatch.score_player_2 = game_info['score2']
@@ -529,9 +532,21 @@ async def game_update(game_id):
                 Q(semifinal_1=pongMatch) | Q(semifinal_2=pongMatch) | Q(final=pongMatch)
             ).first()
             if tournament:
-                # tournament.id_blockchain #
-                # pongMatch.id_blockchain #
-                # update #
+                # Only update blockchain if blockchain_match_id exists
+                if pongMatch.blockchain_match_id:
+                    try:
+                        blockchain.updateMatchScore(
+                            tournament.blockchain_tournament_id,
+                            pongMatch.blockchain_match_id,
+                            pongMatch.score_player_1,
+                            pongMatch.score_player_2
+                        )
+                        logger.info(f"[{game_id}] Blockchain updated: Tournament {tournament.blockchain_tournament_id}, Match {pongMatch.blockchain_match_id}, Scores: {pongMatch.score_player_1}-{pongMatch.score_player_2}")
+                    except Exception as e:
+                        logger.error(f"[{game_id}] Failed to update blockchain: {e}")
+                else:
+                    logger.warning(f"[{game_id}] Skipping blockchain update: Match {pongMatch.id} has no blockchain_match_id")
+
                 game_info['tournament_id'] = str(tournament.id)
                 game_info['report_result'] = True
 
