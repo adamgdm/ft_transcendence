@@ -282,19 +282,57 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
             }))
             return
 
-        success = await self.cancel_friend_request(self.user.id, friend_username)
+        success, to_user_id = await self.cancel_friend_request(self.user.id, friend_username)
         if success:
+            # Notify the sender (self)
             await self.send(text_data=json.dumps({
                 'type': 'friend_request_cancelled',
                 'friend_username': friend_username,
                 'message': 'Friend request cancelled successfully'
             }))
+            # Notify the receiver
+            if to_user_id:
+                await self.channel_layer.group_send(
+                    f"friendship_group_{to_user_id}",
+                    {
+                        'type': 'friend_request_cancelled_notification',
+                        'friend_username': self.user.user_name,
+                        'message': 'Friend request was cancelled by the sender'
+                    }
+                )
         else:
             await self.send(text_data=json.dumps({
                 'type': 'friend_request_error',
                 'friend_username': friend_username,
                 'error': 'Failed to cancel friend request'
             }))
+
+    @database_sync_to_async
+    def cancel_friend_request(self, from_user_id, to_user_username):
+        try:
+            from_user = Users.objects.get(id=from_user_id)
+            to_user = Users.objects.get(user_name=to_user_username)
+            friendship = Friendship.objects.get(
+                from_user=from_user,
+                to_user=to_user,
+                friendship_status=Friendship.Status.PENDING
+            )
+            friendship.delete()
+            return True, to_user.id  # Return success and the receiver's user ID
+        except (Users.DoesNotExist, Friendship.DoesNotExist):
+            logger.error(f"Friend request not found to cancel: from_user_id={from_user_id}, to_user_username={to_user_username}")
+            return False, None
+        except Exception as e:
+            logger.error(f"Error cancelling friend request: {e}")
+            return False, None
+
+    # Add a new handler for the receiver’s notification
+    async def friend_request_cancelled_notification(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'friend_request_cancelled_notification',
+            'friend_username': event['friend_username'],
+            'message': event['message']
+        }))
 
     async def handle_send_game_invite(self, data):
         to_username = data.get('to_username')
