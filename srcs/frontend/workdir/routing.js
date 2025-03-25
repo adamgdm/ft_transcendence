@@ -637,6 +637,92 @@ function setupSearchBar() {
         };
     };
 
+    const renderSuggestion = (user, suggestionDiv) => {
+        suggestionDiv.innerHTML = `<span>${user.username}</span>`;
+        const span = suggestionDiv.querySelector('span');
+        span.addEventListener('click', () => {
+            searchInput.value = user.username;
+            userSuggestionsBox.style.display = 'none';
+        });
+
+        if (friendsList.has(user.username)) {
+            suggestionDiv.innerHTML += `<button class="remove-btn">Remove</button>`;
+            suggestionDiv.querySelector('.remove-btn').onclick = async (e) => {
+                e.stopPropagation();
+                const result = await removeFriend(user.username);
+                if (!result.error) {
+                    friendsList.delete(user.username);
+                    saveFriendsList();
+                    handleSearchInput();
+                }
+            };
+        } else if (pendingReceivedRequests.has(user.username)) {
+            suggestionDiv.innerHTML += `<button class="accept-btn">Accept</button><button class="ignore-btn">Ignore</button>`;
+            suggestionDiv.querySelector('.accept-btn').onclick = async (e) => {
+                e.stopPropagation();
+                await acceptFriendRequest(user.username);
+                handleSearchInput();
+            };
+            suggestionDiv.querySelector('.ignore-btn').onclick = async (e) => {
+                e.stopPropagation();
+                await rejectFriendRequest(user.username);
+                handleSearchInput();
+            };
+        } else if (pendingSentRequests.has(user.username)) {
+            suggestionDiv.innerHTML += `<button class="cancel-btn">Cancel</button>`;
+            suggestionDiv.querySelector('.cancel-btn').onclick = async (e) => {
+                e.stopPropagation();
+                const success = await cancelFriendRequest(user.username);
+                if (success) {
+                    pendingSentRequests.delete(user.username);
+                    savePendingRequests();
+                    // Replace Cancel with Add button
+                    suggestionDiv.innerHTML = `<span>${user.username}</span><button class="add-btn">Add</button>`;
+                    const newAddBtn = suggestionDiv.querySelector('.add-btn');
+                    newAddBtn.onclick = async (e) => {
+                        e.stopPropagation();
+                        const success = await sendFriendRequest(user.username);
+                        if (success) {
+                            pendingSentRequests.add(user.username);
+                            savePendingRequests();
+                            renderSuggestion(user, suggestionDiv); // Re-render to show Cancel
+                        }
+                    };
+                    span.addEventListener('click', () => {
+                        searchInput.value = user.username;
+                        userSuggestionsBox.style.display = 'none';
+                    });
+                }
+            };
+        } else {
+            suggestionDiv.innerHTML += `<button class="add-btn">Add</button>`;
+            suggestionDiv.querySelector('.add-btn').onclick = async (e) => {
+                e.stopPropagation();
+                const success = await sendFriendRequest(user.username);
+                if (success) {
+                    pendingSentRequests.add(user.username);
+                    savePendingRequests();
+                    // Replace Add with Cancel button
+                    suggestionDiv.innerHTML = `<span>${user.username}</span><button class="cancel-btn">Cancel</button>`;
+                    const newCancelBtn = suggestionDiv.querySelector('.cancel-btn');
+                    newCancelBtn.onclick = async (e) => {
+                        e.stopPropagation();
+                        const success = await cancelFriendRequest(user.username);
+                        if (success) {
+                            pendingSentRequests.delete(user.username);
+                            savePendingRequests();
+                            renderSuggestion(user, suggestionDiv); // Re-render to show Add
+                        }
+                    };
+                    span.addEventListener('click', () => {
+                        searchInput.value = user.username;
+                        userSuggestionsBox.style.display = 'none';
+                    });
+                }
+            };
+        }
+    };
+
     const handleSearchInput = debounce(async () => {
         const query = searchInput.value.trim().toLowerCase();
         userSuggestionsBox.innerHTML = '';
@@ -649,51 +735,7 @@ function setupSearchBar() {
         users.slice(0, 3).forEach(user => {
             const suggestionDiv = document.createElement('div');
             suggestionDiv.classList.add('suggestion-item');
-            suggestionDiv.innerHTML = `<span>${user.username}</span>`;
-            const span = suggestionDiv.querySelector('span');
-            span.addEventListener('click', () => {
-                searchInput.value = user.username;
-                userSuggestionsBox.style.display = 'none';
-            });
-
-            if (friendsList.has(user.username)) {
-                suggestionDiv.innerHTML += `<button class="remove-btn">Remove</button>`;
-                suggestionDiv.querySelector('.remove-btn').onclick = async (e) => {
-                    e.stopPropagation();
-                    const result = await removeFriend(user.username);
-                    if (!result.error) {
-                        friendsList.delete(user.username);
-                        saveFriendsList();
-                        handleSearchInput();
-                    }
-                };
-            } else if (pendingReceivedRequests.has(user.username)) {
-                suggestionDiv.innerHTML += `<button class="accept-btn">Accept</button><button class="ignore-btn">Ignore</button>`;
-                suggestionDiv.querySelector('.accept-btn').onclick = async (e) => {
-                    e.stopPropagation();
-                    await acceptFriendRequest(user.username);
-                    handleSearchInput();
-                };
-                suggestionDiv.querySelector('.ignore-btn').onclick = async (e) => {
-                    e.stopPropagation();
-                    await rejectFriendRequest(user.username);
-                    handleSearchInput();
-                };
-            } else if (pendingSentRequests.has(user.username)) {
-                suggestionDiv.innerHTML += `<button class="cancel-btn">Cancel</button>`;
-                suggestionDiv.querySelector('.cancel-btn').onclick = async (e) => {
-                    e.stopPropagation();
-                    await cancelFriendRequest(user.username);
-                    handleSearchInput();
-                };
-            } else {
-                suggestionDiv.innerHTML += `<button class="add-btn">Add</button>`;
-                suggestionDiv.querySelector('.add-btn').onclick = async (e) => {
-                    e.stopPropagation();
-                    await sendFriendRequest(user.username);
-                    handleSearchInput();
-                };
-            }
+            renderSuggestion(user, suggestionDiv);
             userSuggestionsBox.appendChild(suggestionDiv);
         });
         userSuggestionsBox.style.display = users.length ? 'block' : 'none';
@@ -703,6 +745,7 @@ function setupSearchBar() {
     searchInput.addEventListener('input', handleSearchInput);
     document.removeEventListener('click', handleOutsideClick);
     document.addEventListener('click', handleOutsideClick);
+
     function handleOutsideClick(event) {
         if (!navbarSearch.contains(event.target)) {
             userSuggestionsBox.style.display = 'none';
