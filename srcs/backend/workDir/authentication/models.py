@@ -18,6 +18,7 @@ class Users(models.Model):
         DEACTIVATED = 'deactivated'
 
     id = models.AutoField(primary_key=True)
+    eth_address = models.CharField(max_length=42, unique=True, null=True, blank=True)
     user_name = models.CharField(max_length=255, unique=True)
     profile_picture_url = models.ImageField(upload_to=user_directory_path, null=True, blank=True)
     profile_pic_42 = models.URLField(null=True, blank=True)

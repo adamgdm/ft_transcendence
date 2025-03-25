@@ -11,6 +11,7 @@ class Match(models.Model):
         LOCAL = 'local'
         ONLINE = 'online'
     id = models.AutoField(primary_key=True)
+    blockchain_match_id = models.IntegerField(null=True, blank=True)
     match_name = models.CharField(max_length=255)
     match_status = models.CharField(max_length=15, choices=MatchStatusChoices.choices, default=MatchStatusChoices.PENDING)
     game_opponent = models.CharField(max_length=15, choices=GameOpponentChoices.choices, default=GameOpponentChoices.LOCAL)
@@ -51,6 +52,7 @@ class Tournament(models.Model):
         CANCELLED = 'cancelled'
 
     id = models.AutoField(primary_key=True)
+    blockchain_tournament_id = models.IntegerField(null=True, blank=True)
     tournament_name = models.CharField(max_length=255)
     status = models.CharField(max_length=15, choices=TournamentStatusChoices.choices, default='pending')
     creator = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='created_tournaments')
