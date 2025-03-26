@@ -21,6 +21,10 @@ import random
 from django.shortcuts import redirect
 from django.contrib.auth import authenticate, login
 import requests
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 # Register function
 @csrf_exempt
@@ -425,7 +429,10 @@ def profile(request):
 def another_user_profile(request):
     if request.method == 'GET':
         username = request.GET.get('username')
-        user = Users.objects.get(user_name=username)
+        try:
+            user = Users.objects.get(user_name=username)
+        except Users.DoesNotExist:
+            return JsonResponse({'error': 'User not found'}, status=404)
         return JsonResponse({
             'user_name': user.user_name,
             'first_name': user.first_name,

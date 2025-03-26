@@ -5,8 +5,9 @@ import { flip } from "./pages/play/play.js";
 import { settings } from "./pages/settings/settings.js";
 import { storyActions } from "./pages/story/index.js";
 import { scrollAction } from "./pages/story/scroll.js";
+import { users } from "./pages/users/users.js";
 
-const authenticatedPages = ['home', 'settings', 'shop', 'play', 'game'];
+const authenticatedPages = ['home', 'settings', 'shop', 'users', 'play', 'game'];
 
 // Friend-related state
 let pendingSentRequests = new Set();
@@ -228,6 +229,29 @@ window.routeToPage = function (path, options = {}) {
     }
 };
 
+async function handleHashChange(fragId) {
+    if (fragId.startsWith('users=')) {
+        const username = fragId.split('=')[1];
+        const userProfile = await fetchUserProfile(username);
+
+        if (userProfile.error) {
+            window.location.hash = 'home'
+            routeToPage('home')
+            layoutShowError(userProfile.error, false);
+        } else {
+            routeToPage('users');
+        }
+    }
+    else if (fragId === 'users') {
+        window.location.hash = 'home'
+        routeToPage('home')
+        layoutShowError('no user found', false);
+    }
+    else {
+        routeToPage(fragId);
+    }
+}
+
 window.onload = async function () {
     const fragId = window.location.hash.substring(1) || 'story';
     const params = new URLSearchParams(window.location.search);
@@ -287,7 +311,7 @@ window.onload = async function () {
                     console.warn('WebSocket not connected on page load, using API fallback');
                     await fetchAndSyncStateFallback();
                 }
-                routeToPage(fragId);
+                handleHashChange(fragId);
             } else {
                 console.log('Session invalid, forcing logout');
                 window.isAuthenticated = false;
@@ -299,10 +323,10 @@ window.onload = async function () {
             routeToPage('story');
         }
     }
-
+    
     window.addEventListener('hashchange', () => {
         const path = window.location.hash.substring(1) || 'story';
-        routeToPage(path);
+        handleHashChange(path);
     });
 };
 
@@ -604,7 +628,7 @@ function resetTournamentState() {
 }
 
 function isValidRoute(path) {
-    const validRoutes = ['story', 'home', 'play', 'shop', 'settings', '404', 'game'];
+    const validRoutes = ['story', 'home', 'play', 'shop', 'settings', 'users', '404', 'game'];
     return validRoutes.includes(path);
 }
 
@@ -781,6 +805,59 @@ async function setupNotificationBar() {
     });
 }
 
+// Function to fetch user data from the backend
+export async function fetchUserProfile(username) {
+    const url = `/api/another_user_profile/?username=${encodeURIComponent(username)}`;
+    const response = await fetch(url, {
+        method: "GET",
+        credentials: "include" // Includes cookies/session data for authentication
+    });
+
+    if (!response.ok) {
+        // Handle 404 or other errors
+        if (response.status === 404) {
+            console.log('mamamamamamamam')
+            return { error: 'User not found' }; // Return a user-friendly error message
+        } else {
+            throw new Error(`Failed to fetch user profile: ${response.statusText}`);
+        }
+    }
+
+    const userData = await response.json();
+    return userData;
+}
+
+export function layoutShowError(message, isSuccess = false) {
+    const errorModal = document.querySelector("#errorContainer");
+    const errorMessage = document.querySelector("#errorMessage");
+
+    if (!errorModal || !errorMessage) {
+        console.log("Error Modal or Message not found!");
+        routeToPage('404')
+        window.location.hash = '404'
+        return;
+    }
+
+    errorMessage.textContent = message;
+
+    errorModal.classList.remove("success", "failure");
+
+    if (isSuccess) {
+        errorModal.classList.add("success");
+    } else {
+        errorModal.classList.add("failure");
+    }
+
+    errorModal.style.opacity = "1";
+    errorModal.style.visibility = 'visible'
+
+    setTimeout(() => {
+        errorModal.style.opacity = "0";
+        errorModal.style.visibility = 'hidden'
+        errorModal.style.transition = "opacity 0.3s ease-in-out, visibility 0.3s ease-in-out";
+    }, 3000);
+}
+
 async function setupSearchBar() {
     const searchInput = document.getElementById('search-bar');
     if (!searchInput) return;
@@ -818,6 +895,23 @@ async function setupSearchBar() {
         span.addEventListener('click', () => {
             searchInput.value = user.username;
             userSuggestionsBox.style.display = 'none';
+        });
+        suggestionDiv.addEventListener('click', async (e) => {
+            e.preventDefault();
+
+            try {
+                const userData = await fetchUserProfile(user.username);
+
+                if (!userData.error) {
+                    window.location.hash = `#users=${user.username}`;
+                    userSuggestionsBox.style.display = 'none';
+                } else {
+                    layoutShowError('User not found', false);
+                }
+            } catch (error) {
+                console.error('Error fetching user profile:', error);
+                layoutShowError('Error checking user existence', false);
+            }
         });
 
         if (friendsList.has(user.username)) {
@@ -1000,6 +1094,10 @@ function executePageScripts(path) {
             break;
         case "game":
             game();
+            cleanup = () => console.log('Cleaned up game page');
+            break;
+        case "users":
+            users();
             cleanup = () => console.log('Cleaned up game page');
             break;
     }
