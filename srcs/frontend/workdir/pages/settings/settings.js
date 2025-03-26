@@ -1,3 +1,5 @@
+import { layoutShowError } from "../../routing.js";
+
 export function settings() {
 
     let currentUserEmail = null
@@ -16,6 +18,52 @@ export function settings() {
         console.log('User Data:', userData);
 
         console.log(userData)
+        /////////////////////////////////////////////////////
+        if (userData.oauth2_authentified === true) {
+            // Blur all input fields
+            const inputs = [
+                'change-userName',
+                'change-email',
+                'currentPassword',
+                'change-newPassword',
+                'change-confirmPassword',
+                'change-otpLogin'
+            ];
+            
+            inputs.forEach(inputId => {
+                const element = document.getElementById(inputId);
+                if (element) {
+                    element.disabled = true;
+                    // element.style.filter = 'blur(2px)';
+                    element.style.pointerEvents = 'none';
+                }
+            });
+    
+            // Disable verify email button
+            const verifyEmailBtn = document.getElementById('verify-email-btn');
+            if (verifyEmailBtn) {
+                verifyEmailBtn.disabled = true;
+            }
+
+            layoutShowError('Cannot modify info due to Intra authentication', false)
+    
+            // Populate fields but keep them blurred
+            document.getElementById('change-lastName').placeholder = userData.last_name || '';
+            document.getElementById('change-firstName').placeholder = userData.first_name || '';
+            document.getElementById('change-userName').placeholder = userData.user_name || '';
+            document.getElementById('change-email').placeholder = userData.email || '';
+            currentUserEmail = userData.email;
+    
+            const otpCheckbox = document.getElementById('change-otpLogin');
+            if (userData.two_factor_enabled) {
+                otpCheckbox.checked = true;
+            } else {
+                otpCheckbox.checked = false;
+            }
+    
+            return; // Exit early since no modifications are allowed
+        }
+        ///////////////////////////////////////////////
         // Populate personal information
         document.getElementById('change-lastName').placeholder = userData.last_name || '';
         document.getElementById('change-firstName').placeholder = userData.first_name || '';
