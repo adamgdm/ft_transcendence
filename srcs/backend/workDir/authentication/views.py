@@ -440,7 +440,8 @@ def profile(request):
             'title': user.title,
             'win_ratio': user.win_ratio,
             'matches_played': user.matches_played,
-            'matches_history': matches_history_data
+            'matches_history': matches_history_data,
+            'planet': user.planet if user.planet else "assets/planets/p1.svg"
         }, status=200)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
@@ -490,7 +491,7 @@ def another_user_profile(request):
             #      0              0           ==>  blank
             #      0              1           ==>  (image) profile_pic_url     
             #      1              0           ==>  (url) profile_pic_42
-            #      1              1           ==> 
+            #      1              1           ==>  if the user has a profile pic 42 but he changed it
             'registration_date': user.registration_date,
             'online_status': user.online_status,
             'last_login': user.last_login,
@@ -499,7 +500,8 @@ def another_user_profile(request):
             'title': user.title,
             'win_ratio': user.win_ratio,
             'matches_played': user.matches_played,
-            'matches_history': matches_history_data
+            'matches_history': matches_history_data,
+            'planet': user.planet if user.planet else "assets/planets/p1.svg"
         }, status=200)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
@@ -657,7 +659,12 @@ def update_profile(request):
             if Users.objects.filter(email=data['email']).exclude(id=user.id).exists():
                 return JsonResponse({'success': False, 'error': 'Email already in use'}, status=400)
             user.email = data['email']
-            
+        if 'profile_pic_42' in data:
+            user.profile_pic_42 = data['profile_pic_42']
+            user.has_profile_pic = False
+            user.has_42_image = True
+        if 'planet' in data:
+            user.planet = data['planet']
         # Save changes
         user.save()
         user.refresh_from_db()
@@ -1038,7 +1045,7 @@ def oauth2_login_redirect(request):
             )
             return response
         except Exception as e:
-            return JsonResponse({"error": f"Authentication failed: {str(e)}"}, status=500)
+            return JsonResponse({"error": f"Authentication failed: {str(e)}"}, status=401)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 @csrf_exempt
@@ -1198,7 +1205,7 @@ def exchange_code(code):
 #             Oauth2ValidUntil = secret_valid_until
 #         )
 #     except Exception as e: 
-#             return JsonResponse({'error': f'An error occured: {e}'}, status=500)
+#             return JsonResponse({'error': f'An error occured: {e}'}, status=401)
     
 #     # print(f'this is the response {response}')
 #     print(access_token)
