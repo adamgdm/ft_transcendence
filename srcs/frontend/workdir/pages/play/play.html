@@ -1,83 +1,47 @@
-
 <div layout="choose-mode" class="choose mode active">
+    <!-- Local Game Card -->
     <div class="playLocally-card" mode="1vAI">
         <div class="playLocally-inner">
-            <button class="flip-btn">Flip</button>
-            <!-- Front of the card -->
             <div class="playLocally-face playLocally-front">
                 <img src="assets/backgrounds/robot.svg" alt="bot">
                 <h1>Local Game</h1>
                 <h2>Sharpen with your friends locally before facing real warriors!</h2>
-            </div>
-    
-            <!-- Back of the card -->
-            <div class="playLocally-face playLocally-back">
-                <button class="flip-btn">Flip</button>
-                <h1>Challenge Yourself</h1>
-                <div class="playLocally-button buttons">
-                    <span> Play Now </span>
-                </div>
+                <button class="start-local-btn">Start Local Match</button>
             </div>
         </div>
     </div>
 
+    <!-- 1v1 Card -->
     <div class="play1v1-card" mode="1v1">
         <div class="play1v1-inner">
-            <button class="flip-btn">Flip</button>
-            <!-- Front of the card -->
             <div class="play1v1-face play1v1-front">
                 <img src="assets/backgrounds/p1v1.svg" alt="p1">
                 <h1>1 vs 1</h1>
                 <h2>Challenge another warrior in a galactic duel for dominance!</h2>
+                <button class="start-1v1-btn">Start 1v1</button>
             </div>
-    
-            <!-- Back of the card -->
-            <div class="play1v1-face play1v1-back">
-                <button class="flip-btn">Flip</button>
+            <div class="play1v1-face play1v1-back" style="display: none;">
                 <h1>The Ultimate Battle</h1>
-                <input type="text" id="friendSearch" class="search-bar" placeholder="Search friends..." oninput="searchFriends()">           
-                <div class="play-online-button buttons">
-                    <span> Play Now </span>
-                </div>
-                <ul id="friendsList">
-                    <!-- Friends will be dynamically inserted here -->
-                </ul>
-            </div>
-    
-            <div class="playOnline-button buttons">
-                <span> Play Now </span>
-            </div>
-        </div>
-    </div>
-    
-    <div class="playTourn-card" mode="tourn">
-        <div class="playTourn-inner">
-            <button class="flip-btn">Flip</button>
-            <!-- Front of the card -->
-            <div class="playTourn-face playTourn-front">
-                <img src="assets/backgrounds/tourn1.svg" alt="tournament">
-                <h1>Tournament</h1>
-                <h2>Conquer the tournament and seize the throne as Universal Leader!</h2>
-            </div>
-    
-            <!-- Back of the card -->
-            <div class="playTourn-face playTourn-back">
-                <button class="flip-btn">Flip</button>
-                <h1>The Ultimate Tournament</h1>
-                <input type="text" id="tournFriendSearch" class="search-bar" placeholder="Search friends to invite...">
-                <div class="playOnline-button buttons">
-                    <span>Start Tournament</span>
-                </div>
-                <ul id="tournFriendsList">
-                    <!-- Friends will be dynamically inserted here -->
-                </ul>
-            </div>
-    
-            <!-- Button outside the inner div, matching 1v1 -->
-            <div class="playOnline-button buttons">
-                <span>Start Tournament</span>
+                <input type="text" id="friendSearch" class="search-bar" placeholder="Search friends...">
+                <ul id="friendsList"></ul>
             </div>
         </div>
     </div>
 
+    <!-- Tournament Card -->
+    <div class="playTourn-card" mode="tourn">
+        <div class="playTourn-inner">
+            <div class="playTourn-face playTourn-front">
+                <img src="assets/backgrounds/tourn1.svg" alt="tournament">
+                <h1>Tournament</h1>
+                <h2>Conquer the tournament and seize the throne as Universal Leader!</h2>
+                <button class="start-tourn-btn">Start Tournament</button>
+            </div>
+            <div class="playTourn-face playTourn-back" style="display: none;">
+                <h1>The Ultimate Tournament</h1>
+                <input type="text" id="tournFriendSearch" class="search-bar" placeholder="Search friends to invite...">
+                <ul id="tournFriendsList"></ul>
+            </div>
+        </div>
+    </div>
 </div>

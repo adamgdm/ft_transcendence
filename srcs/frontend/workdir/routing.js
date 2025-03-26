@@ -1,16 +1,17 @@
 import { initializeWebSocket, sendFriendRequest, acceptFriendRequest, rejectFriendRequest, cancelFriendRequest, isConnected, closeConnection, friendshipSocket } from "./globalWebsocket.js";
 import { game } from "./pages/game/game.js";
 import { home } from "./pages/home/home.js";
-import { flip } from "./pages/play/play.js";
+import { setupMatchModes } from "./pages/play/play.js";
+import { users } from "./pages/users/users.js";
 import { settings } from "./pages/settings/settings.js";
 import { storyActions } from "./pages/story/index.js";
 import { scrollAction } from "./pages/story/scroll.js";
 
-const authenticatedPages = ['home', 'settings', 'shop', 'play', 'game'];
+const authenticatedPages = ['home', 'settings', 'shop', 'play', 'game', 'users'];
 
 // Friend-related state
 let pendingSentRequests = new Set();
-let pendingReceivedRequests = new Map(); // Using Map to store request_id and from_username
+let pendingReceivedRequests = new Map();
 let friendsList = new Set();
 
 // Game-related state
@@ -137,7 +138,6 @@ async function removeFriend(username) {
     }
 }
 
-// Define game invite actions (move to globalWebsocket.js if preferred)
 async function sendGameInvite(toUsername, gameMode = 'online', tournamentId = null) {
     if (!isConnected()) {
         console.error('WebSocket not connected, cannot send game invite');
@@ -193,18 +193,21 @@ function handleAuthStateChange() {
 }
 
 window.routeToPage = function (path, options = {}) {
-    console.log(`Routing to ${path}`);
+    console.log(`Routing to ${path} with options:`, options);
     if (!isValidRoute(path)) {
+        console.log('Invalid route, loading 404');
         loadPage('404');
         return;
     }
 
     if (authenticatedPages.includes(path) && !window.isAuthenticated) {
+        console.log('User not authenticated, redirecting to story');
         window.location.hash = 'story';
         return;
     }
 
     if (path === 'story' && window.isAuthenticated) {
+        console.log('Authenticated user on story, redirecting to home');
         window.location.hash = 'home';
         return;
     }
@@ -222,8 +225,10 @@ window.routeToPage = function (path, options = {}) {
 
     cleanupPreviousPage();
     if (authenticatedPages.includes(path)) {
-        loadAuthenticatedLayout(path);
+        console.log('Loading authenticated layout for:', path);
+        loadAuthenticatedLayout(path, options);
     } else {
+        console.log('Loading non-authenticated page:', path);
         loadPage(path);
     }
 };
@@ -234,7 +239,6 @@ window.onload = async function () {
     const code = params.get('code');
 
     if (code) {
-        // Handle OAuth login
         try {
             const response = await fetch('/api/oauth2/login/redirect/', {
                 method: 'POST',
@@ -287,7 +291,7 @@ window.onload = async function () {
                     console.warn('WebSocket not connected on page load, using API fallback');
                     await fetchAndSyncStateFallback();
                 }
-                routeToPage(fragId);
+                routeToPage(fragId, history.state || {});
             } else {
                 console.log('Session invalid, forcing logout');
                 window.isAuthenticated = false;
@@ -302,11 +306,11 @@ window.onload = async function () {
 
     window.addEventListener('hashchange', () => {
         const path = window.location.hash.substring(1) || 'story';
-        routeToPage(path);
+        const state = history.state || {};
+        routeToPage(path, { username: state.username });
     });
 };
 
-// Simple function to display popup notifications
 function showNotification(message) {
     const notificationContainer = document.createElement('div');
     notificationContainer.classList.add('notification');
@@ -323,21 +327,18 @@ async function syncStateWithWebSocket() {
     return new Promise((resolve) => {
         console.log('syncStateWithWebSocket: Setting up listener');
 
-        // Fetch initial state from server
         Promise.all([
             fetchPendingSentRequests(),
             fetchPendingReceivedRequests(),
             fetchPendingGameInvites(),
             fetchFriendsList()
         ]).then(([sentRequests, receivedRequests, gameInvites, friends]) => {
-            // Sync friend requests
             pendingSentRequests.clear();
             sentRequests.forEach(req => pendingSentRequests.add(req.to_username));
 
             pendingReceivedRequests.clear();
             receivedRequests.forEach(req => pendingReceivedRequests.set(req.request_id, req.from_username));
 
-            // Sync game invites
             receivedInvites = gameInvites.map(invite => ({
                 invite_id: invite.invite_id,
                 from_username: invite.from_username,
@@ -356,7 +357,6 @@ async function syncStateWithWebSocket() {
                 friendsList: [...friendsList]
             });
 
-            // Show initial notifications
             for (let [requestId, fromUsername] of pendingReceivedRequests) {
                 showNotification(`New friend request from ${fromUsername}`);
             }
@@ -371,7 +371,6 @@ async function syncStateWithWebSocket() {
             resolve();
         });
 
-        // WebSocket listener for real-time updates
         friendshipSocket.addEventListener('message', async (event) => {
             const data = JSON.parse(event.data);
             console.log('Received:', data);
@@ -582,9 +581,11 @@ async function fetchAndSyncStateFallback() {
 
 function triggerUIUpdate() {
     const currentPath = window.location.hash.substring(1) || 'story';
-    if (authenticatedPages.includes(currentPath)) {
-        loadAuthenticatedLayout(currentPath);
+    // Only reload layout if the page has changed or is uninitialized
+    if (authenticatedPages.includes(currentPath) && !document.querySelector('.content-wrapper')) {
+        loadAuthenticatedLayout(currentPath, history.state || {});
     }
+    // Dispatch events for specific components to handle updates
     window.dispatchEvent(new CustomEvent('friendStateUpdate', {
         detail: {
             pendingSentRequests: [...pendingSentRequests],
@@ -604,7 +605,7 @@ function resetTournamentState() {
 }
 
 function isValidRoute(path) {
-    const validRoutes = ['story', 'home', 'play', 'shop', 'settings', '404', 'game'];
+    const validRoutes = ['story', 'home', 'play', 'shop', 'settings', '404', 'game', 'users'];
     return validRoutes.includes(path);
 }
 
@@ -618,59 +619,68 @@ function cleanupPreviousPage() {
     }
 }
 
-function loadAuthenticatedLayout(contentPath) {
+function loadAuthenticatedLayout(contentPath, options = {}) {
     const content = document.getElementById('content');
     if (!content) {
         console.error('loadAuthenticatedLayout: Content element missing');
         return;
     }
 
+    console.log('loadAuthenticatedLayout called with:', { contentPath, options });
     if (!document.querySelector('.layout-container')) {
         const layoutRequest = new XMLHttpRequest();
         layoutRequest.open('GET', 'layout/authenticated-layout.html', true);
         layoutRequest.onload = function () {
             if (layoutRequest.status === 200) {
+                console.log('Authenticated layout loaded successfully');
                 content.innerHTML = layoutRequest.responseText;
-                loadContentIntoLayout(contentPath);
+                loadContentIntoLayout(contentPath, options);
                 setupSidebarNavigation();
                 setupSearchBar();
                 setupNotificationBar();
                 setupLogoutButton();
             } else {
+                console.error('Failed to load authenticated layout, status:', layoutRequest.status);
                 loadPage('404');
             }
         };
         layoutRequest.onerror = function () {
+            console.error('Error loading authenticated layout');
             loadPage('404');
         };
         layoutRequest.send();
     } else {
-        loadContentIntoLayout(contentPath);
+        console.log('Layout container exists, updating content');
+        loadContentIntoLayout(contentPath, options);
         setupNotificationBar();
     }
 }
 
-function loadContentIntoLayout(path) {
+function loadContentIntoLayout(path, options = {}) {
     const contentContainer = document.querySelector('.content-wrapper');
     if (!contentContainer) {
         console.error('loadContentIntoLayout: Content wrapper missing');
         return;
     }
 
+    console.log('Loading content into layout for:', { path, options });
     contentContainer.style.opacity = '0';
     const request = new XMLHttpRequest();
     request.open('GET', `pages/${path}/${path}.html`, true);
     request.onload = function () {
         if (request.status === 200) {
+            console.log(`Content loaded for ${path}`);
             contentContainer.innerHTML = request.responseText;
             updateStylesheet(`pages/${path}/${path}.css`);
-            executePageScripts(path);
+            executePageScripts(path, options);
             contentContainer.style.opacity = '1';
         } else {
+            console.error(`Failed to load content for ${path}, status:`, request.status);
             contentContainer.innerHTML = '<p>Error loading content</p>';
         }
     };
     request.onerror = function () {
+        console.error(`Error loading content for ${path}`);
         contentContainer.innerHTML = '<p>Error loading content</p>';
     };
     request.send();
@@ -783,11 +793,21 @@ async function setupNotificationBar() {
 
 async function setupSearchBar() {
     const searchInput = document.getElementById('search-bar');
-    if (!searchInput) return;
+    if (!searchInput) {
+        console.error('setupSearchBar: Search input #search-bar not found');
+        return;
+    }
+    console.log('setupSearchBar: Search input found');
+
+    const navbarSearch = document.querySelector('.navbar-search');
+    if (!navbarSearch) {
+        console.error('setupSearchBar: .navbar-search container not found');
+        return;
+    }
     const userSuggestionsBox = document.createElement('div');
     userSuggestionsBox.classList.add('user-suggestions');
-    const navbarSearch = document.querySelector('.navbar-search');
     navbarSearch.appendChild(userSuggestionsBox);
+    console.log('setupSearchBar: Suggestions box appended to .navbar-search');
 
     const [sentRequests, receivedRequests, friends] = await Promise.all([
         fetchPendingSentRequests(),
@@ -797,10 +817,8 @@ async function setupSearchBar() {
 
     pendingSentRequests.clear();
     sentRequests.forEach(req => pendingSentRequests.add(req.to_username));
-
     pendingReceivedRequests.clear();
     receivedRequests.forEach(req => pendingReceivedRequests.set(req.request_id, req.from_username));
-
     friendsList.clear();
     friends.forEach(friend => friendsList.add(friend.username));
 
@@ -813,17 +831,15 @@ async function setupSearchBar() {
     };
 
     const renderSuggestion = (user, suggestionDiv) => {
-        suggestionDiv.innerHTML = `<span>${user.username}</span>`;
-        const span = suggestionDiv.querySelector('span');
-        span.addEventListener('click', () => {
-            searchInput.value = user.username;
-            userSuggestionsBox.style.display = 'none';
-        });
+        suggestionDiv.innerHTML = `<span class="username">${user.username}</span>`;
+        suggestionDiv.dataset.username = user.username; // Store username for delegation
+        console.log('renderSuggestion: HTML set for', user.username, suggestionDiv.outerHTML);
 
         if (friendsList.has(user.username)) {
             suggestionDiv.innerHTML += `<button class="remove-btn">Remove</button>`;
-            suggestionDiv.querySelector('.remove-btn').onclick = async (e) => {
-                e.stopPropagation();
+            const removeBtn = suggestionDiv.querySelector('.remove-btn');
+            removeBtn.onclick = async (e) => {
+                e.stopPropagation(); // Prevent routing on button click
                 const result = await removeFriend(user.username);
                 if (!result.error) {
                     friendsList.delete(user.username);
@@ -832,8 +848,9 @@ async function setupSearchBar() {
             };
         } else if ([...pendingReceivedRequests.values()].includes(user.username)) {
             suggestionDiv.innerHTML += `<button class="accept-btn">Accept</button>`;
-            suggestionDiv.querySelector('.accept-btn').onclick = async (e) => {
-                e.stopPropagation();
+            const acceptBtn = suggestionDiv.querySelector('.accept-btn');
+            acceptBtn.onclick = async (e) => {
+                e.stopPropagation(); // Prevent routing on button click
                 await acceptFriendRequest(user.username);
                 handleSearchInput();
             };
@@ -841,8 +858,9 @@ async function setupSearchBar() {
             suggestionDiv.innerHTML += `<span class="sent-label">Sent!</span>`;
         } else {
             suggestionDiv.innerHTML += `<button class="add-btn">Add</button>`;
-            suggestionDiv.querySelector('.add-btn').onclick = async (e) => {
-                e.stopPropagation();
+            const addBtn = suggestionDiv.querySelector('.add-btn');
+            addBtn.onclick = async (e) => {
+                e.stopPropagation(); // Prevent routing on button click
                 const success = await sendFriendRequest(user.username);
                 if (success) {
                     pendingSentRequests.add(user.username);
@@ -854,6 +872,7 @@ async function setupSearchBar() {
 
     const handleSearchInput = debounce(async () => {
         const query = searchInput.value.trim().toLowerCase();
+        console.log('handleSearchInput: Query:', query);
         userSuggestionsBox.innerHTML = '';
         if (query.length === 0) {
             userSuggestionsBox.style.display = 'none';
@@ -861,21 +880,46 @@ async function setupSearchBar() {
         }
 
         const users = await fetchUsers(query);
+        console.log('handleSearchInput: Fetched users:', users);
+        if (users.length === 0) {
+            userSuggestionsBox.style.display = 'none';
+            return;
+        }
+
         users.slice(0, 3).forEach(user => {
             const suggestionDiv = document.createElement('div');
             suggestionDiv.classList.add('suggestion-item');
             renderSuggestion(user, suggestionDiv);
             userSuggestionsBox.appendChild(suggestionDiv);
+            console.log('handleSearchInput: Added suggestion for', user.username);
         });
-        userSuggestionsBox.style.display = users.length ? 'block' : 'none';
+        userSuggestionsBox.style.display = 'block';
     }, 300);
 
-    searchInput.addEventListener('input', handleSearchInput);
-
-    window.addEventListener('friendStateUpdate', () => {
-        handleSearchInput();
+    // Event delegation for suggestion clicks
+    userSuggestionsBox.addEventListener('click', (e) => {
+        console.log('userSuggestionsBox clicked:', e.target);
+        const suggestionItem = e.target.closest('.suggestion-item');
+        if (suggestionItem) {
+            // Skip if the click was on a button
+            if (e.target.tagName === 'BUTTON') {
+                console.log('Clicked a button, skipping routing');
+                return;
+            }
+            const username = suggestionItem.dataset.username;
+            console.log('Suggestion item clicked, username:', username);
+            history.pushState({ username: username }, "", "#users");
+            console.log('History state after push:', history.state);
+            window.routeToPage('users', { username: username });
+            console.log('RouteToPage called with:', { path: 'users', options: { username: username } });
+            userSuggestionsBox.style.display = 'none';
+        } else {
+            console.log('Click outside suggestion-item, no action taken');
+        }
     });
 
+    searchInput.addEventListener('input', handleSearchInput);
+    window.addEventListener('friendStateUpdate', handleSearchInput);
     document.addEventListener('click', handleOutsideClick);
 
     function handleOutsideClick(event) {
@@ -888,10 +932,11 @@ async function setupSearchBar() {
         searchInput.removeEventListener('input', handleSearchInput);
         window.removeEventListener('friendStateUpdate', handleSearchInput);
         document.removeEventListener('click', handleOutsideClick);
+        userSuggestionsBox.removeEventListener('click', () => {});
         userSuggestionsBox.remove();
+        console.log('Cleaned up search bar');
     });
 }
-
 function handleNotifBtn(item) {
     const notifBar = document.querySelector('[layout="notifbar"]');
     if (item.classList.contains('notif')) {
@@ -979,8 +1024,8 @@ function setupLogoutButton() {
     });
 }
 
-function executePageScripts(path) {
-    console.log('Executing scripts for:', path);
+function executePageScripts(path, options = {}) {
+    console.log('Executing scripts for:', path, 'with options:', options);
     let cleanup;
     switch (path) {
         case "story":
@@ -989,7 +1034,7 @@ function executePageScripts(path) {
             cleanup = () => console.log('Cleaned up story page');
             break;
         case "play":
-            flip().then(cleanupFn => cleanup = cleanupFn);
+            setupMatchModes().then(cleanupFn => cleanup = cleanupFn);
             break;
         case "home":
             cleanup = home();
@@ -1001,6 +1046,10 @@ function executePageScripts(path) {
         case "game":
             game();
             cleanup = () => console.log('Cleaned up game page');
+            break;
+        case "users":
+            console.log('Calling users script with username:', options.username);
+            cleanup = users(options.username);
             break;
     }
     if (cleanup) pageCleanups.set(path, cleanup);

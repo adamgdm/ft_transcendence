@@ -63,7 +63,6 @@ def register(request):
         for address in available_accounts:
             if address not in used_addresses:
                 eth_address = address
-                logger.info(f"Assigned pre-generated address {eth_address} to {user_name}")
                 break
         
         # Step 2: If no pre-generated accounts are available, create a new one
@@ -83,9 +82,7 @@ def register(request):
                 tx_hash = blockchain.w3.eth.send_raw_transaction(signed_tx.rawTransaction)
                 blockchain.w3.eth.wait_for_transaction_receipt(tx_hash)
                 eth_address = new_account.address
-                logger.info(f"Created and funded new address {eth_address} for {user_name}")
             except Exception as e:
-                logger.warning(f"Failed to create/fund Ethereum address for {user_name}: {e}")
                 eth_address = None  # Proceed without an address
         try:
             user = Users.objects.create(
