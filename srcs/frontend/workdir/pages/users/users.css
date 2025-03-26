@@ -1,8 +1,9 @@
+
 /******************************************************************************/
 /* LAYOUT HOME-CONTENT  */
 /******************************************************************************/
 
-[layout="users-content"] {
+[layout="home-content"] {
     height: 100%;
     width: 100%;
 
@@ -14,7 +15,7 @@
 /* user-info-section  */
 /********************************************/
 
-[layout="users-content"] .user-info-section {
+[layout="home-content"] .user-info-section {
     flex-grow: 1;
 
     display: flex;
@@ -25,7 +26,7 @@
 /* user-profile  */
 /***************************/
 
-[layout="users-content"] .user-profile {
+[layout="home-content"] .user-profile {
     height: 250px;
     padding-left: 50px;
     border-radius: 10px;
@@ -42,6 +43,7 @@
         );
     
     display: flex;
+    justify-content: space-between; /* Pushes button to the right */
     align-items: center;
     gap: 30px;
     padding-right: 50px; /* Adds space on the right */
@@ -225,7 +227,7 @@
 /* user-game-stats  */
 /***************************/
 
-[layout="users-content"] .user-game-stats {
+[layout="home-content"] .user-game-stats {
     padding-top: 20px;
     display: flex;
     gap: 15px;
@@ -275,7 +277,7 @@
 /* h1  */
 /***************************/
 
-[layout="users-content"] .your-last-battles {
+[layout="home-content"] .your-last-battles {
     padding-top: 50px;
     margin: 0;
     font-size: 40px;
@@ -287,7 +289,7 @@
 /***************************/
 
 
-[layout="users-content"] .user-match-history {
+[layout="home-content"] .user-match-history {
     height: 200px;
     flex-grow: 1;
 
@@ -352,7 +354,7 @@
 /* user-progress-section  */
 /********************************************/
 
-[layout="users-content"] .user-progress-section {
+[layout="home-content"] .user-progress-section {
     flex-basis: 30%;
     background-color: #1C1B19; 
     border-radius: 10px; 
@@ -393,3 +395,7 @@
     width: 100%;
     object-fit: cover;
 }
+
+
+
+

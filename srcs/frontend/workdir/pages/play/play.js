@@ -3,12 +3,12 @@ import { fetchFriendsList, fetchLogin, sentInvites, receivedInvites, tournamentI
 
 let allFriends = [];
 
-export async function flip() {
+export async function setupMatchModes() {
     const currentUsername = await fetchLogin();
     if (!currentUsername) {
         console.error("Failed to fetch username or not logged in, redirecting to login");
         window.routeToPage('story');
-        return () => {}; // Return empty cleanup if redirected
+        return () => {};
     }
 
     const cleanupFunctions = [];
@@ -34,26 +34,28 @@ export async function flip() {
         };
     }
 
-    // --- Flip Button Setup ---
-    function setupFlipButton(innerSelector, buttonSelector) {
-        const inner = document.querySelector(innerSelector);
-        const flipBtn = inner?.querySelector(buttonSelector);
-        if (inner && flipBtn && !inner.dataset.listenerAdded) {
-            const handler = (e) => {
-                e.stopPropagation();
-                inner.classList.toggle('is-flipped');
-            };
-            flipBtn.addEventListener('click', handler);
-            inner.dataset.listenerAdded = 'true';
-            cleanupFunctions.push(() => flipBtn.removeEventListener('click', handler));
-        }
+    // --- Local Match Logic ---
+    const startLocalBtn = document.querySelector('.start-local-btn');
+    if (startLocalBtn) {
+        const localHandler = (e) => {
+            e.stopPropagation();
+            if (friendshipSocket.readyState === WebSocket.OPEN) {
+                sendWebSocketMessage({
+                    type: 'create_local_game',
+                    user: currentUsername
+                });
+            } else {
+                alert('Connection error: Please try again later');
+            }
+        };
+        startLocalBtn.addEventListener('click', localHandler);
+        cleanupFunctions.push(() => startLocalBtn.removeEventListener('click', localHandler));
     }
 
     // --- 1v1 Logic ---
-    setupFlipButton('.play1v1-inner', '.flip-btn');
+    const start1v1Btn = document.querySelector('.start-1v1-btn');
     const friendSearch = document.querySelector('#friendSearch');
     const friendsList = document.querySelector('#friendsList');
-    const playOnlineButton = document.querySelector('.play-online-button');
 
     function renderFriends(friends, query) {
         if (!friendsList) return;
@@ -122,11 +124,13 @@ export async function flip() {
                 cleanupFunctions.push(() => refuseBtn.removeEventListener('click', refuseHandler));
             } else {
                 const inviteBtn = document.createElement('button');
-                inviteBtn.textContent = hasSentInvite ? 'Already Sent' : 'Invite';
+                inviteBtn.textContent = hasSentInvite ? 'Pending' : 'Invite';
                 inviteBtn.classList.add('invite-btn');
                 if (!hasSentInvite) {
                     const inviteHandler = (e) => {
                         e.stopPropagation();
+                        inviteBtn.disabled = true;
+                        inviteBtn.textContent = 'Pending';
                         sendWebSocketMessage({
                             type: 'send_game_invite',
                             to_username: friend.username,
@@ -144,7 +148,22 @@ export async function flip() {
         });
     }
 
-    if (friendSearch && friendsList) {
+    if (start1v1Btn && friendSearch && friendsList) {
+        const start1v1Handler = async (e) => {
+            e.stopPropagation();
+            const frontFace = document.querySelector('.play1v1-front');
+            const backFace = document.querySelector('.play1v1-back');
+            frontFace.style.display = 'none';
+            backFace.style.display = 'flex';
+            if (!allFriends.length) allFriends = await fetchFriendsList();
+            renderFriends(allFriends, friendSearch.value.trim().toLowerCase());
+            friendsList.style.display = 'block';
+            start1v1Btn.textContent = 'Waiting for Opponent...';
+            start1v1Btn.disabled = true;
+        };
+        start1v1Btn.addEventListener('click', start1v1Handler);
+        cleanupFunctions.push(() => start1v1Btn.removeEventListener('click', start1v1Handler));
+
         const focusHandler = async () => {
             if (!allFriends.length) allFriends = await fetchFriendsList();
             renderFriends(allFriends, friendSearch.value.trim().toLowerCase());
@@ -163,54 +182,29 @@ export async function flip() {
             friendSearch.removeEventListener('blur', blurHandler);
             friendSearch.removeEventListener('input', inputHandler);
         });
-    }
 
-    if (playOnlineButton) {
-        const playHandler = (e) => {
-            e.stopPropagation();
-            const gameInvite = sentInvites.find(i => i.status === 'accepted' && i.game_id && i.game_mode !== 'tournament') ||
-                              receivedInvites.find(i => i.status === 'accepted' && i.game_id && i.game_mode !== 'tournament');
-            if (gameInvite) {
-                const state = { game_id: gameInvite.game_id, user: currentUsername };
-                history.pushState(state, "", "#game");
-                window.routeToPage('game');
-            } else {
-                alert("No active 1v1 game found. Send or accept an invite to play!");
+        const debouncedGameStateHandler = debounce(() => {
+            if (friendsList.style.display === 'block') {
+                renderFriends(allFriends, friendSearch.value.trim().toLowerCase());
             }
-        };
-        playOnlineButton.addEventListener('click', playHandler);
-        cleanupFunctions.push(() => playOnlineButton.removeEventListener('click', playHandler));
-    }
-
-    // --- Local Game Logic ---
-    setupFlipButton('.playLocally-inner', '.flip-btn');
-    const playLocallyButton = document.querySelector('.playLocally-button');
-    if (playLocallyButton) {
-        const localHandler = (e) => {
-            e.stopPropagation();
-            if (friendshipSocket.readyState === WebSocket.OPEN) {
-                sendWebSocketMessage({
-                    type: 'create_local_game',
-                    user: currentUsername
-                });
-            } else {
-                alert('Connection error: Please try again later');
-            }
-        };
-        playLocallyButton.addEventListener('click', localHandler);
-        cleanupFunctions.push(() => playLocallyButton.removeEventListener('click', localHandler));
+        }, 300);
+        window.addEventListener('gameStateUpdate', debouncedGameStateHandler);
+        cleanupFunctions.push(() => window.removeEventListener('gameStateUpdate', debouncedGameStateHandler));
     }
 
     // --- Tournament Logic ---
-    setupFlipButton('.playTourn-inner', '.flip-btn');
+    const startTournBtn = document.querySelector('.start-tourn-btn');
     const tournFriendSearch = document.querySelector('#tournFriendSearch');
     const tournFriendsList = document.querySelector('#tournFriendsList');
-    const tournPlayButton = document.querySelector('.playTourn-card .playOnline-button');
 
     function renderTournamentFriends(friends, query) {
         if (!tournFriendsList) return;
         tournFriendsList.innerHTML = '';
-        const filteredFriends = friends.filter(f => f.username.toLowerCase().startsWith(query) && f.username !== currentUsername && !invitedFriends.has(f.username));
+        const filteredFriends = friends.filter(f => 
+            f.username.toLowerCase().startsWith(query) && 
+            f.username !== currentUsername && 
+            !invitedFriends.has(f.username)
+        );
         if (!filteredFriends.length && !invitedFriends.size) {
             tournFriendsList.innerHTML = '<li>No friends available to invite</li>';
             return;
@@ -220,11 +214,13 @@ export async function flip() {
             const li = document.createElement('li');
             li.textContent = friend.username;
             const inviteBtn = document.createElement('button');
-            inviteBtn.textContent = invitedFriends.size < 3 && tournamentId ? 'Invite' : (tournamentId ? 'Max Invites Sent' : 'Create Tournament First');
+            inviteBtn.textContent = invitedFriends.size < 3 && tournamentId ? 'Invite' : (tournamentId ? 'Max Invites Sent' : 'Waiting for Tournament');
             inviteBtn.classList.add('invite-btn');
             if (invitedFriends.size < 3 && tournamentId) {
                 const inviteHandler = (e) => {
                     e.stopPropagation();
+                    inviteBtn.disabled = true;
+                    inviteBtn.textContent = 'Pending';
                     sendWebSocketMessage({
                         type: 'send_game_invite',
                         to_username: friend.username,
@@ -247,49 +243,63 @@ export async function flip() {
         tournFriendsList.prepend(statusDiv);
     }
 
-    if (tournFriendSearch && tournFriendsList) {
-        const tournFocusHandler = async () => {
-            if (!allFriends.length) allFriends = await fetchFriendsList();
-            renderTournamentFriends(allFriends, tournFriendSearch.value.trim().toLowerCase());
-            tournFriendsList.style.display = 'block';
-        };
-        const tournBlurHandler = () => setTimeout(() => {
-            if (!tournFriendsList.contains(document.activeElement)) tournFriendsList.style.display = 'none';
-        }, 100);
-        const tournInputHandler = debounce(() => renderTournamentFriends(allFriends, tournFriendSearch.value.trim().toLowerCase()), 300);
-
-        tournFriendSearch.addEventListener('focus', tournFocusHandler);
-        tournFriendSearch.addEventListener('blur', tournBlurHandler);
-        tournFriendSearch.addEventListener('input', tournInputHandler);
-        cleanupFunctions.push(() => {
-            tournFriendSearch.removeEventListener('focus', tournFocusHandler);
-            tournFriendSearch.removeEventListener('blur', tournBlurHandler);
-            tournFriendSearch.removeEventListener('input', tournInputHandler);
-        });
-    }
-
-    if (tournPlayButton) {
-        const tournPlayHandler = (e) => {
+    if (startTournBtn && tournFriendSearch && tournFriendsList) {
+        const startTournHandler = async (e) => {
             e.stopPropagation();
+            const frontFace = document.querySelector('.playTourn-front');
+            const backFace = document.querySelector('.playTourn-back');
+            frontFace.style.display = 'none';
+            backFace.style.display = 'flex';
             if (!tournamentId) {
+                startTournBtn.disabled = true;
+                startTournBtn.textContent = 'Creating...';
                 sendWebSocketMessage({
                     type: 'create_tournament',
                     tournament_name: `${currentUsername}'s Tournament`,
                     invited_usernames: []
                 });
+            } else if (participantCount === 4) {
+                sendWebSocketMessage({
+                    type: 'start_tournament',
+                    tournament_id: tournamentId
+                });
+                startTournBtn.textContent = 'Starting...';
+                startTournBtn.disabled = true;
             }
+            if (!allFriends.length) allFriends = await fetchFriendsList();
+            renderTournamentFriends(allFriends, tournFriendSearch.value.trim().toLowerCase());
+            tournFriendsList.style.display = 'block';
         };
-        tournPlayButton.addEventListener('click', tournPlayHandler);
-        cleanupFunctions.push(() => tournPlayButton.removeEventListener('click', tournPlayHandler));
-    }
+        startTournBtn.addEventListener('click', startTournHandler);
+        cleanupFunctions.push(() => startTournBtn.removeEventListener('click', startTournHandler));
 
-    // --- Game State Update Listener ---
-    const gameStateHandler = () => {
-        if (friendSearch && friendsList) renderFriends(allFriends, friendSearch.value.trim().toLowerCase());
-        if (tournFriendSearch && tournFriendsList) renderTournamentFriends(allFriends, tournFriendSearch.value.trim().toLowerCase());
-    };
-    window.addEventListener('gameStateUpdate', gameStateHandler);
-    cleanupFunctions.push(() => window.removeEventListener('gameStateUpdate', gameStateHandler));
+        const focusHandler = async () => {
+            if (!allFriends.length) allFriends = await fetchFriendsList();
+            renderTournamentFriends(allFriends, tournFriendSearch.value.trim().toLowerCase());
+            tournFriendsList.style.display = 'block';
+        };
+        const blurHandler = () => setTimeout(() => {
+            if (!tournFriendsList.contains(document.activeElement)) tournFriendsList.style.display = 'none';
+        }, 100);
+        const inputHandler = debounce(() => renderTournamentFriends(allFriends, tournFriendSearch.value.trim().toLowerCase()), 300);
+
+        tournFriendSearch.addEventListener('focus', focusHandler);
+        tournFriendSearch.addEventListener('blur', blurHandler);
+        tournFriendSearch.addEventListener('input', inputHandler);
+        cleanupFunctions.push(() => {
+            tournFriendSearch.removeEventListener('focus', focusHandler);
+            tournFriendSearch.removeEventListener('blur', blurHandler);
+            tournFriendSearch.removeEventListener('input', inputHandler);
+        });
+
+        const debouncedTournGameStateHandler = debounce(() => {
+            if (tournFriendsList.style.display === 'block') {
+                renderTournamentFriends(allFriends, tournFriendSearch.value.trim().toLowerCase());
+            }
+        }, 300);
+        window.addEventListener('gameStateUpdate', debouncedTournGameStateHandler);
+        cleanupFunctions.push(() => window.removeEventListener('gameStateUpdate', debouncedTournGameStateHandler));
+    }
 
     // --- Cleanup Function ---
     return () => {
