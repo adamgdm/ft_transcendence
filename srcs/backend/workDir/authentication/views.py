@@ -106,7 +106,7 @@ def register(request):
             return JsonResponse({'error': f'An error occured: {e}'}, status=400)
         
         # Send email verification
-        if send_2fa_email(email, user.otp_password, 2):
+        if not send_2fa_email(email, user.otp_password, 2):
             return JsonResponse({'error': 'Could not send Verification Email'}, status=400)
         return JsonResponse({'message': 'User registered successfully'}, status=201)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
@@ -967,7 +967,7 @@ def oauth2(request):
 @csrf_exempt
 def oauth2_login(request):
     if request.method == 'POST':
-        auth_url_42 = "https://api.intra.42.fr/oauth/authorize?client_id=u-s4t2ud-dab81c1c9c646a65a42a7cd840c34270aa27fd399d5633224aa85bc33795f322&redirect_uri=https%3A%2F%2F10.11.1.1%3A8443%2F&response_type=code"
+        auth_url_42 = "https://api.intra.42.fr/oauth/authorize?client_id=u-s4t2ud-dab81c1c9c646a65a42a7cd840c34270aa27fd399d5633224aa85bc33795f322&redirect_uri=https%3A%2F%2F10.11.1.3%3A8443%2F&response_type=code"
         return JsonResponse({'auth_url': auth_url_42}, status=200)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
@@ -1006,7 +1006,7 @@ def exchange_code(code):
         "client_id": "u-s4t2ud-dab81c1c9c646a65a42a7cd840c34270aa27fd399d5633224aa85bc33795f322",
         "client_secret": "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",
         "code": code,
-        "redirect_uri" : "https://10.11.1.1:8443/",#actual domain name
+        "redirect_uri" : "https://10.11.1.3:8443/",#actual domain name
         # "scope": "public"
     }
     headers = {

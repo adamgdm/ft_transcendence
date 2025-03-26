@@ -717,9 +717,9 @@
     visibility: visible;
 }
 
-[data-modal="otp-verification"] .verification-logo {
+/* [data-modal="otp-verification"] .verification-logo {
     margin-top: 50px;
-}
+} */
 
 [data-modal="otp-verification"] .verification-des {
     margin-top: 50px;
@@ -731,7 +731,7 @@
     text-align: center;
 }
 
-[data-modal="otp-verification"] .verification-mail-text {
+[data-modal="otp-verification"] .otpverification-mail-text {
     width: 90%;
     margin-top: 30px;
     color: var(--text-color);
