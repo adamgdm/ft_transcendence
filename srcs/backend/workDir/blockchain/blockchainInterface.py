@@ -21,15 +21,23 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class TournamentBlockchain:
+    _instance = None
 
-    def __init__(self):
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(TournamentBlockchain, cls).__new__(cls)
+            cls._instance._initialize()
+        return cls._instance
+    
+    def _initialize(self):
         # Connect to local blockchain (Ganache)
         self.w3 = Web3(Web3.HTTPProvider('http://ganache:8545'))
 
         if (self.w3.is_connected()):
-            print("Connection successful")
+            logger.info("Connection to Ganache successful")
         else:
-            print("Connection failed")
+            logger.error("Connection to Ganache failed")
+            raise Exception("Connection failed")
 
         # Load contract ABI and address
         with open('/app/blockchain/compiled_sol.json', 'r') as f:
