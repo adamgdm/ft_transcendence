@@ -7,6 +7,7 @@ urlpatterns = [
     path('send_otp_email_change/', views.send_otp_email_change, name='send_otp_email_change'),
     path('forgot_password/', views.forgot_password, name='forgot_password'),
     path('delete_account/', views.delete_account, name='delete_account'),
+    path('another_user_profile/', views.another_user_profile, name='another_user_profile'),
     path('verify_email/', views.verify_email, name='verify_email'),
     path('login/', views.login, name='login'),
     path('login_otp/', views.login_otp, name='login_otp'),

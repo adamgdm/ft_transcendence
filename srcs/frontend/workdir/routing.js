@@ -6,6 +6,7 @@ import { users } from "./pages/users/users.js";
 import { settings } from "./pages/settings/settings.js";
 import { storyActions } from "./pages/story/index.js";
 import { scrollAction } from "./pages/story/scroll.js";
+import { users } from "./pages/users/users.js";
 
 const authenticatedPages = ['home', 'settings', 'shop', 'play', 'game', 'users'];
 
@@ -233,6 +234,29 @@ window.routeToPage = function (path, options = {}) {
     }
 };
 
+async function handleHashChange(fragId) {
+    if (fragId.startsWith('users=')) {
+        const username = fragId.split('=')[1];
+        const userProfile = await fetchUserProfile(username);
+
+        if (userProfile.error) {
+            window.location.hash = 'home'
+            routeToPage('home')
+            layoutShowError(userProfile.error, false);
+        } else {
+            routeToPage('users');
+        }
+    }
+    else if (fragId === 'users') {
+        window.location.hash = 'home'
+        routeToPage('home')
+        layoutShowError('no user found', false);
+    }
+    else {
+        routeToPage(fragId);
+    }
+}
+
 window.onload = async function () {
     const fragId = window.location.hash.substring(1) || 'story';
     const params = new URLSearchParams(window.location.search);
@@ -303,7 +327,7 @@ window.onload = async function () {
             routeToPage('story');
         }
     }
-
+    
     window.addEventListener('hashchange', () => {
         const path = window.location.hash.substring(1) || 'story';
         const state = history.state || {};
@@ -789,6 +813,59 @@ async function setupNotificationBar() {
         window.removeEventListener('gameStateUpdate', renderNotifications);
         console.log('Cleaned up notification bar');
     });
+}
+
+// Function to fetch user data from the backend
+export async function fetchUserProfile(username) {
+    const url = `/api/another_user_profile/?username=${encodeURIComponent(username)}`;
+    const response = await fetch(url, {
+        method: "GET",
+        credentials: "include" // Includes cookies/session data for authentication
+    });
+
+    if (!response.ok) {
+        // Handle 404 or other errors
+        if (response.status === 404) {
+            console.log('mamamamamamamam')
+            return { error: 'User not found' }; // Return a user-friendly error message
+        } else {
+            throw new Error(`Failed to fetch user profile: ${response.statusText}`);
+        }
+    }
+
+    const userData = await response.json();
+    return userData;
+}
+
+export function layoutShowError(message, isSuccess = false) {
+    const errorModal = document.querySelector("#errorContainer");
+    const errorMessage = document.querySelector("#errorMessage");
+
+    if (!errorModal || !errorMessage) {
+        console.log("Error Modal or Message not found!");
+        routeToPage('404')
+        window.location.hash = '404'
+        return;
+    }
+
+    errorMessage.textContent = message;
+
+    errorModal.classList.remove("success", "failure");
+
+    if (isSuccess) {
+        errorModal.classList.add("success");
+    } else {
+        errorModal.classList.add("failure");
+    }
+
+    errorModal.style.opacity = "1";
+    errorModal.style.visibility = 'visible'
+
+    setTimeout(() => {
+        errorModal.style.opacity = "0";
+        errorModal.style.visibility = 'hidden'
+        errorModal.style.transition = "opacity 0.3s ease-in-out, visibility 0.3s ease-in-out";
+    }, 3000);
 }
 
 async function setupSearchBar() {
