@@ -167,6 +167,7 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = config('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 EMAIL_USE_SSL = False
+ADMIN_PRIVATE_KEY = config('ADMIN_PRIVATE_KEY')
 
 # Store pictures and media
 MEDIA_URL = '/media/'
@@ -187,3 +188,37 @@ CORS_ALLOWED_ORIGINS = [
 SECURE_SSL_REDIRECT = True
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
+
+# Logging configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,  # Keep Django's default loggers active
+    'formatters': {
+        'standard': {
+            'format': '%(asctime)s - %(levelname)s - %(message)s',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'standard',
+        },
+        'blockchain_file': {  # Specific handler for blockchain logs
+            'class': 'logging.FileHandler',
+            'filename': '/app/blockchain/blockchain.log',  # Absolute path in container
+            'formatter': 'standard',
+        },
+    },
+    'loggers': {
+        '': {  # Root logger for general app logs
+            'handlers': ['console'],  # Only console, not blockchain.log
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'blockchain': {  # Specific logger for TournamentBlockchain
+            'handlers': ['blockchain_file'],  # Only writes to blockchain.log
+            'level': 'INFO',
+            'propagate': False,  # Don’t send logs to root logger
+        },
+    },
+}

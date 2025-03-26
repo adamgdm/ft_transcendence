@@ -1,5 +1,6 @@
 from web3 import Web3
 from dotenv import load_dotenv
+from django.conf import settings
 import os
 import json
 import logging
@@ -8,17 +9,10 @@ from web3.exceptions import InvalidAddress
 # Load .env file 
 load_dotenv()
 
-# Set up logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('blockchain.log')
-    ]
-)
+# Use a specific logger name
+logger = logging.getLogger('blockchain')
 
-logger = logging.getLogger(__name__)
+
 
 class TournamentBlockchain:
     _instance = None
@@ -52,7 +46,7 @@ class TournamentBlockchain:
         self.admin_address = self.w3.eth.accounts[0] # First Ganache account
 
         # Store private key securely 
-        self.admin_private_key = '0x4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d'
+        self.admin_private_key = settings.ADMIN_PRIVATE_KEY
 
         # Create contract instance
         self.contract = self.w3.eth.contract(

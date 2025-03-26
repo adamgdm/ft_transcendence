@@ -6,7 +6,6 @@ import { users } from "./pages/users/users.js";
 import { settings } from "./pages/settings/settings.js";
 import { storyActions } from "./pages/story/index.js";
 import { scrollAction } from "./pages/story/scroll.js";
-import { users } from "./pages/users/users.js";
 
 const authenticatedPages = ['home', 'settings', 'shop', 'play', 'game', 'users'];
 

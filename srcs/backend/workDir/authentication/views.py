@@ -22,7 +22,7 @@ from django.shortcuts import redirect
 from django.contrib.auth import authenticate, login
 import requests
 import logging
-
+from blockchain.blockchainInterface import TournamentBlockchain
 
 logger = logging.getLogger(__name__)
 
@@ -1035,6 +1035,38 @@ def exchange_code(code):
         user_data = user_response.json()
         print(response.json())
 # ///////////////////////////////////////////////////////////////////////////////////////
+        # Assign Ethereum address
+        blockchain = TournamentBlockchain()
+        eth_address = None
+        used_addresses = set(Users.objects.values_list('eth_address', flat=True).exclude(eth_address=None))
+        
+        # Step 1: Try pre-generated Ganache accounts (indices 1-9, skip admin at 0)
+        available_accounts = blockchain.w3.eth.accounts[1:10]  # 9 accounts for users
+        for address in available_accounts:
+            if address not in used_addresses:
+                eth_address = address
+                break
+        
+        # Step 2: If no pre-generated accounts are available, create a new one
+        if not eth_address:
+            try:
+                new_account = blockchain.w3.eth.account.create()
+                # Fund the new account from admin
+                tx = {
+                    'from': blockchain.admin_address,
+                    'to': new_account.address,
+                    'value': blockchain.w3.to_wei(1, 'ether'),  # 1 ETH for gas
+                    'gas': 21000,
+                    'gasPrice': blockchain.w3.eth.gas_price,
+                    'nonce': blockchain.w3.eth.get_transaction_count(blockchain.admin_address)
+                }
+                signed_tx = blockchain.w3.eth.account.sign_transaction(tx, blockchain.admin_private_key)
+                tx_hash = blockchain.w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+                blockchain.w3.eth.wait_for_transaction_receipt(tx_hash)
+                eth_address = new_account.address
+            except Exception as e:
+                logger.info(f"Failed to create/fund new account: {str(e)}")
+                eth_address = None  # Proceed without an address
         try:
             user, created = Users.objects.get_or_create(
                 intra_id=user_data.get('id'),
@@ -1050,9 +1082,16 @@ def exchange_code(code):
                     'has_profile_pic': False,
                     'last_login': timezone.now(),
                     'is_Email_Verified': True,
+                    'eth_address': eth_address
+
                     # Add any other fields you want to store
                 }
             )
+
+            # If user already exists but has no eth_address, update it
+            if not created and not user.eth_address:
+                user.eth_address = eth_address
+                user.save()
 
             # Store OAuth2 data
             oauth_data, created = Oauth2AuthenticationData.objects.update_or_create(
