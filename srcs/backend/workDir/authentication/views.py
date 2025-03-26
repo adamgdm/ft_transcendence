@@ -392,6 +392,19 @@ def disable_2fa(request):
         return JsonResponse({'message': 'Two factor authentication disabled'}, status=200)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
+@csrf_exempt
+@check_auth
+def verifyToken(request):
+    if request.method == 'GET':  # Assuming GET for simplicity; adjust if needed
+        user_id = request.user_id
+        if not user_id:
+            return JsonResponse({'error': 'Invalid token'}, status=401)
+        
+        # If we reach here, the token is valid due to @check_auth
+        return JsonResponse({'message': 'Token is valid'}, status=200)
+    
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
 @check_auth
 def profile(request):
     if request.method == 'GET':

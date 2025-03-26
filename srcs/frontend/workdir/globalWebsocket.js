@@ -14,7 +14,6 @@ function initializeWebSocket() {
         return Promise.resolve();
     }
 
-    // Clean up any existing connection
     if (friendshipSocket) {
         friendshipSocket.onopen = null;
         friendshipSocket.onclose = null;
@@ -25,18 +24,22 @@ function initializeWebSocket() {
         console.log('initializeWebSocket: Closed stale connection');
     }
 
+    currentUsername = localStorage.getItem('username') || null; // Refresh username
+    if (!currentUsername) {
+        console.warn('initializeWebSocket: No username in localStorage, may fail authentication');
+    }
+
     const wHost = window.location.host;
     const wsUrl = `wss://${wHost}/ws/friendship/`;
     console.log('initializeWebSocket: Connecting to:', wsUrl);
 
     friendshipSocket = new WebSocket(wsUrl);
 
-    // Return a promise that resolves when connected
     return new Promise((resolve, reject) => {
         friendshipSocket.onopen = () => {
             console.log('initializeWebSocket: Connection opened successfully');
             reconnectAttempts = 0;
-            processPendingActions(); // Execute any queued actions
+            processPendingActions();
             resolve();
         };
 
@@ -44,7 +47,7 @@ function initializeWebSocket() {
             console.log('initializeWebSocket: Connection closed:', { code: e.code, reason: e.reason });
             friendshipSocket = null;
             if (localStorage.getItem('isAuthenticated') === 'true' && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-                const delay = BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts); // Exponential backoff
+                const delay = BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts);
                 console.log(`initializeWebSocket: Scheduling reconnect in ${delay}ms (attempt ${reconnectAttempts + 1})`);
                 setTimeout(() => {
                     reconnectAttempts++;
@@ -59,7 +62,7 @@ function initializeWebSocket() {
             console.error('initializeWebSocket: Error:', error);
             reject(error);
             if (friendshipSocket) {
-                friendshipSocket.close(); // Trigger onclose
+                friendshipSocket.close();
             }
         };
 

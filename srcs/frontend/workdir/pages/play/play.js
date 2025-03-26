@@ -25,6 +25,23 @@ export async function setupMatchModes() {
         }
     }
 
+    // --- Fetch Sent Invites ---
+    async function fetchSentInvites() {
+        try {
+            const response = await fetch('api/get_game_invites_sent/', {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+            });
+            if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+            const data = await response.json();
+            return data.sent_invites || []; // Adjust based on your API response structure
+        } catch (error) {
+            console.error('Error fetching sent invites:', error);
+            return [];
+        }
+    }
+
     // --- Debounce Helper ---
     function debounce(func, wait) {
         let timeout;
@@ -57,7 +74,7 @@ export async function setupMatchModes() {
     const friendSearch = document.querySelector('#friendSearch');
     const friendsList = document.querySelector('#friendsList');
 
-    function renderFriends(friends, query) {
+    async function renderFriends(friends, query) {
         if (!friendsList) return;
         friendsList.innerHTML = '';
         const filteredFriends = friends.filter(friend => friend.username.toLowerCase().startsWith(query));
@@ -66,17 +83,19 @@ export async function setupMatchModes() {
             return;
         }
 
-        const pendingSent = new Set(sentInvites.filter(i => i.status === 'pending').map(i => i.to_username));
-        const acceptedSent = new Map(sentInvites.filter(i => i.status === 'accepted' && i.game_id && i.game_mode !== 'tournament').map(i => [i.to_username, { game_id: i.game_id }]));
+        // Fetch the latest sent invites from the API
+        const apiSentInvites = await fetchSentInvites();
+        const pendingSent = new Set(apiSentInvites.filter(i => i.status === 'pending').map(i => i.to_username));
+        const acceptedSent = new Map(apiSentInvites.filter(i => i.status === 'accepted' && i.game_id && i.game_mode !== 'tournament').map(i => [i.to_username, { game_id: i.game_id }]));
         const inviteStatus = new Map(receivedInvites.map(i => [i.from_username, i]));
 
         filteredFriends.forEach(friend => {
             const li = document.createElement('li');
             li.textContent = friend.username;
 
-            const hasSentInvite = pendingSent.has(friend.username);
             const receivedInvite = inviteStatus.get(friend.username);
             const acceptedSentInvite = acceptedSent.get(friend.username);
+            const hasSentInvite = pendingSent.has(friend.username);
 
             if (acceptedSentInvite || (receivedInvite?.status === 'accepted' && receivedInvite.game_id && receivedInvite.game_mode !== 'tournament')) {
                 const joinBtn = document.createElement('button');
@@ -126,7 +145,9 @@ export async function setupMatchModes() {
                 const inviteBtn = document.createElement('button');
                 inviteBtn.textContent = hasSentInvite ? 'Pending' : 'Invite';
                 inviteBtn.classList.add('invite-btn');
-                if (!hasSentInvite) {
+                if (hasSentInvite) {
+                    inviteBtn.disabled = true; // Disable if invite is already sent
+                } else {
                     const inviteHandler = (e) => {
                         e.stopPropagation();
                         inviteBtn.disabled = true;
@@ -137,10 +158,8 @@ export async function setupMatchModes() {
                             game_mode: 'online'
                         });
                     };
-                    inviteBtn.addEventListener('click', inviteHandler);
+                    inviteBtn.addEventListener('click', inviteHandler, { once: true }); // Only allow one click
                     cleanupFunctions.push(() => inviteBtn.removeEventListener('click', inviteHandler));
-                } else {
-                    inviteBtn.disabled = true;
                 }
                 li.appendChild(inviteBtn);
             }
@@ -156,7 +175,7 @@ export async function setupMatchModes() {
             frontFace.style.display = 'none';
             backFace.style.display = 'flex';
             if (!allFriends.length) allFriends = await fetchFriendsList();
-            renderFriends(allFriends, friendSearch.value.trim().toLowerCase());
+            await renderFriends(allFriends, friendSearch.value.trim().toLowerCase());
             friendsList.style.display = 'block';
             start1v1Btn.textContent = 'Waiting for Opponent...';
             start1v1Btn.disabled = true;
@@ -166,13 +185,13 @@ export async function setupMatchModes() {
 
         const focusHandler = async () => {
             if (!allFriends.length) allFriends = await fetchFriendsList();
-            renderFriends(allFriends, friendSearch.value.trim().toLowerCase());
+            await renderFriends(allFriends, friendSearch.value.trim().toLowerCase());
             friendsList.style.display = 'block';
         };
         const blurHandler = () => setTimeout(() => {
             if (!friendsList.contains(document.activeElement)) friendsList.style.display = 'none';
         }, 100);
-        const inputHandler = debounce(() => renderFriends(allFriends, friendSearch.value.trim().toLowerCase()), 300);
+        const inputHandler = debounce(async () => await renderFriends(allFriends, friendSearch.value.trim().toLowerCase()), 300);
 
         friendSearch.addEventListener('focus', focusHandler);
         friendSearch.addEventListener('blur', blurHandler);
@@ -183,9 +202,9 @@ export async function setupMatchModes() {
             friendSearch.removeEventListener('input', inputHandler);
         });
 
-        const debouncedGameStateHandler = debounce(() => {
+        const debouncedGameStateHandler = debounce(async () => {
             if (friendsList.style.display === 'block') {
-                renderFriends(allFriends, friendSearch.value.trim().toLowerCase());
+                await renderFriends(allFriends, friendSearch.value.trim().toLowerCase());
             }
         }, 300);
         window.addEventListener('gameStateUpdate', debouncedGameStateHandler);

@@ -22,8 +22,35 @@ let tournamentId = null;
 let invitedFriends = new Set();
 let participantCount = 1;
 
+// WebSocket disconnect tracking
+let disconnectCount = 0;
+
 // Store cleanup functions for each page
 const pageCleanups = new Map();
+
+// Verify JWT token with the server
+async function verifyToken() {
+    try {
+        const response = await fetch('/api/verifyToken', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include' // Include cookies (JWT likely in HTTP-only cookie)
+        });
+        if (response.status === 200) {
+            console.log('Token verified successfully');
+            return true;
+        } else if (response.status === 401) {
+            console.error('401 Unauthorized in verifyToken, token invalid or expired');
+            return false;
+        } else {
+            console.error(`Unexpected response in verifyToken: ${response.status}`);
+            return false;
+        }
+    } catch (error) {
+        console.error('Error verifying token:', error);
+        return false;
+    }
+}
 
 async function fetchUsers(query) {
     try {
@@ -32,6 +59,14 @@ async function fetchUsers(query) {
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include'
         });
+        if (response.status === 401) {
+            console.error('401 Unauthorized in fetchUsers, redirecting to story');
+            localStorage.setItem('isAuthenticated', 'false');
+            window.isAuthenticated = false;
+            window.location.hash = 'story';
+            routeToPage('story');
+            throw new Error('Unauthorized');
+        }
         if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
         const data = await response.json();
         return data.users || [];
@@ -48,6 +83,14 @@ async function fetchPendingReceivedRequests() {
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include'
         });
+        if (response.status === 401) {
+            console.error('401 Unauthorized in fetchPendingReceivedRequests, redirecting to story');
+            localStorage.setItem('isAuthenticated', 'false');
+            window.isAuthenticated = false;
+            window.location.hash = 'story';
+            routeToPage('story');
+            throw new Error('Unauthorized');
+        }
         if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
         const data = await response.json();
         return data.requests || [];
@@ -64,6 +107,14 @@ async function fetchPendingSentRequests() {
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include'
         });
+        if (response.status === 401) {
+            console.error('401 Unauthorized in fetchPendingSentRequests, redirecting to story');
+            localStorage.setItem('isAuthenticated', 'false');
+            window.isAuthenticated = false;
+            window.location.hash = 'story';
+            routeToPage('story');
+            throw new Error('Unauthorized');
+        }
         if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
         const data = await response.json();
         return data.sent_requests || [];
@@ -80,6 +131,14 @@ async function fetchPendingGameInvites() {
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include'
         });
+        if (response.status === 401) {
+            console.error('401 Unauthorized in fetchPendingGameInvites, redirecting to story');
+            localStorage.setItem('isAuthenticated', 'false');
+            window.isAuthenticated = false;
+            window.location.hash = 'story';
+            routeToPage('story');
+            throw new Error('Unauthorized');
+        }
         if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
         const data = await response.json();
         return data.invites || [];
@@ -96,6 +155,14 @@ async function fetchFriendsList() {
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include'
         });
+        if (response.status === 401) {
+            console.error('401 Unauthorized in fetchFriendsList, redirecting to story');
+            localStorage.setItem('isAuthenticated', 'false');
+            window.isAuthenticated = false;
+            window.location.hash = 'story';
+            routeToPage('story');
+            throw new Error('Unauthorized');
+        }
         if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
         const data = await response.json();
         allFriends = data.friends || [];
@@ -113,6 +180,14 @@ async function fetchLogin() {
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include'
         });
+        if (response.status === 401) {
+            console.error('401 Unauthorized in fetchLogin, redirecting to story');
+            localStorage.setItem('isAuthenticated', 'false');
+            window.isAuthenticated = false;
+            window.location.hash = 'story';
+            routeToPage('story');
+            throw new Error('Unauthorized');
+        }
         if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
         const data = await response.json();
         return data.user_name;
@@ -130,6 +205,14 @@ async function removeFriend(username) {
             credentials: 'include',
             body: JSON.stringify({ friend_username: username })
         });
+        if (response.status === 401) {
+            console.error('401 Unauthorized in removeFriend, redirecting to story');
+            localStorage.setItem('isAuthenticated', 'false');
+            window.isAuthenticated = false;
+            window.location.hash = 'story';
+            routeToPage('story');
+            throw new Error('Unauthorized');
+        }
         const data = await response.json();
         return data;
     } catch (error) {
@@ -176,20 +259,29 @@ async function rejectGameInvite(inviteId) {
     return true;
 }
 
-function handleAuthStateChange() {
+async function handleAuthStateChange() {
     window.isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
     console.log('handleAuthStateChange: isAuthenticated=', window.isAuthenticated);
     if (window.isAuthenticated) {
-        initializeWebSocket().then(() => {
-            if (isConnected()) {
-                syncStateWithWebSocket();
-            } else {
-                console.warn('WebSocket failed to connect in handleAuthStateChange');
-            }
-        }).catch(err => console.error('WebSocket initialization failed:', err));
+        await initializeWebSocket(); // Ensure WebSocket is initialized
+        if (isConnected()) {
+            await syncStateWithWebSocket();
+        } else {
+            console.warn('WebSocket failed to connect in handleAuthStateChange, using fallback');
+            await fetchAndSyncStateFallback();
+        }
     } else {
         closeConnection();
     }
+}
+
+function forceLogout() {
+    window.isAuthenticated = false;
+    localStorage.setItem('isAuthenticated', 'false');
+    localStorage.removeItem('username');
+    closeConnection();
+    window.location.hash = 'story';
+    routeToPage('story');
 }
 
 window.routeToPage = function (path, options = {}) {
@@ -239,19 +331,17 @@ async function handleHashChange(fragId) {
         const userProfile = await fetchUserProfile(username);
 
         if (userProfile.error) {
-            window.location.hash = 'home'
-            routeToPage('home')
+            window.location.hash = 'home';
+            routeToPage('home');
             layoutShowError(userProfile.error, false);
         } else {
             routeToPage('users');
         }
-    }
-    else if (fragId === 'users') {
-        window.location.hash = 'home'
-        routeToPage('home')
+    } else if (fragId === 'users') {
+        window.location.hash = 'home';
+        routeToPage('home');
         layoutShowError('no user found', false);
-    }
-    else {
+    } else {
         routeToPage(fragId);
     }
 }
@@ -262,6 +352,7 @@ window.onload = async function () {
     const code = params.get('code');
 
     if (code) {
+        // OAuth flow (unchanged)
         try {
             const response = await fetch('/api/oauth2/login/redirect/', {
                 method: 'POST',
@@ -270,19 +361,24 @@ window.onload = async function () {
                 credentials: 'include',
             });
 
+            if (response.status === 401) {
+                console.error('401 Unauthorized in OAuth login, redirecting to story');
+                forceLogout();
+                throw new Error('Unauthorized');
+            }
             if (!response.ok) throw new Error(`Login failed: ${response.status}`);
             const data = await response.json();
             console.log('Login successful:', data);
 
             localStorage.setItem('isAuthenticated', 'true');
+            localStorage.setItem('username', data.user_name); // Store username
             window.isAuthenticated = true;
 
             await initializeWebSocket();
             if (isConnected()) {
                 await syncStateWithWebSocket();
-                console.log('WebSocket connected and state synced after OAuth login');
             } else {
-                console.warn('WebSocket not connected after login, using API fallback');
+                console.warn('WebSocket not connected after OAuth login, using fallback');
                 await fetchAndSyncStateFallback();
             }
 
@@ -294,39 +390,41 @@ window.onload = async function () {
         } catch (error) {
             console.error('Login error:', error);
             alert('Login failed: ' + error.message);
-            window.isAuthenticated = false;
-            localStorage.setItem('isAuthenticated', 'false');
-            routeToPage('story');
+            forceLogout();
         }
     } else {
         const isLocalAuth = localStorage.getItem('isAuthenticated') === 'true';
         if (isLocalAuth) {
-            const username = await fetchLogin();
-            if (username) {
-                window.isAuthenticated = true;
-                console.log('Session validated, user:', username);
+            const isTokenValid = await verifyToken();
+            if (isTokenValid) {
+                const username = await fetchLogin();
+                if (username) {
+                    window.isAuthenticated = true;
+                    localStorage.setItem('username', username); // Ensure username is set
+                    console.log('Session validated via token, user:', username);
 
-                await initializeWebSocket();
-                if (isConnected()) {
-                    await syncStateWithWebSocket();
-                    console.log('WebSocket connected and state synced on page load');
+                    await initializeWebSocket();
+                    if (isConnected()) {
+                        await syncStateWithWebSocket();
+                    } else {
+                        console.warn('WebSocket not connected on page load, using fallback');
+                        await fetchAndSyncStateFallback();
+                    }
+                    routeToPage(fragId || 'home', history.state || {});
                 } else {
-                    console.warn('WebSocket not connected on page load, using API fallback');
-                    await fetchAndSyncStateFallback();
+                    console.log('Token valid but fetchLogin failed, forcing logout');
+                    forceLogout();
                 }
-                routeToPage(fragId, history.state || {});
             } else {
-                console.log('Session invalid, forcing logout');
-                window.isAuthenticated = false;
-                localStorage.setItem('isAuthenticated', 'false');
-                routeToPage('story');
+                console.log('Token invalid or expired, forcing logout');
+                forceLogout();
             }
         } else {
             console.log('Not authenticated, skipping WebSocket initialization');
             routeToPage('story');
         }
     }
-    
+
     window.addEventListener('hashchange', () => {
         const path = window.location.hash.substring(1) || 'story';
         const state = history.state || {};
@@ -392,6 +490,16 @@ async function syncStateWithWebSocket() {
         }).catch(err => {
             console.error('Error syncing initial state:', err);
             resolve();
+        });
+
+        friendshipSocket.addEventListener('close', () => {
+            disconnectCount++;
+            console.log(`WebSocket disconnected, count: ${disconnectCount}`);
+            if (disconnectCount > 2) {
+                console.error('WebSocket disconnected more than twice, redirecting to story');
+                window.location.hash = 'story';
+                routeToPage('story');
+            }
         });
 
         friendshipSocket.addEventListener('message', async (event) => {
@@ -604,11 +712,9 @@ async function fetchAndSyncStateFallback() {
 
 function triggerUIUpdate() {
     const currentPath = window.location.hash.substring(1) || 'story';
-    // Only reload layout if the page has changed or is uninitialized
     if (authenticatedPages.includes(currentPath) && !document.querySelector('.content-wrapper')) {
         loadAuthenticatedLayout(currentPath, history.state || {});
     }
-    // Dispatch events for specific components to handle updates
     window.dispatchEvent(new CustomEvent('friendStateUpdate', {
         detail: {
             pendingSentRequests: [...pendingSentRequests],
@@ -814,19 +920,26 @@ async function setupNotificationBar() {
     });
 }
 
-// Function to fetch user data from the backend
 export async function fetchUserProfile(username) {
     const url = `/api/another_user_profile/?username=${encodeURIComponent(username)}`;
     const response = await fetch(url, {
         method: "GET",
-        credentials: "include" // Includes cookies/session data for authentication
+        credentials: "include"
     });
 
+    if (response.status === 401) {
+        console.error('401 Unauthorized in fetchUserProfile, redirecting to story');
+        localStorage.setItem('isAuthenticated', 'false');
+        window.isAuthenticated = false;
+        window.location.hash = 'story';
+        routeToPage('story');
+        return { error: 'Unauthorized' };
+    }
+
     if (!response.ok) {
-        // Handle 404 or other errors
         if (response.status === 404) {
-            console.log('mamamamamamamam')
-            return { error: 'User not found' }; // Return a user-friendly error message
+            console.log('User not found');
+            return { error: 'User not found' };
         } else {
             throw new Error(`Failed to fetch user profile: ${response.statusText}`);
         }
@@ -842,8 +955,8 @@ export function layoutShowError(message, isSuccess = false) {
 
     if (!errorModal || !errorMessage) {
         console.log("Error Modal or Message not found!");
-        routeToPage('404')
-        window.location.hash = '404'
+        routeToPage('404');
+        window.location.hash = '404';
         return;
     }
 
@@ -858,11 +971,11 @@ export function layoutShowError(message, isSuccess = false) {
     }
 
     errorModal.style.opacity = "1";
-    errorModal.style.visibility = 'visible'
+    errorModal.style.visibility = 'visible';
 
     setTimeout(() => {
         errorModal.style.opacity = "0";
-        errorModal.style.visibility = 'hidden'
+        errorModal.style.visibility = 'hidden';
         errorModal.style.transition = "opacity 0.3s ease-in-out, visibility 0.3s ease-in-out";
     }, 3000);
 }
@@ -908,14 +1021,13 @@ async function setupSearchBar() {
 
     const renderSuggestion = (user, suggestionDiv) => {
         suggestionDiv.innerHTML = `<span class="username">${user.username}</span>`;
-        suggestionDiv.dataset.username = user.username; // Store username for delegation
-        console.log('renderSuggestion: HTML set for', user.username, suggestionDiv.outerHTML);
+        suggestionDiv.dataset.username = user.username;
 
         if (friendsList.has(user.username)) {
             suggestionDiv.innerHTML += `<button class="remove-btn">Remove</button>`;
             const removeBtn = suggestionDiv.querySelector('.remove-btn');
             removeBtn.onclick = async (e) => {
-                e.stopPropagation(); // Prevent routing on button click
+                e.stopPropagation();
                 const result = await removeFriend(user.username);
                 if (!result.error) {
                     friendsList.delete(user.username);
@@ -926,7 +1038,7 @@ async function setupSearchBar() {
             suggestionDiv.innerHTML += `<button class="accept-btn">Accept</button>`;
             const acceptBtn = suggestionDiv.querySelector('.accept-btn');
             acceptBtn.onclick = async (e) => {
-                e.stopPropagation(); // Prevent routing on button click
+                e.stopPropagation();
                 await acceptFriendRequest(user.username);
                 handleSearchInput();
             };
@@ -936,7 +1048,7 @@ async function setupSearchBar() {
             suggestionDiv.innerHTML += `<button class="add-btn">Add</button>`;
             const addBtn = suggestionDiv.querySelector('.add-btn');
             addBtn.onclick = async (e) => {
-                e.stopPropagation(); // Prevent routing on button click
+                e.stopPropagation();
                 const success = await sendFriendRequest(user.username);
                 if (success) {
                     pendingSentRequests.add(user.username);
@@ -972,12 +1084,10 @@ async function setupSearchBar() {
         userSuggestionsBox.style.display = 'block';
     }, 300);
 
-    // Event delegation for suggestion clicks
     userSuggestionsBox.addEventListener('click', (e) => {
         console.log('userSuggestionsBox clicked:', e.target);
         const suggestionItem = e.target.closest('.suggestion-item');
         if (suggestionItem) {
-            // Skip if the click was on a button
             if (e.target.tagName === 'BUTTON') {
                 console.log('Clicked a button, skipping routing');
                 return;
@@ -1013,6 +1123,7 @@ async function setupSearchBar() {
         console.log('Cleaned up search bar');
     });
 }
+
 function handleNotifBtn(item) {
     const notifBar = document.querySelector('[layout="notifbar"]');
     if (item.classList.contains('notif')) {
@@ -1071,6 +1182,14 @@ function setupLogoutButton() {
                 credentials: 'include',
             });
 
+            if (response.status === 401) {
+                console.error('401 Unauthorized in logout, redirecting to story');
+                localStorage.setItem('isAuthenticated', 'false');
+                window.isAuthenticated = false;
+                window.location.hash = 'story';
+                routeToPage('story');
+                throw new Error('Unauthorized');
+            }
             const data = await response.json();
             if (!response.ok) {
                 throw new Error(data.error || `Logout failed: ${response.status}`);
@@ -1145,5 +1264,6 @@ export {
     pageCleanups,
     sendGameInvite,
     acceptGameInvite,
-    rejectGameInvite
+    rejectGameInvite,
+    verifyToken // Export for potential reuse
 };
