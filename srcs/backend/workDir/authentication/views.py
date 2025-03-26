@@ -258,7 +258,7 @@ def verify_email(request):
     if user.otp_expiry and user.otp_expiry < timezone.now():
         return JsonResponse({'error': 'Code expired'}, status=400)
 
-    user.email_verified = True
+    user.is_Email_Verified = True
     user.otp_password = ''
     user.otp_expiry = None
     user.save()

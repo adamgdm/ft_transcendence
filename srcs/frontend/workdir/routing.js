@@ -456,10 +456,8 @@ async function syncStateWithWebSocket() {
         ]).then(([sentRequests, receivedRequests, gameInvites, friends]) => {
             pendingSentRequests.clear();
             sentRequests.forEach(req => pendingSentRequests.add(req.to_username));
-
             pendingReceivedRequests.clear();
             receivedRequests.forEach(req => pendingReceivedRequests.set(req.request_id, req.from_username));
-
             receivedInvites = gameInvites.map(invite => ({
                 invite_id: invite.invite_id,
                 from_username: invite.from_username,
@@ -467,7 +465,6 @@ async function syncStateWithWebSocket() {
                 tournament_id: invite.game_mode === 'tournament' ? invite.game_id : null,
                 game_mode: invite.game_mode
             }));
-
             friendsList.clear();
             friends.forEach(friend => friendsList.add(friend.username));
 
@@ -521,6 +518,43 @@ async function syncStateWithWebSocket() {
                     });
                     console.log('Pending friend requests loaded:', [...pendingReceivedRequests.entries()]);
                     triggerUIUpdate();
+                    break;
+                case 'friend_request_rejected':
+                    for (let [requestId, fromUsername] of pendingReceivedRequests) {
+                        if (fromUsername === data.friend_username) {
+                            console.log(`Rejected friend request from ${fromUsername}, removing ID: ${requestId}`);
+                            pendingReceivedRequests.delete(requestId);
+                            triggerUIUpdate();
+                            break;
+                        }
+                    }
+                    showNotification(`Friend request from ${data.friend_username} rejected`);
+                    break;
+                case 'friend_update_notification':
+                    console.log(`Friend update notification: ${data.message}`);
+                    showNotification(data.message || 'Friend status updated');
+                    if (data.status === 'accepted') {
+                        friendsList.add(data.from_username);
+                        for (let [requestId, fromUsername] of pendingReceivedRequests) {
+                            if (fromUsername === data.from_username) {
+                                pendingReceivedRequests.delete(requestId);
+                                break;
+                            }
+                        }
+                    } else if (data.status === 'rejected' || data.status === 'cancelled') {
+                        for (let [requestId, fromUsername] of pendingReceivedRequests) {
+                            if (fromUsername === data.from_username) {
+                                pendingReceivedRequests.delete(requestId);
+                                break;
+                            }
+                        }
+                    }
+                    triggerUIUpdate();
+                    break;
+                case 'friend_request_error':
+                    console.error(`Friend request error: ${data.error} for ${data.friend_username}`);
+                    showNotification(`Error: ${data.error}`);
+                    triggerUIUpdate(); // Re-render to restore state if needed
                     break;
                 case 'pending_game_invites':
                     receivedInvites = data.invites.map(invite => ({
@@ -868,21 +902,29 @@ async function setupNotificationBar() {
 
             const acceptBtn = notifItem.querySelector('.accept-btn');
             acceptBtn.onclick = async () => {
-                await acceptFriendRequest(fromUsername);
-                pendingReceivedRequests.delete(requestId);
-                renderNotifications();
+                const success = await acceptFriendRequest(fromUsername);
+                if (success) {
+                    pendingReceivedRequests.delete(requestId);
+                    renderNotifications();
+                }
             };
 
             const declineBtn = notifItem.querySelector('.decline-btn');
             declineBtn.onclick = async () => {
-                await rejectFriendRequest(fromUsername);
-                pendingReceivedRequests.delete(requestId);
-                renderNotifications();
+                console.log(`Declining request from ${fromUsername}, ID: ${requestId}`);
+                const success = await rejectFriendRequest(fromUsername);
+                if (success) {
+                    // Wait for WebSocket confirmation instead of deleting immediately
+                    console.log(`Awaiting backend confirmation for rejection of ${fromUsername}`);
+                } else {
+                    console.error(`Failed to send reject request for ${fromUsername}`);
+                }
             };
 
             notifBar.appendChild(notifItem);
         }
 
+        // Game invites unchanged
         for (let invite of receivedInvites.filter(i => i.status === 'pending')) {
             const notifItem = document.createElement('div');
             notifItem.classList.add('notification-item');
