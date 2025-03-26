@@ -48,6 +48,7 @@ class Users(models.Model):
     matches_played = models.IntegerField(default=0, null=False, blank=False)
     matches_won = models.IntegerField(default=0, null=False, blank=False)
     win_ratio = models.IntegerField(default=0, null=False, blank=False)
+    matches_history = models.ManyToManyField("gameBackend.Match")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

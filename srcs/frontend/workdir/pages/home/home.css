@@ -290,10 +290,13 @@
 
 
 [layout="home-content"] .user-match-history {
-    height: 200px;
+    height: 300px;
     flex-grow: 1;
-
     display: flex;
+    overflow-y: scroll;
+    overflow-x: hidden;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
     flex-direction: column;
     justify-content: space-around;
 }

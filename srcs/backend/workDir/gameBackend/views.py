@@ -6,6 +6,7 @@ from authentication.models import Users
 from django.views.decorators.csrf import csrf_exempt
 from asgiref.sync import sync_to_async
 from channels.db import database_sync_to_async
+from authentication.utils import update_ppp_ratings
 import time
 import asyncio
 import random
@@ -532,11 +533,14 @@ async def game_update(game_id):
                 winner.matches_won += 1
                 winner.win_ratio = (winner.matches_won / winner.matches_played) * 100 if winner.matches_played > 0 else 0
                 loser.win_ratio = (loser.matches_won / loser.matches_played) * 100 if loser.matches_played > 0 else 0
+                update_ppp_ratings(winner, loser, 1)
                 winner.save()
                 loser.save()
 
             pongMatch.match_status = Match.MatchStatusChoices.DONE
             pongMatch.save()
+            pongMatch.match_winner.matches_history.add(pongMatch)
+            pongMatch.match_loser.matches_history.add(pongMatch)
             game_info['status'] = 'Done'
 
             tournament = Tournament.objects.filter(
