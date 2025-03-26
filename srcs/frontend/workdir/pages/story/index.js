@@ -131,10 +131,10 @@ export function storyActions() {
     signupForm.addEventListener('submit', async (e) => {
         e.preventDefault();
     
-        const firstname = signupForm.querySelector('[name="fname"]').value;
-        const lastname = signupForm.querySelector('[name="lname"]').value;
-        const username = signupForm.querySelector('[name="uname"]').value;
-        const email = signupForm.querySelector('[name="email"]').value;
+        const firstname = signupForm.querySelector('[name="fname"]').value.toLowerCase();
+        const lastname = signupForm.querySelector('[name="lname"]').value.toLowerCase();
+        const username = signupForm.querySelector('[name="uname"]').value.toLowerCase();
+        const email = signupForm.querySelector('[name="email"]').value.toLowerCase();
         const passwd = signupForm.querySelector('[name="passwd"]').value;
         emmail = email
         
@@ -268,7 +268,7 @@ export function storyActions() {
 loginForm.addEventListener('submit', (e) => {
     e.preventDefault();
 
-    const email = loginForm.querySelector('#login-email').value;
+    const email = loginForm.querySelector('#login-email').value.toLowerCase();
     const pass = loginForm.querySelector('#login-passwd').value;
     emmail = email;
 
@@ -353,9 +353,8 @@ otpVerificationForm.addEventListener('submit', async (e) => {
 
     // Show loading message immediately
     showError(otpVerificationModal, 'Verifying OTP...', true);
-    const submitButton = otpVerificationForm.querySelector('input[type="submit"]') || 
-                       otpVerificationForm.querySelector('button[type="submit"]'); // Flexible selector
-    submitButton.disabled = true; // Disable button to prevent multiple submissions
+    const submitButton = otpVerificationForm.querySelector('input[type="submit"]')
+    submitButton.disabled = true;
 
     try {
         const response = await fetch('/api/login_otp/', {
@@ -485,8 +484,7 @@ otpVerificationForm.addEventListener('submit', async (e) => {
         
         // Send verification code button
         document.getElementById("sendCode").addEventListener("click", async () => {
-            const email = document.getElementById("forgot-mail").value;
-
+            const email = document.getElementById("forgot-mail").value.toLowerCase();
             if (!email || !isValidEmail(email)) {
                 console.log("Please enter a valid email address");
                 showError(forgotPassModal, "Please enter a valid email address", false);
@@ -519,9 +517,8 @@ otpVerificationForm.addEventListener('submit', async (e) => {
 
         // Verify code button
         document.getElementById("verifyCode").addEventListener("click", async () => {
-            const email = document.getElementById("forgot-mail").value;
+            const email = document.getElementById("forgot-mail").value.toLowerCase();
             const otp = document.getElementById("reset-code").value;
-
             if (!email || !otp) {
                 showError(forgotPassModal, "Please enter your email and OTP.", false);
                 return;
@@ -556,10 +553,10 @@ otpVerificationForm.addEventListener('submit', async (e) => {
 
         // Reset password button
         document.getElementById("resetPassword").addEventListener("click", async () => {
-            const email = document.getElementById("forgot-mail").value;
+            const email = document.getElementById("forgot-mail").value.toLowerCase();
             const newPassword = document.getElementById("new-password").value;
             const confirmPassword = document.getElementById("confirm-password").value;
-            
+
 
             if (newPassword !== confirmPassword) {
                 showError(forgotPassModal, "Passwords do not match.", false);
