@@ -284,13 +284,13 @@ loginForm.addEventListener('submit', (e) => {
         credentials: 'include',
     })
     .then(response => {
-        console.log('Response status:', response.status);
         if (response.status === 205) {
             hideModal(loginModal);
             displayModal(otpVerificationModal);
+            loginForm.reset();
             return null;
         } else if (response.status !== 200) {
-            throw new Error('Network response was not ok');
+            throw new Error('Invalid informations');
         }
         return response.json();
     })
@@ -298,9 +298,11 @@ loginForm.addEventListener('submit', (e) => {
         if (data == null) return;
 
         console.log('Login successful:', data);
+        showError(loginModal, 'Login successful:', true)
         localStorage.setItem('isAuthenticated', 'true');
         localStorage.setItem('username', data.user_name || email);
         window.isAuthenticated = true;
+        loginForm.reset();
 
         initializeWebSocket().then(() => {
             if (isConnected()) {
@@ -317,27 +319,25 @@ loginForm.addEventListener('submit', (e) => {
                 }
             } else {
                 console.error('WebSocket not initialized, navigation aborted');
-                alert('Failed to initialize connection, please try again');
+                showError(loginModal, 'Failed to initialize connection, please try again', false)
                 localStorage.setItem('isAuthenticated', 'false');
                 window.isAuthenticated = false;
             }
         }).catch(err => {
             console.error('WebSocket initialization failed:', err);
-            alert('Failed to initialize connection: ' + err.message);
+            showError(loginModal, 'Failed to initialize connection: ' + err.message, false);
             localStorage.setItem('isAuthenticated', 'false');
             window.isAuthenticated = false;
         });
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Login failed: ' + error.message);
+        showError(loginModal,'Login failed: ' + error.message, false);
     });
-
-    loginForm.reset();
 });
 
 // Event listener for submitting the OTP VERIFICATION form
-otpVerificationForm.addEventListener('submit', (e) => {
+otpVerificationForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const verifCode = [];
@@ -347,64 +347,77 @@ otpVerificationForm.addEventListener('submit', (e) => {
     }
 
     const otpInfos = {
-        login: emmail,
+        login: emmail, // Assuming 'emmail' is a global variable from login
         otp: verifCode.join(''),
     };
 
-    fetch('/api/login_otp/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(otpInfos),
-        credentials: 'include',
-    })
-    .then(response => {
-        if (response.status !== 200) throw new Error('OTP verification failed');
-        return response.json();
-    })
-    .then(data => {
-        console.log('Success:', data);
+    // Show loading message immediately
+    showError(otpVerificationModal, 'Verifying OTP...', true);
+    const submitButton = otpVerificationForm.querySelector('input[type="submit"]') || 
+                       otpVerificationForm.querySelector('button[type="submit"]'); // Flexible selector
+    submitButton.disabled = true; // Disable button to prevent multiple submissions
+
+    try {
+        const response = await fetch('/api/login_otp/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(otpInfos),
+            credentials: 'include',
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            // Show specific backend error
+            const errorMessage = data.error || 'OTP verification failed. Please try again.';
+            showError(otpVerificationModal, errorMessage, false);
+            submitButton.disabled = false;
+            return;
+        }
+
+        // Success case
         if (data.message === 'Login successful') {
-            isVerificationSuccessful = true;
+            showError(otpVerificationModal, 'OTP verified successfully! Logging in...', true);
             localStorage.setItem('isAuthenticated', 'true');
             localStorage.setItem('username', emmail);
             window.isAuthenticated = true;
 
-            initializeWebSocket().then(() => {
-                if (isConnected()) {
-                    hideModal(otpVerificationModal);
-                    // Wait for DOM to be ready
-                    if (document.readyState === 'complete') {
-                        window.location.hash = 'home';
-                        window.routeToPage('home');
-                    } else {
-                        window.addEventListener('DOMContentLoaded', () => {
+            try {
+                await initializeWebSocket();
+                setTimeout(() => {
+                    if (isConnected()) {
+                        otpVerificationForm.reset();
+                        hideModal(otpVerificationModal);
+                        if (document.readyState === 'complete') {
                             window.location.hash = 'home';
                             window.routeToPage('home');
-                        }, { once: true });
+                        } else {
+                            window.addEventListener('DOMContentLoaded', () => {
+                                window.location.hash = 'home';
+                                window.routeToPage('home');
+                            }, { once: true });
+                        }
+                    } else {
+                        showError(otpVerificationModal, 'Failed to initialize connection, please try again', false);
+                        localStorage.setItem('isAuthenticated', 'false');
+                        window.isAuthenticated = false;
+                        submitButton.disabled = false;
                     }
-                } else {
-                    console.error('WebSocket not initialized, navigation aborted');
-                    alert('Failed to initialize connection, please try again');
-                    localStorage.setItem('isAuthenticated', 'false');
-                    window.isAuthenticated = false;
-                }
-            }).catch(err => {
-                console.error('WebSocket initialization failed:', err);
-                alert('Failed to initialize connection: ' + err.message);
+                }, 1500); // 1.5-second delay for success message visibility (matches email verification)
+            } catch (err) {
+                showError(otpVerificationModal, 'Failed to initialize connection: ' + err.message, false);
                 localStorage.setItem('isAuthenticated', 'false');
                 window.isAuthenticated = false;
-            });
-        } else {
-            console.error('Error:', data.error);
-            alert('OTP verification failed: ' + data.error);
+                submitButton.disabled = false;
+            }
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('OTP verification failed: ' + error.message);
-    });
 
-    otpVerificationForm.reset();
+    } catch (error) {
+        // Handle network errors
+        showError(otpVerificationModal, 'Network error. Please check your connection and try again.', false);
+        submitButton.disabled = false;
+        console.error('Fetch error:', error);
+    }
 });
 
     // Auto-focus functionality for OTP verification inputs
