@@ -18,6 +18,7 @@ urlpatterns = [
     path('disable_2fa/', views.disable_2fa, name='disable_2fa'),
     path('profile/', views.profile, name='profile'),
     path('add_pfp/', views.add_profile_picture, name='add_profile_picture'),
+    path('verifyToken/', views.verifyToken, name='verifyToken'),
     path('another_user_profile/', views.another_user_profile, name='another_user_profile'),
     path('modify_username/', views.modify_username, name='modify_username'),
     path('modify_firstname/', views.modify_firstname, name='modify_firstname'),

@@ -552,6 +552,17 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
             logger.error(f"Error cancelling friend request: {e}")
             return False
 
+    
+    async def friend_update_notification(self, event):
+        logger.info(f"Received friend_update_notification: {event}")
+        await self.send(text_data=json.dumps({
+            'type': 'friend_update_notification',
+            'message': event.get('message', 'Friend status updated'),
+            'from_user_id': event.get('from_user_id'),
+            'from_username': event.get('from_username'),
+            'status': event.get('status')
+        }))
+
     @database_sync_to_async
     def create_game_invite(self, from_user_id, to_username, game_mode, tournament_id=None):
         try:
@@ -600,6 +611,40 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             logger.error(f"Error rejecting game invite: {e}")
             return False
+
+    async def handle_reject_friend_request(self, data):
+        friend_username = data.get('friend_username')
+        if not friend_username:
+            logger.error("Missing friend_username in reject_friend_request")
+            await self.send(text_data=json.dumps({
+                'type': 'friend_request_error',
+                'error': 'Missing friend_username'
+            }))
+            return
+
+        friendship = await self.process_friend_request(friend_username, Friendship.Status.REJECTED)
+        if friendship:
+            # Notify the rejecting user (self)
+            await self.send(text_data=json.dumps({
+                'type': 'friend_request_rejected',
+                'friend_username': friend_username,
+                'message': 'Friend request rejected successfully'
+            }))
+            # Notify the sender of the friend request
+            await self.channel_layer.group_send(
+                f"friendship_group_{friendship.from_user.id}",
+                {
+                    'type': 'friend_request_rejected_notification',
+                    'from_user_id': self.user.id,
+                    'from_username': self.user.user_name
+                }
+            )
+        else:
+            await self.send(text_data=json.dumps({
+                'type': 'friend_request_error',
+                'friend_username': friend_username,
+                'error': 'No pending friend request found from this user'
+            }))
 
     @database_sync_to_async
     def create_tournament(self, creator, tournament_name):

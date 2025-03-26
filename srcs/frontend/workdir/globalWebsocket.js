@@ -14,7 +14,6 @@ function initializeWebSocket() {
         return Promise.resolve();
     }
 
-    // Clean up any existing connection
     if (friendshipSocket) {
         friendshipSocket.onopen = null;
         friendshipSocket.onclose = null;
@@ -25,18 +24,22 @@ function initializeWebSocket() {
         console.log('initializeWebSocket: Closed stale connection');
     }
 
+    currentUsername = localStorage.getItem('username') || null; // Refresh username
+    if (!currentUsername) {
+        console.warn('initializeWebSocket: No username in localStorage, may fail authentication');
+    }
+
     const wHost = window.location.host;
     const wsUrl = `wss://${wHost}/ws/friendship/`;
     console.log('initializeWebSocket: Connecting to:', wsUrl);
 
     friendshipSocket = new WebSocket(wsUrl);
 
-    // Return a promise that resolves when connected
     return new Promise((resolve, reject) => {
         friendshipSocket.onopen = () => {
             console.log('initializeWebSocket: Connection opened successfully');
             reconnectAttempts = 0;
-            processPendingActions(); // Execute any queued actions
+            processPendingActions();
             resolve();
         };
 
@@ -44,7 +47,7 @@ function initializeWebSocket() {
             console.log('initializeWebSocket: Connection closed:', { code: e.code, reason: e.reason });
             friendshipSocket = null;
             if (localStorage.getItem('isAuthenticated') === 'true' && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-                const delay = BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts); // Exponential backoff
+                const delay = BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts);
                 console.log(`initializeWebSocket: Scheduling reconnect in ${delay}ms (attempt ${reconnectAttempts + 1})`);
                 setTimeout(() => {
                     reconnectAttempts++;
@@ -59,7 +62,7 @@ function initializeWebSocket() {
             console.error('initializeWebSocket: Error:', error);
             reject(error);
             if (friendshipSocket) {
-                friendshipSocket.close(); // Trigger onclose
+                friendshipSocket.close();
             }
         };
 
@@ -190,29 +193,37 @@ function acceptFriendRequest(friendUsername) {
     return queueAction(action);
 }
 
-function rejectFriendRequest(friendUsername) {
-    const action = () => {
+async function rejectFriendRequest(friendUsername) {
+    if (!isConnected()) {
+        console.error('WebSocket not connected, cannot reject friend request');
+        return false;
+    }
+    return new Promise((resolve) => {
         friendshipSocket.send(JSON.stringify({
             type: 'reject_friend_request',
             friend_username: friendUsername
         }));
-        return new Promise((resolve) => {
-            const handleMessage = (event) => {
-                const data = JSON.parse(event.data);
-                if (data.type === 'friend_request_rejected' && data.friend_username === friendUsername) {
-                    friendshipSocket.removeEventListener('message', handleMessage);
-                    resolve({ message: data.message || 'Friend request rejected' });
-                } else if (data.type === 'friend_request_error' && data.friend_username === friendUsername) {
-                    friendshipSocket.removeEventListener('message', handleMessage);
-                    resolve({ error: data.error || 'Failed to reject friend request' });
-                }
-            };
-            friendshipSocket.addEventListener('message', handleMessage);
-        });
-    };
-    return queueAction(action);
-}
+        // Resolve only after confirmation (handled in WebSocket listener)
+        const timeout = setTimeout(() => {
+            console.error(`No response for reject_friend_request to ${friendUsername} within 5s`);
+            resolve(false);
+        }, 5000);
 
+        const listener = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === 'friend_request_rejected' && data.friend_username === friendUsername) {
+                clearTimeout(timeout);
+                friendshipSocket.removeEventListener('message', listener);
+                resolve(true);
+            } else if (data.type === 'friend_request_error' && data.friend_username === friendUsername) {
+                clearTimeout(timeout);
+                friendshipSocket.removeEventListener('message', listener);
+                resolve(false);
+            }
+        };
+        friendshipSocket.addEventListener('message', listener);
+    });
+}
 function cancelFriendRequest(friendUsername) {
     const action = () => {
         friendshipSocket.send(JSON.stringify({

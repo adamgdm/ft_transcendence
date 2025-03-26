@@ -544,7 +544,7 @@ async def game_update(game_id):
             ).first()
             if tournament:
                 # Only update blockchain if blockchain_match_id exists
-                if pongMatch.blockchain_match_id:
+                if pongMatch.blockchain_match_id is not None:
                     try:
                         blockchain.updateMatchScore(
                             tournament.blockchain_tournament_id,

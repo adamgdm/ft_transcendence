@@ -264,128 +264,148 @@ export function storyActions() {
         });
     });
 
-    // Event listener for submitting the LOGIN form
-    loginForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-    
-        const email = loginForm.querySelector('#login-email').value;
-        const pass = loginForm.querySelector('#login-passwd').value;
-        emmail = email; // Assuming this is a global variable for later use
-    
-        const loginData = {
-            login: email,
-            password: pass,
-        };
-    
-        // Show loading message immediately
-        showError(loginModal, 'Logging in...', true);
-        const submitButton = loginForm.querySelector('input[type="submit"]');
-        submitButton.disabled = true; // Disable button to prevent multiple submissions
-    
-        try {
-            const response = await fetch('/api/login/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(loginData),
-                credentials: 'include',
-            });
-    
-            const data = await response.json();
-    
-            if (!response.ok) {
-                // Handle specific backend errors
-                const errorMessage = data.error || 'Login failed. Please try again.';
-                showError(loginModal, errorMessage, false);
-                submitButton.disabled = false;
-                return;
-            }
-    
-            // Success case
-            if (response.status === 205) {
-                // OTP required case
-                showError(loginModal, 'Login successful! Sending OTP...', true);
-                    hideModal(loginModal);
-                    const otpVerificationMailText = otpVerificationModal.querySelector('.otpverification-mail-text');
-                    otpVerificationMailText.textContent = email;
-                    displayModal(otpVerificationModal);
-                    submitButton.disabled = false;
-            } else if (response.status === 200) {
-                showError(loginModal, 'Login successful! Redirecting...', true);
-                initializeWebSocket();
-                setTimeout(() => {
-                    if (isConnected()) {
-                        window.isAuthenticated = true;
-                        window.location.hash = 'home';
-                    } else {
-                        console.error('WebSocket not initialized, navigation aborted');
-                        alert('Failed to initialize connection, please try again');
-                    }
-                }, 1000); // Wait briefly to ensure WebSocket connects
-                loginForm.reset();
-                hideModal(loginModal);
-                submitButton.disabled = false;
-            }
-    
-        } catch (error) {
-            showError(loginModal, 'Network error. Please check your connection and try again.', false);
-            submitButton.disabled = false;
+// Event listener for submitting the LOGIN form
+loginForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    const email = loginForm.querySelector('#login-email').value;
+    const pass = loginForm.querySelector('#login-passwd').value;
+    emmail = email;
+
+    const logiina = {
+        login: email,
+        password: pass,
+    };
+
+    fetch('/api/login/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(logiina),
+        credentials: 'include',
+    })
+    .then(response => {
+        console.log('Response status:', response.status);
+        if (response.status === 205) {
+            hideModal(loginModal);
+            displayModal(otpVerificationModal);
+            return null;
+        } else if (response.status !== 200) {
+            throw new Error('Network response was not ok');
         }
-    });
+        return response.json();
+    })
+    .then(data => {
+        if (data == null) return;
 
-    // Event listener for submitting the OTP VERIFICATION form
-    otpVerificationForm.addEventListener('submit', (e) => {
-        e.preventDefault();
+        console.log('Login successful:', data);
+        localStorage.setItem('isAuthenticated', 'true');
+        localStorage.setItem('username', data.user_name || email);
+        window.isAuthenticated = true;
 
-        const verifCode = [];
-        for (let i = 1; i <= 6; i++) {
-            const num = otpVerificationForm.querySelector(`[name="num-${i}"]`).value;
-            verifCode.push(num);
-        }
-
-        const otpInfos = {
-            login: emmail,
-            otp: verifCode.join(''),
-        };
-
-        console.log(otpInfos.otp);
-        console.log(verifCode);
-
-        fetch('/api/login_otp/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(otpInfos),
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log("Login informations:  " + otpInfos.emmail + "  " + otpInfos.otp);
-            console.log('Success:', data);
-            if (data.message === 'Login successful') {
-                isVerificationSuccessful = true;
-                hideModal(otpVerificationModal);
-
-                // Initialize WebSocket and only navigate if connected
-                initializeWebSocket();
-                setTimeout(() => {
-                    if (isConnected()) {
-                        window.isAuthenticated = true;
+        initializeWebSocket().then(() => {
+            if (isConnected()) {
+                hideModal(loginModal); // Move this here to ensure modal closes before routing
+                // Wait for DOM to be ready
+                if (document.readyState === 'complete') {
+                    window.location.hash = 'home';
+                    window.routeToPage('home');
+                } else {
+                    window.addEventListener('DOMContentLoaded', () => {
                         window.location.hash = 'home';
-                    } else {
-                        console.error('WebSocket not initialized, navigation aborted');
-                        alert('Failed to initialize connection, please try again');
-                    }
-                }, 1000); // Wait briefly to ensure WebSocket connects
+                        window.routeToPage('home');
+                    }, { once: true });
+                }
             } else {
-                console.error('Error:', data.error);
+                console.error('WebSocket not initialized, navigation aborted');
+                alert('Failed to initialize connection, please try again');
+                localStorage.setItem('isAuthenticated', 'false');
+                window.isAuthenticated = false;
             }
-        })
-        .catch(error => console.error('Error:', error));
-
-        otpVerificationForm.reset();
+        }).catch(err => {
+            console.error('WebSocket initialization failed:', err);
+            alert('Failed to initialize connection: ' + err.message);
+            localStorage.setItem('isAuthenticated', 'false');
+            window.isAuthenticated = false;
+        });
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Login failed: ' + error.message);
     });
+
+    loginForm.reset();
+});
+
+// Event listener for submitting the OTP VERIFICATION form
+otpVerificationForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    const verifCode = [];
+    for (let i = 1; i <= 6; i++) {
+        const num = otpVerificationForm.querySelector(`[name="num-${i}"]`).value;
+        verifCode.push(num);
+    }
+
+    const otpInfos = {
+        login: emmail,
+        otp: verifCode.join(''),
+    };
+
+    fetch('/api/login_otp/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(otpInfos),
+        credentials: 'include',
+    })
+    .then(response => {
+        if (response.status !== 200) throw new Error('OTP verification failed');
+        return response.json();
+    })
+    .then(data => {
+        console.log('Success:', data);
+        if (data.message === 'Login successful') {
+            isVerificationSuccessful = true;
+            localStorage.setItem('isAuthenticated', 'true');
+            localStorage.setItem('username', emmail);
+            window.isAuthenticated = true;
+
+            initializeWebSocket().then(() => {
+                if (isConnected()) {
+                    hideModal(otpVerificationModal);
+                    // Wait for DOM to be ready
+                    if (document.readyState === 'complete') {
+                        window.location.hash = 'home';
+                        window.routeToPage('home');
+                    } else {
+                        window.addEventListener('DOMContentLoaded', () => {
+                            window.location.hash = 'home';
+                            window.routeToPage('home');
+                        }, { once: true });
+                    }
+                } else {
+                    console.error('WebSocket not initialized, navigation aborted');
+                    alert('Failed to initialize connection, please try again');
+                    localStorage.setItem('isAuthenticated', 'false');
+                    window.isAuthenticated = false;
+                }
+            }).catch(err => {
+                console.error('WebSocket initialization failed:', err);
+                alert('Failed to initialize connection: ' + err.message);
+                localStorage.setItem('isAuthenticated', 'false');
+                window.isAuthenticated = false;
+            });
+        } else {
+            console.error('Error:', data.error);
+            alert('OTP verification failed: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('OTP verification failed: ' + error.message);
+    });
+
+    otpVerificationForm.reset();
+});
 
     // Auto-focus functionality for OTP verification inputs
     const otpInputs = otpVerificationForm.querySelectorAll('.form-input');
