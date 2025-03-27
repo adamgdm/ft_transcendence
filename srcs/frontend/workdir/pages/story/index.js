@@ -128,20 +128,17 @@ export function storyActions() {
     })
 
     // Event listener for submitting the signup form
-    signupForm.addEventListener('submit', (e) => {
+    signupForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-
-        const firstname = signupForm.querySelector('[name="fname"]').value;
-        const lastname = signupForm.querySelector('[name="lname"]').value;
-        const username = signupForm.querySelector('[name="uname"]').value;
-        const email = signupForm.querySelector('[name="email"]').value;
-        emmail = email;
+    
+        const firstname = signupForm.querySelector('[name="fname"]').value.toLowerCase();
+        const lastname = signupForm.querySelector('[name="lname"]').value.toLowerCase();
+        const username = signupForm.querySelector('[name="uname"]').value.toLowerCase();
+        const email = signupForm.querySelector('[name="email"]').value.toLowerCase();
         const passwd = signupForm.querySelector('[name="passwd"]').value;
-
-        const newUser = new User(firstname, lastname, username, email, passwd);
-        users.push(newUser);
-        users.forEach(usr => usr.printInfo());
-
+        emmail = email
+        
+    
         const userData = {
             first_name: firstname,
             last_name: lastname,
@@ -150,58 +147,100 @@ export function storyActions() {
             password: passwd,
         };
 
-        fetch('/api/register/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(userData),
-        })
-        .then(response => response.json())
-        .then(data => console.log('Success:', data))
-        .catch(error => console.error('Error:', error));
-
-        signupForm.reset();
-        hideModal(signupModal);
-
-        const verificationMailText = vefiricationModal.querySelector('.verification-mail-text');
-        verificationMailText.textContent = email;
-        displayModal(vefiricationModal);
+        showError(signupModal, 'Processing your registration...', true);
+        const submitButton = signupForm.querySelector('input[type="submit"]');
+        submitButton.disabled = true;
+        try {
+            const response = await fetch('/api/register/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(userData),
+            });
+    
+            const data = await response.json();
+    
+            if (!response.ok) {
+                const errorMessage = data.error || 'An unexpected error occurred';
+                showError(signupModal, errorMessage, false);
+                submitButton.disabled = false;
+                return; 
+            }
+    
+            showError(signupModal, 'Registration successful! Redirecting to verification...', true);
+    
+            setTimeout(() => {
+                const newUser = new User(firstname, lastname, username, email, passwd);
+                users.push(newUser);
+                users.forEach(usr => usr.printInfo());
+    
+                signupForm.reset();
+                
+                const verificationMailText = vefiricationModal.querySelector('.verification-mail-text');
+                hideModal(signupModal);
+                verificationMailText.textContent = email;
+                displayModal(vefiricationModal);
+                submitButton.disabled = false;
+            }, 1500);
+    
+        } catch (error) {
+            showError(signupModal, 'Network error. Please check your connection and try again.', false);
+            submitButton.disabled = false;
+        }
     });
 
     // Event listener for submitting the VERIFICATION form
-    vefiricationForm.addEventListener('submit', (e) => {
+    vefiricationForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+    
         const verifCode = [];
         for (let i = 1; i <= 6; i++) {
             const num = vefiricationForm.querySelector(`[name="num-${i}"]`).value;
             verifCode.push(num);
         }
-
-        const verfiInfos = {
+    
+        const verifInfos = {
             email: emmail,
             code: verifCode.join(''),
         };
-
-        console.log(verfiInfos.code);
-        console.log(verifCode);
-
-        fetch('/api/verify_email/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(verfiInfos),
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log('Success:', data);
-            isVerificationSuccessful = true;
-            hideModal(vefiricationModal);
-        })
-        .catch(error => console.error('Error:', error));
-
-        vefiricationForm.reset();
+        console.log(verifInfos)
+    
+        showError(vefiricationModal, 'Verifying your code...', true);
+        const submitButton = vefiricationForm.querySelector('input[type="submit"]');
+        submitButton.disabled = true;
+    
+        try {
+            const response = await fetch('/api/verify_email/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(verifInfos),
+            });
+    
+            const data = await response.json();
+    
+            if (!response.ok) {
+                const errorMessage = data.error || 'Verification failed. Please try again.';
+                showError(vefiricationModal, errorMessage, false);
+                submitButton.disabled = false;
+                return;
+            }
+    
+            showError(vefiricationModal, 'Email verified successfully! Closing...', true);
+    
+            setTimeout(() => {
+                isVerificationSuccessful = true;
+                vefiricationForm.reset();
+                hideModal(vefiricationModal);
+                submitButton.disabled = false;
+            }, 1500);
+    
+        } catch (error) {
+            showError(vefiricationModal, 'Network error. Please check your connection and try again.', false);
+            submitButton.disabled = false;
+        }
     });
 
     // Auto-focus functionality for verification inputs
@@ -229,7 +268,7 @@ export function storyActions() {
 loginForm.addEventListener('submit', (e) => {
     e.preventDefault();
 
-    const email = loginForm.querySelector('#login-email').value;
+    const email = loginForm.querySelector('#login-email').value.toLowerCase();
     const pass = loginForm.querySelector('#login-passwd').value;
     emmail = email;
 
@@ -245,13 +284,13 @@ loginForm.addEventListener('submit', (e) => {
         credentials: 'include',
     })
     .then(response => {
-        console.log('Response status:', response.status);
         if (response.status === 205) {
             hideModal(loginModal);
             displayModal(otpVerificationModal);
+            loginForm.reset();
             return null;
         } else if (response.status !== 200) {
-            throw new Error('Network response was not ok');
+            throw new Error('Invalid informations');
         }
         return response.json();
     })
@@ -259,9 +298,11 @@ loginForm.addEventListener('submit', (e) => {
         if (data == null) return;
 
         console.log('Login successful:', data);
+        showError(loginModal, 'Login successful:', true)
         localStorage.setItem('isAuthenticated', 'true');
         localStorage.setItem('username', data.user_name || email);
         window.isAuthenticated = true;
+        loginForm.reset();
 
         initializeWebSocket().then(() => {
             if (isConnected()) {
@@ -278,27 +319,25 @@ loginForm.addEventListener('submit', (e) => {
                 }
             } else {
                 console.error('WebSocket not initialized, navigation aborted');
-                alert('Failed to initialize connection, please try again');
+                showError(loginModal, 'Failed to initialize connection, please try again', false)
                 localStorage.setItem('isAuthenticated', 'false');
                 window.isAuthenticated = false;
             }
         }).catch(err => {
             console.error('WebSocket initialization failed:', err);
-            alert('Failed to initialize connection: ' + err.message);
+            showError(loginModal, 'Failed to initialize connection: ' + err.message, false);
             localStorage.setItem('isAuthenticated', 'false');
             window.isAuthenticated = false;
         });
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Login failed: ' + error.message);
+        showError(loginModal,'Login failed: ' + error.message, false);
     });
-
-    loginForm.reset();
 });
 
 // Event listener for submitting the OTP VERIFICATION form
-otpVerificationForm.addEventListener('submit', (e) => {
+otpVerificationForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const verifCode = [];
@@ -308,64 +347,76 @@ otpVerificationForm.addEventListener('submit', (e) => {
     }
 
     const otpInfos = {
-        login: emmail,
+        login: emmail, // Assuming 'emmail' is a global variable from login
         otp: verifCode.join(''),
     };
 
-    fetch('/api/login_otp/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(otpInfos),
-        credentials: 'include',
-    })
-    .then(response => {
-        if (response.status !== 200) throw new Error('OTP verification failed');
-        return response.json();
-    })
-    .then(data => {
-        console.log('Success:', data);
+    // Show loading message immediately
+    showError(otpVerificationModal, 'Verifying OTP...', true);
+    const submitButton = otpVerificationForm.querySelector('input[type="submit"]')
+    submitButton.disabled = true;
+
+    try {
+        const response = await fetch('/api/login_otp/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(otpInfos),
+            credentials: 'include',
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            // Show specific backend error
+            const errorMessage = data.error || 'OTP verification failed. Please try again.';
+            showError(otpVerificationModal, errorMessage, false);
+            submitButton.disabled = false;
+            return;
+        }
+
+        // Success case
         if (data.message === 'Login successful') {
-            isVerificationSuccessful = true;
+            showError(otpVerificationModal, 'OTP verified successfully! Logging in...', true);
             localStorage.setItem('isAuthenticated', 'true');
             localStorage.setItem('username', emmail);
             window.isAuthenticated = true;
 
-            initializeWebSocket().then(() => {
-                if (isConnected()) {
-                    hideModal(otpVerificationModal);
-                    // Wait for DOM to be ready
-                    if (document.readyState === 'complete') {
-                        window.location.hash = 'home';
-                        window.routeToPage('home');
-                    } else {
-                        window.addEventListener('DOMContentLoaded', () => {
+            try {
+                await initializeWebSocket();
+                setTimeout(() => {
+                    if (isConnected()) {
+                        otpVerificationForm.reset();
+                        hideModal(otpVerificationModal);
+                        if (document.readyState === 'complete') {
                             window.location.hash = 'home';
                             window.routeToPage('home');
-                        }, { once: true });
+                        } else {
+                            window.addEventListener('DOMContentLoaded', () => {
+                                window.location.hash = 'home';
+                                window.routeToPage('home');
+                            }, { once: true });
+                        }
+                    } else {
+                        showError(otpVerificationModal, 'Failed to initialize connection, please try again', false);
+                        localStorage.setItem('isAuthenticated', 'false');
+                        window.isAuthenticated = false;
+                        submitButton.disabled = false;
                     }
-                } else {
-                    console.error('WebSocket not initialized, navigation aborted');
-                    alert('Failed to initialize connection, please try again');
-                    localStorage.setItem('isAuthenticated', 'false');
-                    window.isAuthenticated = false;
-                }
-            }).catch(err => {
-                console.error('WebSocket initialization failed:', err);
-                alert('Failed to initialize connection: ' + err.message);
+                }, 1500); // 1.5-second delay for success message visibility (matches email verification)
+            } catch (err) {
+                showError(otpVerificationModal, 'Failed to initialize connection: ' + err.message, false);
                 localStorage.setItem('isAuthenticated', 'false');
                 window.isAuthenticated = false;
-            });
-        } else {
-            console.error('Error:', data.error);
-            alert('OTP verification failed: ' + data.error);
+                submitButton.disabled = false;
+            }
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('OTP verification failed: ' + error.message);
-    });
 
-    otpVerificationForm.reset();
+    } catch (error) {
+        // Handle network errors
+        showError(otpVerificationModal, 'Network error. Please check your connection and try again.', false);
+        submitButton.disabled = false;
+        console.error('Fetch error:', error);
+    }
 });
 
     // Auto-focus functionality for OTP verification inputs
@@ -433,8 +484,7 @@ otpVerificationForm.addEventListener('submit', (e) => {
         
         // Send verification code button
         document.getElementById("sendCode").addEventListener("click", async () => {
-            const email = document.getElementById("forgot-mail").value;
-
+            const email = document.getElementById("forgot-mail").value.toLowerCase();
             if (!email || !isValidEmail(email)) {
                 console.log("Please enter a valid email address");
                 showError(forgotPassModal, "Please enter a valid email address", false);
@@ -467,9 +517,8 @@ otpVerificationForm.addEventListener('submit', (e) => {
 
         // Verify code button
         document.getElementById("verifyCode").addEventListener("click", async () => {
-            const email = document.getElementById("forgot-mail").value;
+            const email = document.getElementById("forgot-mail").value.toLowerCase();
             const otp = document.getElementById("reset-code").value;
-
             if (!email || !otp) {
                 showError(forgotPassModal, "Please enter your email and OTP.", false);
                 return;
@@ -504,10 +553,10 @@ otpVerificationForm.addEventListener('submit', (e) => {
 
         // Reset password button
         document.getElementById("resetPassword").addEventListener("click", async () => {
-            const email = document.getElementById("forgot-mail").value;
+            const email = document.getElementById("forgot-mail").value.toLowerCase();
             const newPassword = document.getElementById("new-password").value;
             const confirmPassword = document.getElementById("confirm-password").value;
-            
+
 
             if (newPassword !== confirmPassword) {
                 showError(forgotPassModal, "Passwords do not match.", false);

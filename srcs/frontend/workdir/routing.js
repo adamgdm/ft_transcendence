@@ -882,18 +882,28 @@ async function setupNotificationBar() {
         console.warn('setupNotificationBar: Notification bar not found');
         return;
     }
+    const notifContainer = notifBar.querySelector('.notif-container');
+    if (!notifContainer) {
+        console.warn('setupNotificationBar: .notif-container not found');
+        return;
+    }
 
     const renderNotifications = () => {
-        notifBar.innerHTML = '';
+        notifContainer.innerHTML = ''; // Clear only the container
 
-        if (pendingReceivedRequests.size === 0 && receivedInvites.length === 0) {
-            notifBar.innerHTML = '<p>No pending notifications</p>';
+        
+
+        const hasPendingNotifications = pendingReceivedRequests.size > 0 || 
+                                   receivedInvites.some(i => i.status === 'pending');
+
+        if (!hasPendingNotifications) {
+            notifContainer.innerHTML = '<p>No pending notifications</p>';
             return;
         }
 
         for (let [requestId, fromUsername] of pendingReceivedRequests) {
             const notifItem = document.createElement('div');
-            notifItem.classList.add('notification-item');
+            notifItem.classList.add('notif-item'); // Or 'notif-item' to match CSS
             notifItem.innerHTML = `
                 <span class="notif-text">${fromUsername} sent you a friend request.</span>
                 <button class="accept-btn">Accept</button>
@@ -911,23 +921,18 @@ async function setupNotificationBar() {
 
             const declineBtn = notifItem.querySelector('.decline-btn');
             declineBtn.onclick = async () => {
-                console.log(`Declining request from ${fromUsername}, ID: ${requestId}`);
                 const success = await rejectFriendRequest(fromUsername);
                 if (success) {
-                    // Wait for WebSocket confirmation instead of deleting immediately
                     console.log(`Awaiting backend confirmation for rejection of ${fromUsername}`);
-                } else {
-                    console.error(`Failed to send reject request for ${fromUsername}`);
                 }
             };
 
-            notifBar.appendChild(notifItem);
+            notifContainer.appendChild(notifItem);
         }
 
-        // Game invites unchanged
         for (let invite of receivedInvites.filter(i => i.status === 'pending')) {
             const notifItem = document.createElement('div');
-            notifItem.classList.add('notification-item');
+            notifItem.classList.add('notif-item'); // Or 'notif-item' to match CSS
             notifItem.innerHTML = `
                 <span class="notif-text">${invite.from_username} sent you a game invite.</span>
                 <button class="accept-btn">Accept</button>
@@ -946,7 +951,7 @@ async function setupNotificationBar() {
                 renderNotifications();
             };
 
-            notifBar.appendChild(notifItem);
+            notifContainer.appendChild(notifItem);
         }
     };
 
