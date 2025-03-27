@@ -1,5 +1,5 @@
 import { friendshipSocket } from "../../globalWebsocket.js";
-import { fetchFriendsList, fetchLogin, sentInvites, receivedInvites, tournamentId, invitedFriends, participantCount } from "../../routing.js";
+import { fetchFriendsList, fetchLogin, tournamentId, invitedFriends, participantCount } from "../../routing.js";
 
 let allFriends = [];
 
@@ -25,7 +25,7 @@ export async function setupMatchModes() {
         }
     }
 
-    // --- Fetch Sent Invites ---
+    // --- Fetch Invite Helpers ---
     async function fetchSentInvites() {
         try {
             const response = await fetch('api/get_game_invites_sent/', {
@@ -35,9 +35,25 @@ export async function setupMatchModes() {
             });
             if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
             const data = await response.json();
-            return data.sent_invites || []; // Adjust based on your API response structure
+            return data.sent_invites || [];
         } catch (error) {
             console.error('Error fetching sent invites:', error);
+            return [];
+        }
+    }
+
+    async function fetchReceivedInvites() {
+        try {
+            const response = await fetch('api/get_game_invites_received/', { // Adjust endpoint as needed
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+            });
+            if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+            const data = await response.json();
+            return data.received_invites || [];
+        } catch (error) {
+            console.error('Error fetching received invites:', error);
             return [];
         }
     }
@@ -77,33 +93,44 @@ export async function setupMatchModes() {
     async function renderFriends(friends, query) {
         if (!friendsList) return;
         friendsList.innerHTML = '';
+
+        // Fetch latest invites on every render
+        const latestSentInvites = await fetchSentInvites();
+        const latestReceivedInvites = await fetchReceivedInvites();
+
         const filteredFriends = friends.filter(friend => friend.username.toLowerCase().startsWith(query));
         if (filteredFriends.length === 0) {
             friendsList.innerHTML = '<li>No friends found</li>';
             return;
         }
 
-        // Fetch the latest sent invites from the API
-        const apiSentInvites = await fetchSentInvites();
-        const pendingSent = new Set(apiSentInvites.filter(i => i.status === 'pending').map(i => i.to_username));
-        const acceptedSent = new Map(apiSentInvites.filter(i => i.status === 'accepted' && i.game_id && i.game_mode !== 'tournament').map(i => [i.to_username, { game_id: i.game_id }]));
-        const inviteStatus = new Map(receivedInvites.map(i => [i.from_username, i]));
+        const pendingSent = new Set(latestSentInvites.filter(i => i.status === 'pending').map(i => i.to_username));
+        const activeGames = new Map(
+            latestSentInvites
+                .filter(i => i.status === 'accepted' && i.game_id && i.game_mode !== 'tournament' && !i.game_played)
+                .map(i => [i.to_username, { game_id: i.game_id }])
+        );
+        const inviteStatus = new Map(
+            latestReceivedInvites
+                .filter(i => i.status === 'pending' || (i.status === 'accepted' && i.game_id && !i.game_played))
+                .map(i => [i.from_username, i])
+        );
 
         filteredFriends.forEach(friend => {
             const li = document.createElement('li');
             li.textContent = friend.username;
 
             const receivedInvite = inviteStatus.get(friend.username);
-            const acceptedSentInvite = acceptedSent.get(friend.username);
-            const hasSentInvite = pendingSent.has(friend.username);
+            const activeGame = activeGames.get(friend.username);
+            const hasPendingSentInvite = pendingSent.has(friend.username);
 
-            if (acceptedSentInvite || (receivedInvite?.status === 'accepted' && receivedInvite.game_id && receivedInvite.game_mode !== 'tournament')) {
+            if (activeGame || (receivedInvite?.status === 'accepted' && receivedInvite.game_id)) {
                 const joinBtn = document.createElement('button');
                 joinBtn.textContent = 'Join Game';
                 joinBtn.classList.add('join-btn');
                 const joinHandler = (e) => {
                     e.stopPropagation();
-                    const gameId = acceptedSentInvite?.game_id || receivedInvite.game_id;
+                    const gameId = activeGame?.game_id || receivedInvite.game_id;
                     const state = { game_id: gameId, user: currentUsername };
                     history.pushState(state, "", "#game");
                     window.routeToPage('game');
@@ -141,27 +168,23 @@ export async function setupMatchModes() {
                 li.appendChild(refuseBtn);
                 cleanupFunctions.push(() => acceptBtn.removeEventListener('click', acceptHandler));
                 cleanupFunctions.push(() => refuseBtn.removeEventListener('click', refuseHandler));
-            } else {
+            } else if (!hasPendingSentInvite) {
                 const inviteBtn = document.createElement('button');
-                inviteBtn.textContent = hasSentInvite ? 'Pending' : 'Invite';
+                inviteBtn.textContent = 'Invite';
                 inviteBtn.classList.add('invite-btn');
-                if (hasSentInvite) {
-                    inviteBtn.disabled = true; // Disable if invite is already sent
-                } else {
-                    const inviteHandler = (e) => {
-                        e.stopPropagation();
-                        inviteBtn.disabled = true;
-                        inviteBtn.textContent = 'Pending';
-                        sendWebSocketMessage({
-                            type: 'send_game_invite',
-                            to_username: friend.username,
-                            game_mode: 'online'
-                        });
-                    };
-                    inviteBtn.addEventListener('click', inviteHandler, { once: true }); // Only allow one click
-                    cleanupFunctions.push(() => inviteBtn.removeEventListener('click', inviteHandler));
-                }
+                const inviteHandler = (e) => {
+                    e.stopPropagation();
+                    inviteBtn.disabled = true;
+                    inviteBtn.textContent = 'Pending';
+                    sendWebSocketMessage({
+                        type: 'send_game_invite',
+                        to_username: friend.username,
+                        game_mode: 'online'
+                    });
+                };
+                inviteBtn.addEventListener('click', inviteHandler, { once: true });
                 li.appendChild(inviteBtn);
+                cleanupFunctions.push(() => inviteBtn.removeEventListener('click', inviteHandler));
             }
             friendsList.appendChild(li);
         });
@@ -216,14 +239,21 @@ export async function setupMatchModes() {
     const tournFriendSearch = document.querySelector('#tournFriendSearch');
     const tournFriendsList = document.querySelector('#tournFriendsList');
 
-    function renderTournamentFriends(friends, query) {
+    async function renderTournamentFriends(friends, query) {
         if (!tournFriendsList) return;
         tournFriendsList.innerHTML = '';
+
+        const latestSentInvites = await fetchSentInvites();
+        const latestReceivedInvites = await fetchReceivedInvites();
+
+        const pendingSent = new Set(latestSentInvites.filter(i => i.status === 'pending' && i.game_mode === 'tournament').map(i => i.to_username));
         const filteredFriends = friends.filter(f => 
             f.username.toLowerCase().startsWith(query) && 
             f.username !== currentUsername && 
-            !invitedFriends.has(f.username)
+            !invitedFriends.has(f.username) && 
+            !pendingSent.has(f.username)
         );
+
         if (!filteredFriends.length && !invitedFriends.size) {
             tournFriendsList.innerHTML = '<li>No friends available to invite</li>';
             return;
@@ -286,7 +316,7 @@ export async function setupMatchModes() {
                 startTournBtn.disabled = true;
             }
             if (!allFriends.length) allFriends = await fetchFriendsList();
-            renderTournamentFriends(allFriends, tournFriendSearch.value.trim().toLowerCase());
+            await renderTournamentFriends(allFriends, tournFriendSearch.value.trim().toLowerCase());
             tournFriendsList.style.display = 'block';
         };
         startTournBtn.addEventListener('click', startTournHandler);
@@ -294,13 +324,13 @@ export async function setupMatchModes() {
 
         const focusHandler = async () => {
             if (!allFriends.length) allFriends = await fetchFriendsList();
-            renderTournamentFriends(allFriends, tournFriendSearch.value.trim().toLowerCase());
+            await renderTournamentFriends(allFriends, tournFriendSearch.value.trim().toLowerCase());
             tournFriendsList.style.display = 'block';
         };
         const blurHandler = () => setTimeout(() => {
             if (!tournFriendsList.contains(document.activeElement)) tournFriendsList.style.display = 'none';
         }, 100);
-        const inputHandler = debounce(() => renderTournamentFriends(allFriends, tournFriendSearch.value.trim().toLowerCase()), 300);
+        const inputHandler = debounce(async () => await renderTournamentFriends(allFriends, tournFriendSearch.value.trim().toLowerCase()), 300);
 
         tournFriendSearch.addEventListener('focus', focusHandler);
         tournFriendSearch.addEventListener('blur', blurHandler);
@@ -311,9 +341,9 @@ export async function setupMatchModes() {
             tournFriendSearch.removeEventListener('input', inputHandler);
         });
 
-        const debouncedTournGameStateHandler = debounce(() => {
+        const debouncedTournGameStateHandler = debounce(async () => {
             if (tournFriendsList.style.display === 'block') {
-                renderTournamentFriends(allFriends, tournFriendSearch.value.trim().toLowerCase());
+                await renderTournamentFriends(allFriends, tournFriendSearch.value.trim().toLowerCase());
             }
         }, 300);
         window.addEventListener('gameStateUpdate', debouncedTournGameStateHandler);

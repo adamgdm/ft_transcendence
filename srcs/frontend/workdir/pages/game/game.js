@@ -23,9 +23,10 @@ export async function game() {
     let websocket = null;
     let gameId = history.state?.game_id;
     let player = history.state?.user;
-    let gameMode = null; // 'local' or 'online'
+    let gameMode = null;
     let reconnectionAttempts = 0;
     const maxReconnectionAttempts = 5;
+    let opponentName = null;
 
     if (!player) {
         player = await fetchLogin();
@@ -272,6 +273,7 @@ export async function game() {
         keyState = {};
         gameMode = null;
         reconnectionAttempts = 0;
+        opponentName = null;
 
         document.removeEventListener('keydown', handleKeyDown);
         document.removeEventListener('keyup', handleKeyUp);
@@ -305,7 +307,7 @@ export async function game() {
 
         if (myUsername) myUsername.textContent = player;
         if (myScore) myScore.textContent = score_1;
-        if (opponentUsername) opponentUsername.textContent = gameMode === 'local' ? "Local Opponent" : "Online Opponent";
+        if (opponentUsername) opponentUsername.textContent = opponentName || (gameMode === 'local' ? "Local Opponent" : "Online Opponent");
         if (opponentScore) opponentScore.textContent = score_2;
 
         const postGameMessage = document.querySelector(".Post-Game h2");
@@ -316,6 +318,11 @@ export async function game() {
         preGame.style.display = "none";
         canvas.style.display = "none";
         postGame.style.display = "flex";
+
+        setTimeout(() => {
+            window.location.hash = '#play';
+            window.routeToPage('play');
+        }, 5000);
 
         if (playAgain) {
             playAgain.addEventListener("click", () => {
@@ -350,14 +357,13 @@ export async function game() {
             return;
         }
 
-        let wHost = window.location.host
-        const wsUrl = `wss://${wHost}/ws/pong/${gameId}/`;
+        const wsUrl = `wss://${window.location.host}/ws/pong/${gameId}/`;
         console.log("Attempting to connect to WebSocket at:", wsUrl);
         websocket = new WebSocket(wsUrl);
 
         websocket.onopen = function () {
             console.log('WebSocket opened for player:', player);
-            reconnectionAttempts = 0; // Reset attempts on successful connection
+            reconnectionAttempts = 0;
             preGame.textContent = "Connected, waiting for game state...";
             websocket.send(JSON.stringify({ 'action': 'connect', 'player_id': player }));
             attachKeyListeners();
@@ -365,6 +371,8 @@ export async function game() {
 
         websocket.onmessage = function (event) {
             let game_state = JSON.parse(event.data);
+            console.log("WebSocket message:", game_state); // Debug incoming messages
+
             if (game_state.error) {
                 console.error("Server error:", game_state.error);
                 preGame.textContent = game_state.error === 'Game not found or not yet accepted'
@@ -377,48 +385,44 @@ export async function game() {
                 preGame.textContent = game_state.message;
             }
 
-            if (game_state.game_opponent) {
-                gameMode = game_state.game_opponent;
-            }
-
-            if (!initialStateReceived) {
+            if (game_state.type === 'initial_state' && !initialStateReceived) {
                 paddle1_x = game_state.paddle1_x;
                 paddle2_x = game_state.paddle2_x;
                 ball_bounds = game_state.ball_bounds;
                 paddle_bounds_x = game_state.paddle_bounds_x;
                 paddle_bounds_y = game_state.paddle_bounds_y;
+                gameMode = game_state.game_opponent;
+                opponentName = game_state.player_1 === player ? game_state.player_2 : game_state.player_1;
                 initialStateReceived = true;
                 preGame.style.display = "none";
                 canvas.style.display = "flex";
             }
 
-            if (game_state.score1 > score_1) {
-                score_1 = game_state.score1;
-                // if (score_1 === 7) {
-                //     const winner = "1";
-                //     cleanup(winner === player ? player : "Opponent");
-                // }
-            }
-            if (game_state.score2 > score_2) {
-                score_2 = game_state.score2;
-                // if (score_2 === 7) {
-                //     const winner = "2";
-                //     cleanup(winner === player ? player : "Opponent");
-                // }
+            // Update scores
+            if (game_state.score1 !== undefined) score_1 = game_state.score1;
+            if (game_state.score2 !== undefined) score_2 = game_state.score2;
+
+            // Check for game end
+            if (game_state.status === 'done') {
+                const winner = game_state.winner || (score_1 >= 7 ? game_state.player_1 : game_state.player_2);
+                console.log(`Game ended: winner=${winner}, scores=${score_1}-${score_2}`);
+                cleanup(winner);
+                return;
             }
 
+            // Only update game if still active
             updateAndDrawGame({
                 'ball_x': game_state.ball_x,
                 'ball_y': game_state.ball_y,
                 'paddle1_y': game_state.paddle1_y,
                 'paddle2_y': game_state.paddle2_y,
-                'score1': game_state.score1,
-                'score2': game_state.score2,
-                'paddle1_x': game_state.paddle1_x,
-                'paddle2_x': game_state.paddle2_x,
-                'ball_bounds': game_state.ball_bounds,
-                'paddle_bounds_x': game_state.paddle_bounds_x,
-                'paddle_bounds_y': game_state.paddle_bounds_y,
+                'score1': score_1,
+                'score2': score_2,
+                'paddle1_x': paddle1_x,
+                'paddle2_x': paddle2_x,
+                'ball_bounds': ball_bounds,
+                'paddle_bounds_x': paddle_bounds_x,
+                'paddle_bounds_y': paddle_bounds_y,
             });
         };
 
@@ -432,31 +436,28 @@ export async function game() {
             if (!initialStateReceived && reconnectionAttempts < maxReconnectionAttempts) {
                 reconnectionAttempts++;
                 preGame.textContent = `Connection lost, reconnecting (${reconnectionAttempts}/${maxReconnectionAttempts})...`;
-                setTimeout(() => connectWebSocket(), 1000 * reconnectionAttempts); // Exponential backoff
+                setTimeout(() => connectWebSocket(), 1000 * reconnectionAttempts);
             } else if (!initialStateReceived) {
                 preGame.textContent = "Failed to connect after multiple attempts, please refresh.";
                 setTimeout(() => {
                     window.location.hash = '#play';
                 }, 3000);
-            } else {
-                preGame.textContent = "Disconnected from game.";
-                preGame.style.display = "flex";
-                canvas.style.display = "none";
+            } else if (score_1 >= 7 || score_2 >= 7) {
+                const winner = score_1 >= 7 ? (player === game_state.player_1 ? player : opponentName) : (player === game_state.player_2 ? player : opponentName);
+                cleanup(winner);
             }
         };
     }
 
-    // Start WebSocket connection
     connectWebSocket();
 
-    // Timeout for initial state (adjusted for online games)
     setTimeout(() => {
         if (!initialStateReceived && (!websocket || websocket.readyState !== WebSocket.OPEN)) {
             console.warn("Initial state not received, attempting reconnection...");
             preGame.textContent = "Game not started yet, reconnecting...";
             connectWebSocket();
         }
-    }, gameMode === 'online' ? 10000 : 5000); // 10s for online, 5s for local
+    }, gameMode === 'online' ? 10000 : 5000);
 }
 
 export function cleanup() {

@@ -537,7 +537,7 @@ async def game_update(game_id):
 
             pongMatch.match_status = Match.MatchStatusChoices.DONE
             pongMatch.save()
-            game_info['status'] = 'Done'
+            game_info['status'] = 'done'
 
             tournament = Tournament.objects.filter(
                 Q(semifinal_1=pongMatch) | Q(semifinal_2=pongMatch) | Q(final=pongMatch)
