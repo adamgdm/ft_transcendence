@@ -146,6 +146,7 @@ export function storyActions() {
             email: email,
             password: passwd,
         };
+        console.log(userData)
 
         showError(signupModal, 'Processing your registration...', true);
         const submitButton = signupForm.querySelector('input[type="submit"]');
