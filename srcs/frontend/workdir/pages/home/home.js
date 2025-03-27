@@ -1,5 +1,69 @@
 import { pageCleanups, fetchFriendsList, friendsList as globalFriendsList, removeFriend } from "../../routing.js";
 
+function createMatchElement(yourData, opponentData) {
+    // main match container
+    const matchDiv = document.createElement('div');
+    matchDiv.className = 'match';
+    matchDiv.setAttribute('match', 'last');
+    
+    //"you" player section
+    const youPlayerDiv = document.createElement('div');
+    youPlayerDiv.className = 'player';
+    youPlayerDiv.setAttribute('player', 'you');
+
+    const youPicDiv = document.createElement('div');
+    youPicDiv.className = 'pic';
+    
+    const youImg = document.createElement('img');
+    youImg.src = yourData.pic || 'default-image.jpg'; // provided pic or fallback
+    youImg.alt = 'player image';
+    
+    const youName = document.createElement('h1');
+    youName.className = 'user';
+    youName.textContent = yourData.name || 'Unknown';
+    
+    const youScore = document.createElement('h1');
+    youScore.className = 'score';
+    youScore.textContent = yourData.score || 0;
+
+    // "you" section
+    youPicDiv.appendChild(youImg);
+    youPlayerDiv.appendChild(youPicDiv);
+    youPlayerDiv.appendChild(youName);
+    youPlayerDiv.appendChild(youScore);
+
+    // "opponent" player section
+    const opponentPlayerDiv = document.createElement('div');
+    opponentPlayerDiv.className = 'player';
+    opponentPlayerDiv.setAttribute('player', 'opponent');
+
+    const opponentScore = document.createElement('h1');
+    opponentScore.className = 'score';
+    opponentScore.textContent = opponentData.score || 0;
+    
+    const opponentName = document.createElement('h1');
+    opponentName.className = 'user';
+    opponentName.textContent = opponentData.name || 'Unknown';
+    
+    const opponentPicDiv = document.createElement('div');
+    opponentPicDiv.className = 'pic';
+    
+    const opponentImg = document.createElement('img');
+    opponentImg.src = opponentData.pic || 'default-image.jpg'; // Use provided pic or fallback
+    opponentImg.alt = 'player image';
+
+    // Assemble "opponent" section
+    opponentPicDiv.appendChild(opponentImg);
+    opponentPlayerDiv.appendChild(opponentScore);
+    opponentPlayerDiv.appendChild(opponentName);
+    opponentPlayerDiv.appendChild(opponentPicDiv);
+
+    // Assemble full match
+    matchDiv.appendChild(youPlayerDiv);
+    matchDiv.appendChild(opponentPlayerDiv);
+    return matchDiv;
+}
+
 export function home() {
     const fullName = document.querySelector('[profileElement="fullName"]');
     const userName = document.querySelector('[profileElement="userName"]');
@@ -8,7 +72,7 @@ export function home() {
     const win_ratio = document.querySelector('[profileElement="win_ratio"]');
     const matches_played = document.querySelector('[profileElement="matches_played"]');
     const profile_pic = document.querySelector('[profileElement="picture"] img');
-
+    const planet = document.querySelector('[profileElement="Planet"] img');
     // Use the global friendsList from routing.js
     let friendsList = globalFriendsList; // Reference the exported friendsList
     let allFriends = [];
@@ -158,16 +222,20 @@ export function home() {
     })
     .then(userData => {
         console.log('User Data:', userData);
-
+        
         if (fullName) {
             fullName.textContent = `${userData.first_name} ${userData.last_name}`;
         }
         if (userName) {
             userName.textContent = userData.user_name;
         }
+        if (planet) {
+            planet.src = userData.planet;
+        }
         if (ppp_rating) {
             ppp_rating.textContent = userData.ppp_rating;
         }
+
         if (player_title) {
             player_title.textContent = userData.title;
         }
@@ -183,11 +251,54 @@ export function home() {
                 image_path = "https://articles-images.sftcdn.net/wp-content/uploads/sites/3/2016/01/wallpaper-for-facebook-profile-photo.jpg";
             } else if (userData.has_42_image == true && userData.has_profile_pic == false) {
                 image_path = userData.profile_pic_42;
-            } else if (userData.has_42_image == false && userData.has_profile_pic == true) {
-                image_path = userData.profile_picture_url;
+            } else {
+                image_path = userData.profile_picture_url.url;//
             }
             profile_pic.src = image_path;
         }
+        const matchContainer = document.querySelector('.user-match-history');
+        
+        // Check if matches_history exists and has entries
+        if (userData.matches_history && userData.matches_history.length > 0) {
+            // Loop through all matches
+            userData.matches_history.forEach((match, index) => {
+                const first_player_data = {
+                    pic: match.player_1.image_path || 'https://articles-images.sftcdn.net/wp-content/uploads/sites/3/2016/01/wallpaper-for-facebook-profile-photo.jpg', // Fallback if image_path is missing
+                    name: match.player_1.user_name || 'Unknown',
+                    score: match.score_player_1 || 0
+                };
+
+                const opponent_data = {
+                    pic: match.player_2.image_path || 'https://articles-images.sftcdn.net/wp-content/uploads/sites/3/2016/01/wallpaper-for-facebook-profile-photo.jpg', // Fallback if image_path is missing
+                    name: match.player_2.user_name || 'Unknown',
+                    score: match.score_player_2 || 0
+                };
+
+                // Create and append match element
+                const matchElement = createMatchElement(first_player_data, opponent_data);
+                matchContainer.appendChild(matchElement);
+            });
+        } else {
+            // Handle case where there are no matches
+            const noMatches = document.createElement('p');
+            noMatches.textContent = 'No match history available.';
+            matchContainer.appendChild(noMatches);
+        }
+        // const latestMatch = userData.matches_history[0];
+        // const first_player_data = {
+        //     pic: latestMatch.player_1.image_path,//needs work and connecting with image_path
+        //     name: latestMatch.player_1.user_name,
+        //     score: latestMatch.score_player_1
+        // };
+
+        // const opponent_data = {
+        //     pic: latestMatch.player_2.image_path,//Needs more checks
+        //     name: latestMatch.player_2.user_name,
+        //     score: latestMatch.score_player_2
+        // };
+        // const matchContainer = document.querySelector('.user-match-history');    
+        // const matchElement = createMatchElement(first_player_data, opponent_data);
+        // matchContainer.appendChild(matchElement);
         setupFriendsModal(); // Call after profile data is loaded
     })
     .catch(error => {

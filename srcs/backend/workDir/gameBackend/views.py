@@ -6,6 +6,7 @@ from authentication.models import Users
 from django.views.decorators.csrf import csrf_exempt
 from asgiref.sync import sync_to_async
 from channels.db import database_sync_to_async
+from authentication.utils import update_ppp_ratings
 import time
 import asyncio
 import random
@@ -83,7 +84,7 @@ def create_game(request):
             games[game_id] = create_new_game(user_id.user_name, player.user_name, game_opponent)
             return JsonResponse({'message': 'Game created successfully', 'game_id': game_id, 'user': player.user_name}, status=201)
         except Exception as e:
-            return JsonResponse({'error': f'Failed to create game: {str(e)}'}, status=410)
+            return JsonResponse({'error': f'Failed to create game: {str(e)}'}, status=500)
     
     return JsonResponse({'error': 'Invalid request'}, status=400)
 
@@ -219,7 +220,7 @@ def accept_game_invite(request):
             game_id = str(game.id)
             games[game_id] = create_new_game(to_user.user_name, from_user.user_name, game_opponent)
         except Exception as e:
-            return JsonResponse({'error': f'Failed to create game: {str(e)}'}, status=410)
+            return JsonResponse({'error': f'Failed to create game: {str(e)}'}, status=500)
 
         # Update the invite with game_id and status
         invite.status = GameInvites.GameInviteStatus.ACCEPTED
@@ -532,12 +533,13 @@ async def game_update(game_id):
                 winner.matches_won += 1
                 winner.win_ratio = (winner.matches_won / winner.matches_played) * 100 if winner.matches_played > 0 else 0
                 loser.win_ratio = (loser.matches_won / loser.matches_played) * 100 if loser.matches_played > 0 else 0
+                update_ppp_ratings(winner, loser, 1)
                 winner.save()
                 loser.save()
 
             pongMatch.match_status = Match.MatchStatusChoices.DONE
             pongMatch.save()
-            game_info['status'] = 'done'
+            game_info['status'] = 'Done'
 
             tournament = Tournament.objects.filter(
                 Q(semifinal_1=pongMatch) | Q(semifinal_2=pongMatch) | Q(final=pongMatch)

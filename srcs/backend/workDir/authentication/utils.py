@@ -89,7 +89,7 @@ def send_2fa_email(mail, otp, choices):
     return True
 
 def calculate_ppp(player_rating, opps_rating, result, k_factor=32): #result is a bool
-    expected_score = 1 / (1 + 10 ** ((opponent_rating - player_rating) / 400))
+    expected_score = 1 / (1 + 10 ** ((opps_rating - player_rating) / 400))
     new_rating = player_rating + k_factor * (result - expected_score)
     return round(new_rating)
 

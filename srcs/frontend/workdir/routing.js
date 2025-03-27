@@ -4,10 +4,11 @@ import { home } from "./pages/home/home.js";
 import { setupMatchModes } from "./pages/play/play.js";
 import { users } from "./pages/users/users.js";
 import { settings } from "./pages/settings/settings.js";
+import { shop } from "./pages/shop/shop.js";
 import { storyActions } from "./pages/story/index.js";
 import { scrollAction } from "./pages/story/scroll.js";
 
-const authenticatedPages = ['home', 'settings', 'shop', 'play', 'game', 'users'];
+const authenticatedPages = ['home', 'settings', 'shop', 'play', 'game', 'shop', 'users'];
 
 // Friend-related state
 let pendingSentRequests = new Set();
@@ -768,7 +769,7 @@ function resetTournamentState() {
 }
 
 function isValidRoute(path) {
-    const validRoutes = ['story', 'home', 'play', 'shop', 'settings', '404', 'game', 'users'];
+    const validRoutes = ['story', 'home', 'play', 'shop', 'settings', '404', 'game', 'users', 'shop'];
     return validRoutes.includes(path);
 }
 
@@ -1292,6 +1293,9 @@ function executePageScripts(path, options = {}) {
         case "users":
             console.log('Calling users script with username:', options.username);
             cleanup = users(options.username);
+        case "shop":
+            shop();
+            cleanup = () => console.log('Cleaned up game_page');
             break;
     }
     if (cleanup) pageCleanups.set(path, cleanup);

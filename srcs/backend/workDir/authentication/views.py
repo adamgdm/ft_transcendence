@@ -409,6 +409,31 @@ def verifyToken(request):
 def profile(request):
     if request.method == 'GET':
         user = Users.objects.get(id=request.user_id)
+        matches = user.matches_history.all()
+        matches_history_data = [
+            {
+                'id': match.id,
+                'match_name': match.match_name,
+                'status': match.match_status,
+                'opponent': match.player_2.user_name if match.player_1 == user else match.player_1.user_name,
+                'player_1': {
+                    'user_name': match.player_1.user_name,
+                    'image_path': (match.player_1.profile_picture_url.url if match.player_1.profile_picture_url 
+                                 else match.player_1.profile_pic_42)
+                },
+                'player_2': {
+                    'user_name': match.player_2.user_name,
+                    'image_path': (match.player_2.profile_picture_url.url if match.player_2.profile_picture_url 
+                                 else match.player_2.profile_pic_42)
+                },
+                'score_player_1': match.score_player_1,
+                'score_player_2': match.score_player_2,
+                'winner': match.match_winner.user_name if match.match_winner else None,
+                'creation_date': match.match_creation_date,
+                'game_opponent': match.game_opponent
+            }
+            for match in matches
+        ]
         return JsonResponse({
             'user_name': user.user_name,
             'first_name': user.first_name,
@@ -429,21 +454,42 @@ def profile(request):
             'ppp_rating': user.ppp_rating,
             'title': user.title,
             'win_ratio': user.win_ratio,
-            'matches_played': user.matches_played
+            'matches_played': user.matches_played,
+            'matches_history': matches_history_data,
+            'planet': user.planet if user.planet else "assets/planets/p1.svg"
         }, status=200)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
-
-# const username = 'myUsername';  // The username to be sent
-# const url = `/api/endpoint?username=${encodeURIComponent(username)}`;
 @check_auth
 def another_user_profile(request):
     if request.method == 'GET':
         username = request.GET.get('username')
-        try:
-            user = Users.objects.get(user_name=username)
-        except Users.DoesNotExist:
-            return JsonResponse({'error': 'User not found'}, status=404)
+        user = Users.objects.get(user_name=username)
+        matches = user.matches_history.all()
+        matches_history_data = [
+            {
+                'id': match.id,
+                'match_name': match.match_name,
+                'status': match.match_status,
+                'opponent': match.player_2.user_name if match.player_1 == user else match.player_1.user_name,
+                'player_1': {
+                    'user_name': match.player_1.user_name,
+                    'image_path': (match.player_1.profile_picture_url.url if match.player_1.profile_picture_url 
+                                 else match.player_1.profile_pic_42)
+                },
+                'player_2': {
+                    'user_name': match.player_2.user_name,
+                    'image_path': (match.player_2.profile_picture_url.url if match.player_2.profile_picture_url 
+                                 else match.player_2.profile_pic_42)
+                },
+                'score_player_1': match.score_player_1,
+                'score_player_2': match.score_player_2,
+                'winner': match.match_winner.user_name if match.match_winner else None,
+                'creation_date': match.match_creation_date,
+                'game_opponent': match.game_opponent
+            }
+            for match in matches
+        ]
         return JsonResponse({
             'user_name': user.user_name,
             'first_name': user.first_name,
@@ -460,7 +506,7 @@ def another_user_profile(request):
             #      0              0           ==>  blank
             #      0              1           ==>  (image) profile_pic_url     
             #      1              0           ==>  (url) profile_pic_42
-            #      1              1           ==> 
+            #      1              1           ==>  if the user has a profile pic 42 but he changed it
             'registration_date': user.registration_date,
             'online_status': user.online_status,
             'last_login': user.last_login,
@@ -468,7 +514,9 @@ def another_user_profile(request):
             'ppp_rating': user.ppp_rating,
             'title': user.title,
             'win_ratio': user.win_ratio,
-            'matches_played': user.matches_played
+            'matches_played': user.matches_played,
+            'matches_history': matches_history_data,
+            'planet': user.planet if user.planet else "assets/planets/p1.svg"
         }, status=200)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
@@ -626,7 +674,12 @@ def update_profile(request):
             if Users.objects.filter(email=data['email']).exclude(id=user.id).exists():
                 return JsonResponse({'success': False, 'error': 'Email already in use'}, status=400)
             user.email = data['email']
-            
+        if 'profile_pic_42' in data:
+            user.profile_pic_42 = data['profile_pic_42']
+            user.has_profile_pic = False
+            user.has_42_image = True
+        if 'planet' in data:
+            user.planet = data['planet']
         # Save changes
         user.save()
         user.refresh_from_db()
@@ -978,7 +1031,7 @@ def oauth2(request):
 @csrf_exempt
 def oauth2_login(request):
     if request.method == 'POST':
-        auth_url_42 = "https://api.intra.42.fr/oauth/authorize?client_id=u-s4t2ud-dab81c1c9c646a65a42a7cd840c34270aa27fd399d5633224aa85bc33795f322&redirect_uri=https%3A%2F%2F10.11.1.1%3A8443%2F&response_type=code"
+        auth_url_42 = "https://api.intra.42.fr/oauth/authorize?client_id=u-s4t2ud-729aed93b28338bae314686c66e3342c44503b544a2906dcb18c0cfc4080570e&redirect_uri=https%3A%2F%2F10.11.2.4%3A8443%2F&response_type=code"
         return JsonResponse({'auth_url': auth_url_42}, status=200)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
@@ -1014,10 +1067,10 @@ def oauth2_login_redirect(request):
 def exchange_code(code):
     data = {
         "grant_type": "authorization_code",
-        "client_id": "u-s4t2ud-dab81c1c9c646a65a42a7cd840c34270aa27fd399d5633224aa85bc33795f322",
-        "client_secret": "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",
+        "client_id": "u-s4t2ud-729aed93b28338bae314686c66e3342c44503b544a2906dcb18c0cfc4080570e",
+        "client_secret": "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",
         "code": code,
-        "redirect_uri" : "https://10.11.1.1:8443/",#actual domain name
+        "redirect_uri" : "https://10.11.2.4:8443/",#actual domain name
         # "scope": "public"
     }
     headers = {
