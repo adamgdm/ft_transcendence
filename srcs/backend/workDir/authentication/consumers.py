@@ -46,7 +46,6 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
                 return None, "Token is invalid"
 
             user = Users.objects.get(id=payload["user_id"])
-            user.online_status = datetime.utcnow() + timedelta(minutes=2)
             user.save()
             return user, "Success"
         except Users.DoesNotExist:
@@ -96,6 +95,12 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
         
         await self.accept()
 
+        try:
+            self.user.online_status = True
+            await self.user.save()
+        except Exception as e:
+            print(f"Error during disconnect: {e}")
+
         pending_friend_requests = await self.get_pending_friend_requests(self.user)
         if pending_friend_requests:
             await self.send(text_data=json.dumps({
@@ -111,13 +116,13 @@ class FriendshipConsumer(AsyncWebsocketConsumer):
             }))
 
     async def disconnect(self, close_code):
-        if hasattr(self, 'group_name'):
-            await self.channel_layer.group_discard(self.group_name, self.channel_name)
-        await self.update_user_online_status()
-
-    @database_sync_to_async
-    def update_user_online_status(self):
-        return
+        try:
+            if hasattr(self, 'group_name'):
+                await self.channel_layer.group_discard(self.group_name, self.channel_name)
+            self.user.online_status = False
+            await self.user.save()
+        except Exception as e:
+            print(f"Error during disconnect: {e}")
 
     async def receive(self, text_data):
         try:

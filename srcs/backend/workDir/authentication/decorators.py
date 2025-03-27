@@ -36,7 +36,6 @@ def check_auth(func):
 
         # update online status
         user = Users.objects.get(id=payload['user_id'])
-        user.online_status = datetime.utcnow() + timedelta(minutes=2)
         user.save()
 
         if remaining_time <= timedelta(seconds=150):

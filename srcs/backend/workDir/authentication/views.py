@@ -812,29 +812,20 @@ def get_friends(request):
             Q(to_user=user, friendship_status='accepted')
         )
         
-        current_time = timezone.now()
-        
         friends_list = [
             {
                 'id': friendship.to_user.id if friendship.from_user == user else friendship.from_user.id,
                 'username': friendship.to_user.user_name if friendship.from_user == user else friendship.from_user.user_name,
                 'status': 'accepted',
-                'is_online': (
-                    friendship.to_user.online_status > current_time 
+                'online_status': (
+                    friendship.to_user.online_status 
                     if friendship.from_user == user 
-                    else friendship.from_user.online_status > current_time
-                ) if (
-                    friendship.to_user.online_status if friendship.from_user == user 
                     else friendship.from_user.online_status
-                ) is not None else False,
-                'online_status_expiry': (
-                    friendship.to_user.online_status.isoformat() 
+                ) if (
+                    friendship.to_user.online_status is not None 
                     if friendship.from_user == user 
-                    else friendship.from_user.online_status.isoformat()
-                ) if (
-                    friendship.to_user.online_status if friendship.from_user == user 
-                    else friendship.from_user.online_status
-                ) is not None else None
+                    else friendship.from_user.online_status is not None
+                ) else False
             }
             for friendship in friendships
         ]

@@ -402,3 +402,41 @@
 
 
 
+.status-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-left: 10px;
+}
+
+.status-indicator.online {
+    background-color: #00ff00; /* Green for online */
+}
+
+.status-indicator.offline {
+    background-color: #ff0000; /* Red for offline */
+}
+
+.friend-item {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.friend-item img {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    margin-right: 10px;
+}
+
+.friend-item p {
+    margin: 0;
+    flex-grow: 1;
+}
+
+.friend-item .remove-friend {
+    margin-left: 10px;
+}

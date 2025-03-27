@@ -112,9 +112,9 @@ export function home() {
     
             const openModal = async () => {
                 try {
-                    const friends = await fetchFriendsList(); // Assuming this returns array of {username, online_status}
-                    friendsList.clear(); // Clear and repopulate from server
-                    friends.forEach(f => friendsList.add(f)); // Store full friend objects
+                    const friends = await fetchFriendsList(); // Fetches from /get_friends endpoint
+                    friendsList.clear(); // Clear existing friends
+                    friends.forEach(f => friendsList.add(f)); // Add full friend objects {id, username, status, online_status}
                     renderFriends([...friendsList]);
     
                     modal.style.opacity = '1';
@@ -173,7 +173,7 @@ export function home() {
                     removeBtn.addEventListener('click', async (e) => {
                         e.stopPropagation();
                         try {
-                            const result = await removeFriend(friend.username);
+                            const result = await removeFriend(friend.username); // Calls backend remove_friend endpoint
                             if (!result.error) {
                                 friendsList.delete(friend);
                                 const filtered = [...friendsList].filter(f =>
@@ -210,7 +210,6 @@ export function home() {
         initializeModal();
         pageCleanups.set('home', cleanupFriendsModal);
     }
-
     fetch('/api/profile/', {
         method: "GET",
         credentials: "include"

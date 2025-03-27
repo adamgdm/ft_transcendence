@@ -40,7 +40,7 @@ class Users(models.Model):
     oauth2_authentified = models.BooleanField(default=False, blank=False) #just added
     is_Email_Verified = models.BooleanField(default=False)#true when oauth2
     registration_date = models.DateTimeField(auto_now_add=True)
-    online_status = models.DateTimeField(auto_now_add=True)
+    online_status = models.BooleanField(default=False, blank=False)
     last_login = models.DateTimeField(null=True, blank=True)
     last_password_change = models.DateTimeField(null=True, blank=True)
     ppp_rating = models.IntegerField(unique=True, db_index=True)
