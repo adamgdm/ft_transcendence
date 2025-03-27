@@ -1,8 +1,10 @@
-export function shop() {
+let ppp_rating = null;
+let original_image = "https://articles-images.sftcdn.net/wp-content/uploads/sites/3/2016/01/wallpaper-for-facebook-profile-photo.jpg";
+let is_first_run = true;
+
+export async function shop() {
     // This is a placeholder function for buying a planet
     // In a real application, this would interact with a backend service
-    let ppp_rating = null;
-    let original_image = null;
     async function fetchUserProfile(){
         await fetch('/api/profile/', {
             method: "GET",
@@ -18,19 +20,22 @@ export function shop() {
             console.log('User Data:', userData);
             console.log(userData);
             ppp_rating = userData.ppp_rating;
-            if (userData.has_42_image == false && userData.has_profile_pic == false) {
-                original_image = "https://articles-images.sftcdn.net/wp-content/uploads/sites/3/2016/01/wallpaper-for-facebook-profile-photo.jpg";
-            } else if (userData.has_42_image == true && userData.has_profile_pic == false) {
-                original_image = userData.profile_pic_42;
-            } else {
-                original_image = userData.profile_picture_url.url;//
+            if(is_first_run){
+                if (userData.has_42_image == false && userData.has_profile_pic == false) {
+                    original_image = "https://articles-images.sftcdn.net/wp-content/uploads/sites/3/2016/01/wallpaper-for-facebook-profile-photo.jpg";
+                } else if (userData.has_42_image == true && userData.has_profile_pic == false) {
+                    original_image = userData.profile_pic_42;
+                } else {
+                    original_image = userData.profile_picture_url.url;
+                }
             }
-            profile_pic.src = original_image;
+            is_first_run = false;
         })
         .catch(error => {
             console.error('Error:', error);
         })
     }
+    await fetchUserProfile();
     const avatarConfig = [
         {
             name: 'voidborn',
@@ -76,7 +81,7 @@ export function shop() {
         {
             name: 'user',
             displayName: 'C.user',
-            imagePath: 'https://cdn.intra.42.fr/users/82d39646cd2423210c305aacf10105a6/okassimi.JPG',
+            imagePath: original_image,
             planetName: 'p.zeta',
             planetImage: 'assets/planets/zeta.svg',
             pppRequired: 0,
@@ -178,12 +183,6 @@ export function shop() {
         // Get the avatar name from the closest avatar-info div
         const avatarInfoDiv = event.target.closest('.avatar-item').querySelector('.avatar-info');
         const avatarName = avatarInfoDiv.dataset.name.toLowerCase();
-        
-        // Ensure user profile is loaded
-        if (ppp_rating === null) {
-            fetchUserProfile();
-        }
-
         // Check if user has enough PPP
         const requiredPPP = avatarPPPRequirements[avatarName];
         const Avatarpic = avatarImage[avatarName];
