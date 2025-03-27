@@ -83,7 +83,7 @@ def create_game(request):
             games[game_id] = create_new_game(user_id.user_name, player.user_name, game_opponent)
             return JsonResponse({'message': 'Game created successfully', 'game_id': game_id, 'user': player.user_name}, status=201)
         except Exception as e:
-            return JsonResponse({'error': f'Failed to create game: {str(e)}'}, status=500)
+            return JsonResponse({'error': f'Failed to create game: {str(e)}'}, status=410)
     
     return JsonResponse({'error': 'Invalid request'}, status=400)
 
@@ -219,7 +219,7 @@ def accept_game_invite(request):
             game_id = str(game.id)
             games[game_id] = create_new_game(to_user.user_name, from_user.user_name, game_opponent)
         except Exception as e:
-            return JsonResponse({'error': f'Failed to create game: {str(e)}'}, status=500)
+            return JsonResponse({'error': f'Failed to create game: {str(e)}'}, status=410)
 
         # Update the invite with game_id and status
         invite.status = GameInvites.GameInviteStatus.ACCEPTED

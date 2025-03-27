@@ -124,21 +124,8 @@ export async function setupMatchModes() {
             const activeGame = activeGames.get(friend.username);
             const hasPendingSentInvite = pendingSent.has(friend.username);
 
-            if (activeGame || (receivedInvite?.status === 'accepted' && receivedInvite.game_id)) {
-                const joinBtn = document.createElement('button');
-                joinBtn.textContent = 'Join Game';
-                joinBtn.classList.add('join-btn');
-                const joinHandler = (e) => {
-                    e.stopPropagation();
-                    const gameId = activeGame?.game_id || receivedInvite.game_id;
-                    const state = { game_id: gameId, user: currentUsername };
-                    history.pushState(state, "", "#game");
-                    window.routeToPage('game');
-                };
-                joinBtn.addEventListener('click', joinHandler);
-                li.appendChild(joinBtn);
-                cleanupFunctions.push(() => joinBtn.removeEventListener('click', joinHandler));
-            } else if (receivedInvite?.status === 'pending') {
+          
+            if (receivedInvite?.status === 'pending') {
                 const acceptBtn = document.createElement('button');
                 acceptBtn.textContent = receivedInvite.game_mode === 'tournament' ? 'Join Tournament' : 'Accept';
                 acceptBtn.classList.add('accept-btn');

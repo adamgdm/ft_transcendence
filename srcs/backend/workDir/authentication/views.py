@@ -978,7 +978,7 @@ def oauth2(request):
 @csrf_exempt
 def oauth2_login(request):
     if request.method == 'POST':
-        auth_url_42 = "https://api.intra.42.fr/oauth/authorize?client_id=u-s4t2ud-14a08d221686bb5fc4916f1850f8982013ede90dd74c6affcc63689854e322f7&redirect_uri=https%3A%2F%2F10.11.1.3%3A8443%2F&response_type=code"
+        auth_url_42 = "https://api.intra.42.fr/oauth/authorize?client_id=u-s4t2ud-dab81c1c9c646a65a42a7cd840c34270aa27fd399d5633224aa85bc33795f322&redirect_uri=https%3A%2F%2F10.11.1.1%3A8443%2F&response_type=code"
         return JsonResponse({'auth_url': auth_url_42}, status=200)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
@@ -1007,17 +1007,17 @@ def oauth2_login_redirect(request):
             )
             return response
         except Exception as e:
-            return JsonResponse({"error": f"Authentication failed: {str(e)}"}, status=500)
+            return JsonResponse({"error": f"Authentication failed: {str(e)}"}, status=401)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 @csrf_exempt
 def exchange_code(code):
     data = {
         "grant_type": "authorization_code",
-        "client_id": "u-s4t2ud-14a08d221686bb5fc4916f1850f8982013ede90dd74c6affcc63689854e322f7",
-        "client_secret": "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",
+        "client_id": "u-s4t2ud-dab81c1c9c646a65a42a7cd840c34270aa27fd399d5633224aa85bc33795f322",
+        "client_secret": "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",
         "code": code,
-        "redirect_uri" : "https://10.11.1.3:8443/",#actual domain name
+        "redirect_uri" : "https://10.11.1.1:8443/",#actual domain name
         # "scope": "public"
     }
     headers = {
@@ -1206,7 +1206,7 @@ def exchange_code(code):
 #             Oauth2ValidUntil = secret_valid_until
 #         )
 #     except Exception as e: 
-#             return JsonResponse({'error': f'An error occured: {e}'}, status=500)
+#             return JsonResponse({'error': f'An error occured: {e}'}, status=401)
     
 #     # print(f'this is the response {response}')
 #     print(access_token)

@@ -312,7 +312,7 @@ export async function game() {
 
         const postGameMessage = document.querySelector(".Post-Game h2");
         if (postGameMessage) {
-            postGameMessage.textContent = winner === player ? "You have Won!" : "You have Lost!";
+            postGameMessage.textContent = "Game Over!"
         }
 
         preGame.style.display = "none";
@@ -443,6 +443,7 @@ export async function game() {
                     window.location.hash = '#play';
                 }, 3000);
             } else if (score_1 >= 7 || score_2 >= 7) {
+                // Game ended due to server closure
                 const winner = score_1 >= 7 ? (player === game_state.player_1 ? player : opponentName) : (player === game_state.player_2 ? player : opponentName);
                 cleanup(winner);
             }

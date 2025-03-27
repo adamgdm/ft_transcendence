@@ -97,9 +97,7 @@ class PongConsumer(AsyncWebsocketConsumer):
         await self.send_initial_state(game)
 
         async with lock:
-            if (game['player1_status'] == 'online' and 
-                game['player2_status'] == 'online' and 
-                not game.get('game_running', False)):
+            if not game.get('game_running', False):
                 game['game_running'] = True
                 logger.info(f"Starting game {self.game_id}: {game['player_1']} vs {game['player_2']}")
                 await self.channel_layer.group_send(
@@ -114,44 +112,8 @@ class PongConsumer(AsyncWebsocketConsumer):
             elif game['player1_status'] != 'online' or game['player2_status'] != 'online':
                 await self.send(text_data=json.dumps({
                     'type': 'status',
-                    'message': 'Waiting for the other player to connect...'
+                    'message': 'Game is running, one player is offline...'
                 }))
-                asyncio.create_task(self.wait_for_both_players(games))
-
-    async def wait_for_both_players(self, games):
-        timeout = 60
-        elapsed = 0
-        while elapsed < timeout:
-            lock = self.game_locks.setdefault(self.game_id, asyncio.Lock())
-            async with lock:
-                game = games.get(self.game_id)
-                if not game:
-                    logger.warning(f"Game {self.game_id} no longer exists in wait_for_both_players")
-                    break
-                if (game['player1_status'] == 'online' and 
-                    game['player2_status'] == 'online' and 
-                    not game.get('game_running', False)):
-                    game['game_running'] = True
-                    logger.info(f"Starting game {self.game_id}: {game['player_1']} vs {game['player_2']}")
-                    await self.channel_layer.group_send(
-                        self.room_group_name,
-                        {
-                            'type': 'game_start',
-                            'message': 'Game starting now...',
-                            'game_id': self.game_id
-                        }
-                    )
-                    self.game_task = asyncio.create_task(self.game_update_loop())
-                    break
-            await asyncio.sleep(1)
-            elapsed += 1
-        if elapsed >= timeout:
-            logger.warning(f"Timeout: Game {self.game_id} did not start after {timeout}s")
-            await self.send(text_data=json.dumps({
-                'type': 'error',
-                'error': 'Game failed to start: opponent did not connect in time'
-            }))
-            await self.close(code=4000, reason="Game start timeout")
 
     async def wait_for_game(self, games):
         timeout = 30
@@ -182,21 +144,19 @@ class PongConsumer(AsyncWebsocketConsumer):
             logger.error(f"Cannot import views on disconnect: {e}")
             return
 
-        if self.game_task:
-            self.game_task.cancel()
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
         lock = self.game_locks.setdefault(self.game_id, asyncio.Lock())
         async with lock:
             game = games.get(self.game_id)
-            if game and self.client_id:
+            if game and self.client_id and game.get('status') != 'done':
                 if self.client_id == game['player_1']:
                     game['player1_status'] = 'offline'
                     game['player1_disconnect_time'] = datetime.utcnow()
                 elif self.client_id == game['player_2']:
                     game['player2_status'] = 'offline'
                     game['player2_disconnect_time'] = datetime.utcnow()
-                logger.info(f"Player {self.client_id} disconnected from game {self.game_id}")
+                logger.info(f"Player {self.client_id} disconnected from game {self.game_id}. Game continues for remaining players.")
 
     async def receive(self, text_data):
         try:
@@ -286,27 +246,14 @@ class PongConsumer(AsyncWebsocketConsumer):
                     logger.warning(f"Game {self.game_id} not found in update loop")
                     break
 
-                now = datetime.utcnow()
-                for player, status_key, disconnect_key, opponent_score_key in [
-                    ('player1', 'player1_status', 'player1_disconnect_time', 'score2'),
-                    ('player2', 'player2_status', 'player2_disconnect_time', 'score1')
-                ]:
-                    if game[status_key] == 'offline' and game[disconnect_key]:
-                        if (now - game[disconnect_key]).total_seconds() > 7:
-                            game[opponent_score_key] = 7
-                            game['status'] = 'done'
-                            game['winner'] = game['player_2'] if player == 'player1' else game['player_1']
-                            await self.send_final_state(game)
-                            await self.end_game(game)
-                            await self.close(code=1000, reason="Game ended due to disconnect")
-                            return
-
+                # Continue paddle movement for online players
                 for player in ['player1', 'player2']:
-                    paddle = 'paddle1_y' if player == 'player1' else 'paddle2_y'
-                    if game.get(f'{player}_moving') == 'up':
-                        game[paddle] = max(0 + game['paddle_bounds_y'], game[paddle] - game['paddle_speed'])
-                    elif game.get(f'{player}_moving') == 'down':
-                        game[paddle] = min(1 - game['paddle_bounds_y'], game[paddle] + game['paddle_speed'])
+                    if game[f'{player}_status'] == 'online':
+                        paddle = 'paddle1_y' if player == 'player1' else 'paddle2_y'
+                        if game.get(f'{player}_moving') == 'up':
+                            game[paddle] = max(0 + game['paddle_bounds_y'], game[paddle] - game['paddle_speed'])
+                        elif game.get(f'{player}_moving') == 'down':
+                            game[paddle] = min(1 - game['paddle_bounds_y'], game[paddle] + game['paddle_speed'])
 
                 updated_game = await game_update(self.game_id)
                 if not updated_game:
@@ -314,10 +261,27 @@ class PongConsumer(AsyncWebsocketConsumer):
                     break
                 game.update(updated_game)
 
+                # Set winner only when score reaches 7
+                if game['score1'] >= 7 and 'winner' not in game:
+                    game['winner'] = game['player_1']
+                    game['status'] = 'done'
+                elif game['score2'] >= 7 and 'winner' not in game:
+                    game['winner'] = game['player_2']
+                    game['status'] = 'done'
+
                 if game.get('status') == 'done':
                     await self.send_final_state(game)
                     await self.end_game(game)
-                    await self.close(code=1000, reason="Game ended")
+                    # Disconnect all clients after showing result
+                    await self.channel_layer.group_send(
+                        self.room_group_name,
+                        {
+                            'type': 'game_end',
+                            'message': 'Game has ended, disconnecting...'
+                        }
+                    )
+                    await asyncio.sleep(2)  # Brief delay to ensure clients see the result
+                    await self.close(code=1000, reason="Game concluded")
                     break
 
                 await self.channel_layer.group_send(
@@ -347,37 +311,42 @@ class PongConsumer(AsyncWebsocketConsumer):
 
     async def send_final_state(self, game):
         final_state = {
-            'type': 'game_state',
-            'ball_x': game['ball_x'],
-            'ball_y': game['ball_y'],
-            'paddle1_y': game['paddle1_y'],
-            'paddle2_y': game['paddle2_y'],
-            'score1': game['score1'],
-            'score2': game['score2'],
-            'paddle1_x': game['paddle1_x'],
-            'paddle2_x': game['paddle2_x'],
-            'ball_bounds': game['ball_bounds'],
-            'paddle_bounds_x': game['paddle_bounds_x'],
-            'paddle_bounds_y': game['paddle_bounds_y'],
-            'game_opponent': game['game_opponent'],
-            'status': game.get('status', 'done'),
-            'player_1': game['player_1'],
-            'player_2': game['player_2'],
-            'winner': game.get('winner', 'Unknown')
+            'type': 'game_result',
+            'result': f"{game['player_1']}: {game['score1']} - {game['score2']} :{game['player_2']}",
+            'winner': game.get('winner', 'Unknown'),
+            'status': 'done'
         }
         await self.channel_layer.group_send(
             self.room_group_name,
-            {'type': 'game_state', 'game_state': final_state}
+            {'type': 'game_result', 'game_result': final_state}
         )
 
     async def end_game(self, game):
         try:
             from .views import games
-        except ImportError:
+            from .models import Match
+        except ImportError as e:
+            logger.error(f"Cannot import views or models in end_game: {e}")
             return
+
         lock = self.game_locks.setdefault(self.game_id, asyncio.Lock())
         async with lock:
             if self.game_id in games:
+                winner = game.get('winner')
+                if winner:
+                    try:
+                        match = await database_sync_to_async(Match.objects.get)(id=self.game_id)
+                        winner_user = await database_sync_to_async(Users.objects.get)(user_name=winner)
+                        match.match_winner = winner_user
+                        match.match_status = Match.MatchStatusChoices.DONE
+                        await database_sync_to_async(match.save)()
+                        logger.info(f"Match {self.game_id} updated with winner {winner}")
+                    except Match.DoesNotExist:
+                        logger.error(f"Match {self.game_id} not found in database")
+                    except Users.DoesNotExist:
+                        logger.error(f"Winner {winner} not found in Users")
+                    except Exception as e:
+                        logger.error(f"Failed to update match {self.game_id} with winner: {e}")
                 del games[self.game_id]
                 if self.game_id in self.game_locks:
                     del self.game_locks[self.game_id]
@@ -402,13 +371,26 @@ class PongConsumer(AsyncWebsocketConsumer):
             'player_1': game['player_1'],
             'player_2': game['player_2']
         }
-        if 'winner' in game:
-            state['winner'] = game['winner']
         await self.send(text_data=json.dumps(state))
+
+    async def game_result(self, event):
+        result = event['game_result']
+        await self.send(text_data=json.dumps({
+            'type': 'game_result',
+            'result': result['result'],
+            'winner': result['winner'],
+            'status': result['status']
+        }))
 
     async def game_start(self, event):
         await self.send(text_data=json.dumps({
             'type': 'game_start',
             'message': event['message'],
             'game_id': event['game_id']
+        }))
+
+    async def game_end(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'game_end',
+            'message': event['message']
         }))
