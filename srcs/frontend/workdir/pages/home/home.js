@@ -146,6 +146,9 @@ export function home() {
         pageCleanups.set('home', cleanupFriendsModal);
     }
 
+    const BASE_URL = window.location.origin;
+    console.log(BASE_URL)
+
     fetch('/api/profile/', {
         method: "GET",
         credentials: "include"
@@ -185,6 +188,9 @@ export function home() {
                 image_path = userData.profile_pic_42;
             } else if (userData.has_42_image == false && userData.has_profile_pic == true) {
                 image_path = userData.profile_picture_url;
+                if (image_path && image_path.startsWith('/media')) {
+                    image_path = `${BASE_URL}/api${image_path}`;
+                }
             }
             profile_pic.src = image_path;
         }
