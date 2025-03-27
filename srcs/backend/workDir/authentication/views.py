@@ -524,19 +524,52 @@ def another_user_profile(request):
 @csrf_exempt
 @check_auth
 def add_profile_picture(request):
-    if request.method == 'POST':
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Invalid request method'}, status=405)
+    
+    try:
         if 'profile_picture' not in request.FILES:
             return JsonResponse({'error': 'No file uploaded'}, status=400)
+        
         profile_pic = request.FILES['profile_picture']
-
         user = Users.objects.get(id=request.user_id)
         user.profile_picture_url = profile_pic
         user.has_profile_pic = True
-        user.has_42_image = False
         user.save()
 
-        return JsonResponse({'message': 'Profile picture updated successfully'}, status=200)
-    return JsonResponse({'error': 'Invalid request method'}, status=405)
+        return JsonResponse({
+            'success': True,  # For frontend consistency
+            'message': 'Profile picture updated successfully',
+            'url': user.profile_picture_url.url 
+        }, status=200)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=406)
+
+@csrf_exempt
+@check_auth
+def delete_profile_picture(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Invalid request method'}, status=405)
+    
+    try:
+        user = Users.objects.get(id=request.user_id)
+        if not user.has_profile_pic:
+            return JsonResponse({'error': 'No profile picture anymore'}, status=200)
+        
+        # Remove the profile picture
+        user.profile_picture_url.delete()  # Delete the file from storage
+        user.profile_picture_url = None    # Clear the field
+        user.has_profile_pic = False       # Update the flag
+        user.save()
+
+        return JsonResponse({
+            'success': True,  # For frontend consistency
+            'message': 'Profile picture deleted successfully'
+        }, status=200)
+    except Users.DoesNotExist:
+        return JsonResponse({'error': 'User not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=406)
 
 @csrf_exempt
 @check_auth

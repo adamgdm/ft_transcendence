@@ -210,6 +210,10 @@ export function home() {
         initializeModal();
         pageCleanups.set('home', cleanupFriendsModal);
     }
+
+    const BASE_URL = window.location.origin;
+    console.log(BASE_URL)
+
     fetch('/api/profile/', {
         method: "GET",
         credentials: "include"
@@ -251,8 +255,11 @@ export function home() {
                 image_path = "https://articles-images.sftcdn.net/wp-content/uploads/sites/3/2016/01/wallpaper-for-facebook-profile-photo.jpg";
             } else if (userData.has_42_image == true && userData.has_profile_pic == false) {
                 image_path = userData.profile_pic_42;
-            } else {
-                image_path = userData.profile_picture_url.url;//
+            } else if (userData.has_42_image == false && userData.has_profile_pic == true) {
+                image_path = userData.profile_picture_url;
+                if (image_path && image_path.startsWith('/media')) {
+                    image_path = `${BASE_URL}/api${image_path}`;
+                }
             }
             profile_pic.src = image_path;
         }
