@@ -18,6 +18,7 @@ from blockchain.blockchainInterface import TournamentBlockchain
 from .models import BlacklistedTokens, LoggedOutTokens, Friendship
 import json
 import random
+from decouple import config
 from django.shortcuts import redirect
 from django.contrib.auth import authenticate, login
 import requests
@@ -811,11 +812,29 @@ def get_friends(request):
             Q(to_user=user, friendship_status='accepted')
         )
         
+        current_time = timezone.now()
+        
         friends_list = [
             {
                 'id': friendship.to_user.id if friendship.from_user == user else friendship.from_user.id,
                 'username': friendship.to_user.user_name if friendship.from_user == user else friendship.from_user.user_name,
-                'status': 'accepted'
+                'status': 'accepted',
+                'is_online': (
+                    friendship.to_user.online_status > current_time 
+                    if friendship.from_user == user 
+                    else friendship.from_user.online_status > current_time
+                ) if (
+                    friendship.to_user.online_status if friendship.from_user == user 
+                    else friendship.from_user.online_status
+                ) is not None else False,
+                'online_status_expiry': (
+                    friendship.to_user.online_status.isoformat() 
+                    if friendship.from_user == user 
+                    else friendship.from_user.online_status.isoformat()
+                ) if (
+                    friendship.to_user.online_status if friendship.from_user == user 
+                    else friendship.from_user.online_status
+                ) is not None else None
             }
             for friendship in friendships
         ]
@@ -1031,7 +1050,7 @@ def oauth2(request):
 @csrf_exempt
 def oauth2_login(request):
     if request.method == 'POST':
-        auth_url_42 = "https://api.intra.42.fr/oauth/authorize?client_id=u-s4t2ud-729aed93b28338bae314686c66e3342c44503b544a2906dcb18c0cfc4080570e&redirect_uri=https%3A%2F%2F10.11.2.4%3A8443%2F&response_type=code"
+        auth_url_42 = config('42AUTH_URL')
         return JsonResponse({'auth_url': auth_url_42}, status=200)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
@@ -1067,10 +1086,10 @@ def oauth2_login_redirect(request):
 def exchange_code(code):
     data = {
         "grant_type": "authorization_code",
-        "client_id": "u-s4t2ud-729aed93b28338bae314686c66e3342c44503b544a2906dcb18c0cfc4080570e",
-        "client_secret": "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",
+        "client_id": config('42CLIENT_ID'),
+        "client_secret": config('42SECRET'),
         "code": code,
-        "redirect_uri" : "https://10.11.2.4:8443/",#actual domain name
+        "redirect_uri" : config('42REDIRECT_URI'),#actual domain name
         # "scope": "public"
     }
     headers = {

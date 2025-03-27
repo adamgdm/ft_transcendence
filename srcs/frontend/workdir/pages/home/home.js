@@ -82,16 +82,16 @@ export function home() {
         let friendsListContainer = null;
         let searchBar = null;
         let closeBtn = null;
-
+    
         let cleanupFriendsModal = () => {};
-
+    
         function initializeModal() {
             const seeFriendsBtn = document.querySelector('.see-friends-btn');
             if (!seeFriendsBtn) {
                 console.warn('setupFriendsModal: .see-friends-btn not found, modal not initialized');
                 return;
             }
-
+    
             if (!modal) {
                 modal = document.createElement('div');
                 modal.id = 'friends-modal';
@@ -104,19 +104,19 @@ export function home() {
                     <div class="friends-list"></div>
                 `;
                 document.body.appendChild(modal);
-
+    
                 closeBtn = modal.querySelector('.close-btn');
                 searchBar = modal.querySelector('.search-bar');
                 friendsListContainer = modal.querySelector('.friends-list');
             }
-
+    
             const openModal = async () => {
                 try {
-                    const friends = await fetchFriendsList();
+                    const friends = await fetchFriendsList(); // Assuming this returns array of {username, online_status}
                     friendsList.clear(); // Clear and repopulate from server
-                    friends.forEach(f => friendsList.add(f.username));
+                    friends.forEach(f => friendsList.add(f)); // Store full friend objects
                     renderFriends([...friendsList]);
-
+    
                     modal.style.opacity = '1';
                     modal.style.visibility = 'visible';
                 } catch (error) {
@@ -124,14 +124,14 @@ export function home() {
                     friendsListContainer.innerHTML = '<p>Error loading friends.</p>';
                 }
             };
-
+    
             const closeModal = () => {
                 modal.style.opacity = '0';
                 modal.style.visibility = 'hidden';
                 searchBar.value = '';
                 renderFriends([...friendsList]);
             };
-
+    
             const debounce = (func, wait) => {
                 let timeout;
                 return (...args) => {
@@ -139,44 +139,45 @@ export function home() {
                     timeout = setTimeout(() => func.apply(this, args), wait);
                 };
             };
-
+    
             const handleSearch = debounce(() => {
                 const query = searchBar.value.trim().toLowerCase();
                 const filteredFriends = [...friendsList].filter(friend =>
-                    friend.toLowerCase().startsWith(query)
+                    friend.username.toLowerCase().startsWith(query)
                 );
                 renderFriends(filteredFriends);
             }, 300);
-
+    
             seeFriendsBtn.addEventListener('click', openModal);
             closeBtn.addEventListener('click', closeModal);
             searchBar.addEventListener('input', handleSearch);
-
+    
             function renderFriends(friends) {
                 friendsListContainer.innerHTML = '';
                 if (!friends || friends.length === 0) {
                     friendsListContainer.innerHTML = '<p>No friends found.</p>';
                     return;
                 }
-
+    
                 friends.forEach(friend => {
                     const friendItem = document.createElement('div');
                     friendItem.classList.add('friend-item');
                     friendItem.innerHTML = `
-                        <img src="https://cdn-icons-png.flaticon.com/512/147/147144.png" alt="${friend} image">
-                        <p>${friend}</p>
+                        <img src="https://cdn-icons-png.flaticon.com/512/147/147144.png" alt="${friend.username} image">
+                        <p>${friend.username}</p>
+                        <span class="status-indicator ${friend.online_status ? 'online' : 'offline'}"></span>
                         <button class="remove-friend">Remove Friend</button>
                     `;
-
+    
                     const removeBtn = friendItem.querySelector('.remove-friend');
                     removeBtn.addEventListener('click', async (e) => {
                         e.stopPropagation();
                         try {
-                            const result = await removeFriend(friend);
+                            const result = await removeFriend(friend.username);
                             if (!result.error) {
                                 friendsList.delete(friend);
                                 const filtered = [...friendsList].filter(f =>
-                                    f.toLowerCase().startsWith(searchBar.value.trim().toLowerCase())
+                                    f.username.toLowerCase().startsWith(searchBar.value.trim().toLowerCase())
                                 );
                                 renderFriends(filtered);
                             } else {
@@ -186,11 +187,11 @@ export function home() {
                             console.error('setupFriendsModal: Error removing friend:', error);
                         }
                     });
-
+    
                     friendsListContainer.appendChild(friendItem);
                 });
             }
-
+    
             cleanupFriendsModal = () => {
                 seeFriendsBtn.removeEventListener('click', openModal);
                 if (modal) {
@@ -205,7 +206,7 @@ export function home() {
                 console.log('setupFriendsModal: Cleaned up');
             };
         }
-
+    
         initializeModal();
         pageCleanups.set('home', cleanupFriendsModal);
     }
